@@ -108,6 +108,10 @@ class StripeWebhookService:
             return
 
         data = event["data"]["object"]
+        # stripe-python's StripeObject doesn't support Mapping methods like
+        # .get(); convert to a plain dict (recursive) before the handlers.
+        if hasattr(data, "to_dict"):
+            data = data.to_dict()
 
         try:
             if event_type == "checkout.session.completed":

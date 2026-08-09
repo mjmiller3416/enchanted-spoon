@@ -318,3 +318,36 @@ class TestHandleEventDbError:
             service.handle_event(event)
 
         session.rollback.assert_called_once()
+
+
+class TestHandleEventStripeObject:
+    def test_real_stripe_event_object_is_converted_to_dict(self):
+        # Regression: stripe-python's StripeObject (what construct_event
+        # actually yields for data.object) lacks Mapping methods like .get();
+        # handle_event must convert it before the handlers touch it.
+        service, session = _service_with_mock_repo()
+        user = User(id=10)
+        service.repo.get_by_id.return_value = user
+
+        event = stripe.Event.construct_from(
+            {
+                "type": "checkout.session.completed",
+                "data": {
+                    "object": {
+                        "customer": "cus_real",
+                        "client_reference_id": "10",
+                        "payment_status": "paid",
+                    }
+                },
+            },
+            "sk_test_dummy",
+        )
+        service.handle_event(event)
+
+        service.repo.update_subscription.assert_called_once_with(
+            user,
+            stripe_customer_id="cus_real",
+            subscription_tier="pro",
+            subscription_status="active",
+        )
+        session.commit.assert_called_once()
