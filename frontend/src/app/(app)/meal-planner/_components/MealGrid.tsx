@@ -33,6 +33,7 @@ interface MealGridProps {
   onItemClick?: (item: MealGridItem) => void;
   onAddMealClick?: () => void;
   onCycleShoppingMode?: (item: MealGridItem) => void;
+  pendingShoppingModeId?: number | null;
   onReorder?: (reorderedItems: MealGridItem[]) => void;
   className?: string;
 }
@@ -89,6 +90,7 @@ export function MealGrid({
   onItemClick,
   onAddMealClick,
   onCycleShoppingMode,
+  pendingShoppingModeId,
   onReorder,
   className,
 }: MealGridProps) {
@@ -166,6 +168,7 @@ export function MealGrid({
                 isAnyDragging={activeId != null}
                 onClick={() => onItemClick?.(item)}
                 onCycleShoppingMode={() => onCycleShoppingMode?.(item)}
+                isShoppingModePending={pendingShoppingModeId === item.id}
               />
             ))}
 
