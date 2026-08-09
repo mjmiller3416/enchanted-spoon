@@ -304,6 +304,13 @@ export function MealPlannerView() {
 
   // Handle cycling shopping mode for a meal: all -> produce_only -> none -> all
   const handleCycleShoppingMode = (item: MealGridItem) => {
+    // Ignore repeated clicks on the same card while its toggle is still in flight —
+    // firing overlapping requests races on the server's read of the current mode
+    // and can lose an update (see issue #173).
+    if (cycleShoppingModeMutation.isPending && cycleShoppingModeMutation.variables === item.id) {
+      return;
+    }
+
     // Optimistic update handled by the hook
     cycleShoppingModeMutation.mutate(item.id, {
       onError: (err) => {
@@ -385,6 +392,11 @@ export function MealPlannerView() {
               onItemClick={handleGridItemClick}
               onAddMealClick={openMealCreation}
               onCycleShoppingMode={handleCycleShoppingMode}
+              pendingShoppingModeId={
+                cycleShoppingModeMutation.isPending
+                  ? (cycleShoppingModeMutation.variables ?? null)
+                  : null
+              }
               onReorder={handleReorder}
             />
           )}

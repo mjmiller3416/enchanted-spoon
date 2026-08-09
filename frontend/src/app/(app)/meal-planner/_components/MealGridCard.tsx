@@ -32,6 +32,7 @@ interface MealGridCardProps {
   isAnyDragging?: boolean;
   onClick?: () => void;
   onCycleShoppingMode?: () => void;
+  isShoppingModePending?: boolean;
   className?: string;
 }
 
@@ -77,6 +78,7 @@ export function MealGridCard({
   isAnyDragging = false,
   onClick,
   onCycleShoppingMode,
+  isShoppingModePending = false,
   className,
 }: MealGridCardProps) {
   const {
@@ -163,11 +165,12 @@ export function MealGridCard({
                 variant="ghost"
                 size="icon-sm"
                 shape="pill"
+                disabled={isShoppingModePending}
                 onClick={(e) => {
                   e.stopPropagation();
                   onCycleShoppingMode?.();
                 }}
-                className="relative size-6 bg-overlay-strong"
+                className="relative size-6 bg-overlay-strong disabled:opacity-60"
                 aria-label={getShoppingModeAriaLabel(shoppingMode)}
               >
                 <ShoppingCart

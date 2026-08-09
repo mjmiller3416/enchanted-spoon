@@ -152,6 +152,10 @@ class PlannerEntryRepo:
         """
         Cycle the shopping mode of a planner entry if owned by the user: all -> produce_only -> none -> all.
 
+        Locks the row for the duration of the transaction so that rapid repeated
+        toggles (e.g. a user double-clicking) are serialized instead of racing on a
+        stale read of shopping_mode, which would otherwise cause a lost update.
+
         Args:
             entry_id: ID of the entry
             user_id: ID of the user who owns the entry
@@ -159,7 +163,12 @@ class PlannerEntryRepo:
         Returns:
             Updated entry or None if not found/not owned
         """
-        entry = self.get_by_id(entry_id, user_id)
+        stmt = (
+            select(PlannerEntry)
+            .where(PlannerEntry.id == entry_id, PlannerEntry.user_id == user_id)
+            .with_for_update()
+        )
+        entry = self.session.execute(stmt).scalar_one_or_none()
         if not entry:
             return None
 
