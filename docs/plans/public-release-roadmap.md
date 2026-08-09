@@ -32,16 +32,21 @@ hurt if ignored:
    config fallback points at a developer's home LAN IP, there's no CI gate, and the
    support email on the live Privacy/Terms pages is still a placeholder.
 
+> **Update 2026-08-09:** gaps 1 and 2 are now closed in production — AI usage is metered
+> (Phase 0 deployed), and the full Stripe backend (checkout, portal, webhook sync) is live
+> in test mode with the $4.99/mo Pro price configured. Gap 3 (hardening) remains the main
+> open front alongside the Phase 2 upgrade-flow UI.
+
 ## Status tracker
 
-| Phase | Focus | Depends on |
-|---|---|---|
-| [0](#phase-0--reliability--cost-guardrails-do-first) | Reliability & cost guardrails | — |
-| [1](#phase-1--monetization-backend) | Monetization (backend) | Phase 0's usage-limit plumbing; a product decision |
-| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 |
-| [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) |
-| [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) |
-| [5](#phase-5--ai-feature-completeness) | AI feature completeness | Phase 0 |
+| Phase | Focus | Depends on | Status (2026-08-09) |
+|---|---|---|---|
+| [0](#phase-0--reliability--cost-guardrails-do-first) | Reliability & cost guardrails | — | ✅ Complete, deployed |
+| [1](#phase-1--monetization-backend) | Monetization (backend) | Phase 0's usage-limit plumbing; a product decision | 🔶 #161–#163 done; #165 half-done; #164/#166 wait on Phase 2 |
+| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | Not started — next up |
+| [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Partial (prod CORS env set, backend .env.example) |
+| [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) | Not started |
+| [5](#phase-5--ai-feature-completeness) | AI feature completeness | Phase 0 | Not started |
 
 Phases 0 and 3 are the most urgent and don't block on each other — either can start first.
 Phase 1 shouldn't start until the **DECISION** item in it is made, since it changes what
@@ -54,12 +59,16 @@ gets built.
 These are tracked in GitHub, not repeated here as line items — linking them into the
 phase they belong to so they don't get lost in two places.
 
-- **#131** — Recipes displaying the wrong photo (image_key recurrence). *priority: medium*
-- **#132** — Recipe browser filters don't persist across navigation. *priority: medium*
-- **#135** — Meal Genie chat recipe generation produces recipes with no ingredients or
-  directions. **Root cause found during this audit** — see Phase 0, first item.
-- **#136** — Adding a shopping item from mobile creates a duplicate "Other" category.
-  Not yet investigated.
+All four are now **fixed and closed** (kept for the record):
+
+- ~~**#131** — Recipes displaying the wrong photo (image_key recurrence).~~ ✅
+- ~~**#132** — Recipe browser filters don't persist across navigation.~~ ✅ (via #147)
+- ~~**#135** — Meal Genie chat recipe generation produces recipes with no ingredients or
+  directions.~~ ✅ (Phase 0, first item)
+- ~~**#136** — Adding a shopping item from mobile creates a duplicate "Other" category.~~ ✅ (via #148)
+
+New user-feedback bugs since (open): **#171** (planner drag-and-drop delay), **#172**
+(shopping-toggle tooltip), **#173** (shopping list toggle, cannot replicate).
 
 ---
 
@@ -78,33 +87,33 @@ timeline, and one of them is a diagnosed fix for an open bug.
       downstream (chat UI, wizard prefill, Zod schema) checks for emptiness before
       presenting it as done. Fix: let real failures surface as real errors instead of a
       fabricated empty recipe.
-- [ ] **Add non-empty validation to the shared recipe parser.** (#151)
+- [✅] **Add non-empty validation to the shared recipe parser.** (#151)
       `backend/app/services/ai/parse_utils.py:63-94` (`parse_recipe_dict`) and
       `RecipeGeneratedDTO` (`backend/app/dtos/recipe_generation_dtos.py:54-68`) accept an
       empty `ingredients` list and a `None` `directions` as a "successful" parse. This is
       shared by recipe generation, recipe import, and the assistant — fixing it once
       hardens all three call sites, not just the one behind #135.
-- [ ] **Add timeout + retry config to the Gemini client.** (#152)
+- [✅] **Add timeout + retry config to the Gemini client.** (#152)
       `backend/app/services/ai/gemini_client.py:39-44` constructs `genai.Client` with no
       `http_options`/`retry_options` — the SDK's default is "never retry" with no bounded
       timeout. A transient Gemini 5xx/429 currently either hard-fails with a raw exception
       string or hangs the request. Pair with an `AbortController`-based timeout on the
       frontend fetch wrapper (`frontend/src/lib/api/base.ts`), which also has none today.
-- [ ] **Actually enforce `UserUsage` limits.** (#146)
+- [✅] **Actually enforce `UserUsage` limits.** (#146)
       `backend/app/services/usage_service.py` writes per-user monthly counters
       (`increment()`) but nothing ever reads them back — `get_usage()` is defined and
       never called. The model's own docstring says these counts are "checked against tier
       limits to enforce rate limiting"; that's aspirational, not implemented. Wire a real
       limit check into each of the 7 AI routes. This is also the prerequisite for Phase
       1's tiered-limits work, so it's worth building generically now rather than twice.
-- [ ] **Cap unbounded AI request inputs.** (#153)
+- [✅] **Cap unbounded AI request inputs.** (#153)
       `AssistantRequestDTO.message`/`conversation_history`
       (`backend/app/dtos/assistant_dtos.py:19-20`), image-gen prompts
       (`backend/app/dtos/image_generation_dtos.py:10-11`), and nutrition ingredient lists
       (`backend/app/dtos/nutrition_dtos.py:76`) have no size caps, unlike
       `RecipeGenerationRequestDTO.prompt` which is capped at 500 chars. A client can
       currently inflate per-request token cost arbitrarily.
-- [ ] **Fix the 404-becomes-500 bug in ingredients and conversion rules.** (#154)
+- [✅] **Fix the 404-becomes-500 bug in ingredients and conversion rules.** (#154)
       `backend/app/api/ingredients.py:134-158` and
       `backend/app/api/conversion_rules.py:143-167` — the `raise HTTPException(404, ...)`
       sits inside the same `try` block whose broad `except Exception` catches it and
@@ -112,13 +121,13 @@ timeline, and one of them is a diagnosed fix for an open bug.
       `ingredient_service.py` nor `unit_conversion_service.py` defines domain exceptions
       (project convention per `.claude/CLAUDE.md`). Add them and let the routes catch the
       specific type.
-- [ ] **Fix the wrong Gemini API key on nutrition estimation.** (#155)
+- [✅] **Fix the wrong Gemini API key on nutrition estimation.** (#155)
       `backend/app/services/ai/nutrition_estimation.py:25` reads
       `GEMINI_RECIPE_GENERATION_API_KEY`, not the documented
       `GEMINI_NUTRITION_API_KEY` (`.claude/CLAUDE.md:107`) — the latter is defined in
       `.env` but never referenced anywhere in the backend. Defeats per-feature key/quota
       isolation for this feature specifically.
-- [ ] **Add basic rate limiting.** (#156)
+- [✅] **Add basic rate limiting.** (#156)
       No rate-limiting library or middleware exists anywhere in the backend. At minimum,
       throttle `POST /api/feedback` (creates a real GitHub issue per call — an abuse
       vector against the repo's issue tracker) and
@@ -128,18 +137,25 @@ timeline, and one of them is a diagnosed fix for an open bug.
 
 ## Phase 1 — Monetization (backend)
 
-- [ ] **DECISION: what does "free" actually mean?** Today, `require_pro` gates *all seven*
+- [✅] **DECISION: what does "free" actually mean?** (#161) **Resolved 2026-08-09: option (b),
+      metered free** — free gets a small monthly AI allowance; don't enable free caps until
+      the Phase 2 upgrade flow exists. Original framing: Today, `require_pro` gates *all seven*
       AI routers — free users get zero AI access, not a capped allowance. Before building
       anything else here, decide: (a) free stays AI-free and the paid tier is "AI access,
       period," or (b) free gets a small monthly AI allowance and pro raises/removes the
       cap. This changes whether Phase 0's usage-limit plumbing needs to become
       tier-aware or just abuse-aware.
-- [ ] **Integrate a payment processor.** The schema already anticipates Stripe
+- [✅] **Integrate a payment processor.** (#162) **Done 2026-08-09 (PR #168, deployed):**
+      checkout session + customer creation + billing portal endpoints live at `/api/billing/*`.
+      Stripe test-mode env fully configured (product, $4.99/mo price, Railway env vars).
+      Original framing: The schema already anticipates Stripe
       (`stripe_customer_id` on `User`, `backend/app/models/user.py:57-60`), but there's no
       SDK import, checkout-session creation, or billing-portal link anywhere in the repo.
       Build: checkout session creation endpoint, Stripe customer creation on signup or
       first checkout, customer-portal link generation.
-- [ ] **Webhook handler.** Nothing currently ever sets `subscription_tier` to `"pro"` for
+- [✅] **Webhook handler.** (#163) **Done 2026-08-09 (PR #169, deployed):** signature-verified
+      `/api/webhooks/stripe` handles all four events; verified end-to-end in prod (signed
+      test event → tier flipped). Original framing: Nothing currently ever sets `subscription_tier` to `"pro"` for
       a real (non-admin-granted) user — the only assignment in the entire codebase is the
       `"free"` default at user creation (`backend/app/repositories/user_repo.py:112`).
       Add a signature-verified webhook route that writes `subscription_tier`,
@@ -148,13 +164,22 @@ timeline, and one of them is a diagnosed fix for an open bug.
       `customer.subscription.deleted` events. This is what finally makes the existing
       `has_pro_access` property meaningful for paying users instead of only the admin
       manual-grant path.
-- [ ] **If Phase 1's decision is (b):** extend Phase 0's limit-check to branch on tier
+- [ ] **If Phase 1's decision is (b):** (#164) extend Phase 0's limit-check to branch on tier
       (free gets N/month, pro gets a higher cap or none) instead of the current binary
       `require_pro` gate.
-- [ ] **Admin visibility.** `AdminUserListDTO` already surfaces `subscription_tier`/
+- [🔶] **Admin visibility.** (#165) **Usage-by-user view shipped 2026-08-09** (`GET
+      /api/admin/usage` + "AI Usage" admin tab with month navigation and used/limit cells);
+      remaining: run a real test-mode checkout once the Phase 2 upgrade flow exists and
+      confirm the admin Users list renders Stripe-driven values. Original framing:
+      `AdminUserListDTO` already surfaces `subscription_tier`/
       `subscription_status` read-only — once real Stripe data exists, confirm it flows
       through correctly, and consider a lightweight usage-by-user view now that
       `UserUsage` is finally being read somewhere (Phase 0).
+- [ ] **Graceful UX when a user hits their monthly AI cap.** (#166) Phase 0's limits cap
+      *pro* users too, but the frontend does nothing with the backend's structured 429
+      (`usage_limit_exceeded`) — users at cap see a generic error toast. Needed
+      regardless of the #161 outcome; Phase 2's paywall prompt should share the same
+      429/403 interception layer.
 
 ## Phase 2 — Monetization (frontend)
 
@@ -181,11 +206,15 @@ timeline, and one of them is a diagnosed fix for an open bug.
 
 ## Phase 3 — Production hardening
 
-- [ ] **Lock down CORS.** `backend/app/main.py:20-29` defaults `CORS_ORIGINS` to `"*"`
+- [🔶] **Lock down CORS.** `backend/app/main.py:20-29` defaults `CORS_ORIGINS` to `"*"`
       with `allow_credentials=True` if the env var is unset — Starlette reflects the
       literal request `Origin` back in that configuration, so any origin can make
       credentialed requests. `backend/.env` has no `CORS_ORIGINS` entry, making this an
-      easy miss. Set it explicitly to the production frontend origin in Railway.
+      easy miss. **Done: Railway prod has `CORS_ORIGINS` set to the frontend origin
+      (verified 2026-08-09).** Remaining: fix the unsafe wildcard+credentials *default* in
+      code — note `origin/hotfix/cors-credentials-conflict` holds an old unmerged partial
+      fix (disables credentials when origin is `*`); fold it in or supersede it, then
+      delete that branch.
 - [ ] **Fix the hardcoded LAN IP fallback.** `frontend/src/lib/api-client.ts:15`,
       `api-server.ts:12`, and `lib/api/base.ts:3` all fall back to
       `http://192.168.1.213:8000` (a developer's home network) if
@@ -204,8 +233,9 @@ timeline, and one of them is a diagnosed fix for an open bug.
       `@claude`-mention responder and an AI PR-review bot — neither runs `pytest` or
       `npm run build`/`lint`. Nothing blocks a PR with new test failures or a broken
       build from merging today.
-- [ ] **Add `.env.example` for both `backend/` and `frontend/`** — there's currently no
-      single source of truth listing every env var Railway needs.
+- [🔶] **Add `.env.example` for both `backend/` and `frontend/`** — there's currently no
+      single source of truth listing every env var Railway needs. **`backend/.env.example`
+      landed with #168 (2026-08-09); `frontend/` still missing.**
 - [ ] **Fix the SSRF gap in recipe import.** `backend/app/services/ai/recipe_import/service.py:422-453`
       (`_download_image`) fetches a scraped `og:image`/schema.org image URL without
       running it through the same SSRF check (`_validate_url`, lines 148-174) applied to
@@ -285,8 +315,9 @@ Lower urgency than 0–3; batch this whenever there's a slow week.
 ## Test coverage gaps (reference, not a phase)
 
 Backend has real pytest coverage on the main services (recipes, meals, planner,
-nutrition, recipe generation, ingredients) but **zero coverage** on: `admin_service`/
-admin API, `usage_service`, `data_management` (backup/restore/import/export, including
+nutrition, recipe generation, ingredients) — plus, as of 2026-08-09: `usage_service`,
+the Stripe webhook service, and the admin usage endpoint. Still **zero coverage** on:
+the rest of `admin_service`/admin API, `billing_service`, `data_management` (backup/restore/import/export, including
 the destructive clear-all/restore endpoints), `upload.py`, `recipe_import` (notably the
 file with the SSRF-guard logic from Phase 3), `image_generation`, `cooking_tips`,
 `meal_suggestions`, core shopping aggregation/sync logic, the `user_*` settings services,
