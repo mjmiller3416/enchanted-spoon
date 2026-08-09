@@ -17,7 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..core.stripe_config import StripeSettings
-from ..models.user import User
+from ..models.user import ACTIVE_SUBSCRIPTION_STATUSES, User
 from ..repositories.user_repo import UserRepo
 
 logger = logging.getLogger(__name__)
@@ -35,10 +35,6 @@ class StripeWebhookProcessingError(Exception):
 
 
 # -- Constants -------------------------------------------------------------------------------------
-# Subscription statuses that grant pro access. Anything else (canceled, unpaid,
-# incomplete_expired, ...) is treated as no longer paying.
-ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing", "past_due"}
-
 HANDLED_EVENT_TYPES = {
     "checkout.session.completed",
     "invoice.paid",
