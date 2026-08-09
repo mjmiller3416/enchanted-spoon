@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.dtos.meal_suggestions_dtos import MealSuggestionsRequestDTO, MealSuggestionsResponseDTO
 from app.services.ai.meal_suggestions import get_meal_suggestions_service
-from app.api.auth import require_pro
+from app.api.auth import require_within_usage_limit
 from app.database.db import get_session
 from app.models.user import User
 from app.services.usage_service import UsageService
@@ -17,7 +17,7 @@ router = APIRouter()
 async def get_meal_suggestions(
     request: MealSuggestionsRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_pro),
+    current_user: User = Depends(require_within_usage_limit("ai_suggestions_requested")),
 ) -> MealSuggestionsResponseDTO:
     """
     Get AI-generated side dish suggestions and cooking tip for a meal.

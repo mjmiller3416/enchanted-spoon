@@ -5,7 +5,7 @@ Provides get_current_user and related dependencies for protecting routes.
 """
 
 import logging
-from typing import Optional
+from typing import Callable, Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...database.db import get_session
 from ...models.user import User
+from ...services.usage_service import UsageLimitExceededError, UsageService
 from ...services.user_service import UserService
 from .jwks import get_clerk_jwks, _get_signing_key
 
@@ -214,6 +215,62 @@ def require_pro(
             detail="Pro subscription required for this feature",
         )
     return user
+
+
+def require_within_usage_limit(field: str) -> Callable[..., User]:
+    """
+    Dependency factory that enforces a monthly usage cap for a Gemini-backed
+    AI feature, on top of the binary pro-access check.
+
+    Builds on `require_pro`, then checks the user's monthly `UserUsage`
+    counter for `field` against their subscription tier's cap. Admins are
+    exempt. Tier resolution (not just a flat "pro" cap) means a future
+    metered free tier can reuse this unchanged by adding a "free" tier
+    entry in `app/core/usage_limits.py`.
+
+    Usage:
+        @router.post("/ai/generate-image")
+        def generate_image(
+            current_user: User = Depends(require_within_usage_limit("ai_images_generated")),
+        ):
+            # Only pro users under their monthly cap can access this
+            ...
+
+    Returns:
+        A dependency callable resolving to the authenticated pro User.
+
+    Raises:
+        HTTPException 403: User doesn't have pro access.
+        HTTPException 429: User has reached their monthly cap for `field`.
+    """
+
+    def _check_usage_limit(
+        user: User = Depends(require_pro),
+        session: Session = Depends(get_session),
+    ) -> User:
+        if user.is_admin:
+            return user
+
+        tier = "pro" if user.has_pro_access else "free"
+        try:
+            UsageService(session, user.id).check_limit(field, tier)
+        except UsageLimitExceededError as e:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": "usage_limit_exceeded",
+                    "field": e.field,
+                    "current": e.current,
+                    "limit": e.limit,
+                    "message": (
+                        f"Monthly limit reached for this feature "
+                        f"({e.current}/{e.limit}). Resets at the start of next month."
+                    ),
+                },
+            )
+        return user
+
+    return _check_usage_limit
 
 
 def require_admin(

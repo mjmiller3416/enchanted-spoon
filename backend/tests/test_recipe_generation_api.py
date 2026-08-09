@@ -44,6 +44,9 @@ def _create_test_app(user: User | None = None) -> FastAPI:
     from app.database.db import get_session
 
     mock_session = MagicMock()
+    # No existing UserUsage row - the usage-limit dependency creates a fresh
+    # (zeroed) one, which is always under cap.
+    mock_session.query.return_value.filter.return_value.first.return_value = None
     app.dependency_overrides[get_session] = lambda: mock_session
 
     if user:
@@ -56,6 +59,7 @@ def _make_pro_user() -> User:
     """Create a User object with pro access."""
     user = MagicMock(spec=User)
     user.id = 1
+    user.is_admin = False
     user.has_pro_access = True
     return user
 
@@ -443,3 +447,105 @@ class TestRecipeGenerationUsageTracking:
 
         assert response.status_code == 200
         mock_usage_instance.increment.assert_called_once_with("ai_suggestions_requested")
+
+
+# ---------------------------------------------------------------------------
+# Tests — monthly usage limit enforcement
+# ---------------------------------------------------------------------------
+
+class TestRecipeGenerationUsageLimit:
+    """Tests for require_within_usage_limit gating this endpoint."""
+
+    def test_over_cap_returns_429(self):
+        """A user at their monthly cap gets 429 before the AI service runs."""
+        from app.api.auth import require_pro
+        from app.models.user_usage import UserUsage
+
+        user = _make_pro_user()
+        app = FastAPI()
+        app.include_router(router, prefix="/api/ai/wizard-generation")
+
+        maxed_usage = UserUsage(user_id=user.id, month="2026-08")
+        maxed_usage.ai_suggestions_requested = 300  # at the "pro" tier cap
+
+        mock_session = MagicMock()
+        mock_session.query.return_value.filter.return_value.first.return_value = maxed_usage
+        app.dependency_overrides[get_session] = lambda: mock_session
+        app.dependency_overrides[require_pro] = lambda: user
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/ai/wizard-generation",
+            json=_valid_request_body(),
+        )
+
+        assert response.status_code == 429
+        assert response.json()["detail"]["field"] == "ai_suggestions_requested"
+
+    def test_admin_bypasses_cap(self):
+        """Admins skip the usage-limit check entirely, even over cap."""
+        from app.api.auth import require_pro
+        from app.models.user_usage import UserUsage
+
+        admin = MagicMock(spec=User)
+        admin.id = 2
+        admin.is_admin = True
+        admin.has_pro_access = True
+
+        app = FastAPI()
+        app.include_router(router, prefix="/api/ai/wizard-generation")
+
+        maxed_usage = UserUsage(user_id=admin.id, month="2026-08")
+        maxed_usage.ai_suggestions_requested = 999999
+
+        mock_session = MagicMock()
+        mock_session.query.return_value.filter.return_value.first.return_value = maxed_usage
+        app.dependency_overrides[get_session] = lambda: mock_session
+        app.dependency_overrides[require_pro] = lambda: admin
+
+        with patch("app.api.ai.recipe_generation.UserCategoryService"), \
+                patch("app.api.ai.recipe_generation.get_recipe_generation_service") as mock_get_service, \
+                patch("app.api.ai.recipe_generation.UsageService"):
+            mock_service = MagicMock()
+            mock_service.generate.return_value = _make_success_response()
+            mock_get_service.return_value = mock_service
+
+            client = TestClient(app)
+            response = client.post(
+                "/api/ai/wizard-generation",
+                json=_valid_request_body(),
+            )
+
+        assert response.status_code == 200
+
+    def test_under_cap_proceeds(self):
+        """A user under their monthly cap is allowed through to the AI service."""
+        from app.api.auth import require_pro
+        from app.models.user_usage import UserUsage
+
+        user = _make_pro_user()
+        app = FastAPI()
+        app.include_router(router, prefix="/api/ai/wizard-generation")
+
+        low_usage = UserUsage(user_id=user.id, month="2026-08")
+        low_usage.ai_suggestions_requested = 1
+
+        mock_session = MagicMock()
+        mock_session.query.return_value.filter.return_value.first.return_value = low_usage
+        app.dependency_overrides[get_session] = lambda: mock_session
+        app.dependency_overrides[require_pro] = lambda: user
+
+        with patch("app.api.ai.recipe_generation.UserCategoryService"), \
+                patch("app.api.ai.recipe_generation.get_recipe_generation_service") as mock_get_service, \
+                patch("app.api.ai.recipe_generation.UsageService"):
+            mock_service = MagicMock()
+            mock_service.generate.return_value = _make_success_response()
+            mock_get_service.return_value = mock_service
+
+            client = TestClient(app)
+            response = client.post(
+                "/api/ai/wizard-generation",
+                json=_valid_request_body(),
+            )
+
+        assert response.status_code == 200

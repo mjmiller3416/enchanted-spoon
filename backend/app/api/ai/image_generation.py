@@ -20,7 +20,7 @@ from app.services.ai.image_generation.config import (
     REFERENCE_IMAGE_SIZE,
     BANNER_IMAGE_SIZE,
 )
-from app.api.auth import require_pro
+from app.api.auth import require_within_usage_limit
 from app.database.db import get_session
 from app.models.user import User
 from app.services.usage_service import UsageService
@@ -32,7 +32,7 @@ router = APIRouter()
 async def generate_recipe_image(
     request: ImageGenerationRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_pro),
+    current_user: User = Depends(require_within_usage_limit("ai_images_generated")),
 ) -> ImageGenerationResponseDTO:
     """
     Generate an AI image for a recipe based on its name.
@@ -121,7 +121,7 @@ async def generate_recipe_image(
 async def generate_banner_image(
     request: BannerGenerationRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_pro),
+    current_user: User = Depends(require_within_usage_limit("ai_images_generated")),
 ) -> BannerGenerationResponseDTO:
     """
     Generate a banner (21:9) image from an existing reference image.

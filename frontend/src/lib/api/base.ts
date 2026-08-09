@@ -2,6 +2,11 @@
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.213:8000";
 
+// Default request timeout. AI endpoints (image/recipe generation, chat) can
+// legitimately run long, so those call sites pass a larger AI_TIMEOUT_MS.
+export const DEFAULT_TIMEOUT_MS = 30_000;
+export const AI_TIMEOUT_MS = 90_000;
+
 export class ApiError extends Error {
   status: number;
   details?: Record<string, unknown>;
@@ -17,7 +22,8 @@ export class ApiError extends Error {
 export async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit,
-  token?: string | null
+  token?: string | null,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
 
@@ -31,10 +37,24 @@ export async function fetchApi<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new ApiError(`Request timed out after ${timeoutMs}ms`, 408);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     let errorMessage = `API Error: ${response.status}`;

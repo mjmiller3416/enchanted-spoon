@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.auth import require_pro
+from app.api.auth import require_within_usage_limit
 from app.database.db import get_session
 from app.dtos.recipe_generation_dtos import (
     RecipeGenerationRequestDTO,
@@ -25,7 +25,7 @@ router = APIRouter()
 async def generate_recipe(
     request: RecipeGenerationRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_pro),
+    current_user: User = Depends(require_within_usage_limit("ai_suggestions_requested")),
 ) -> RecipeGenerationResponseDTO:
     """Generate a complete recipe from a text prompt using AI.
 

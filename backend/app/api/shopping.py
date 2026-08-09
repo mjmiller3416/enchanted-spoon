@@ -5,10 +5,11 @@ FastAPI router for shopping list endpoints.
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user, get_integration_user
+from app.core.rate_limit import limiter
 from app.database.db import get_session
 from app.dtos.shopping_dtos import (
     BulkOperationResultDTO,
@@ -89,7 +90,9 @@ def add_manual_item(
 
 
 @router.post("/external/items", response_model=ExternalItemUpsertResultDTO)
+@limiter.limit("60/minute")
 def upsert_external_item(
+    request: Request,
     item_data: ExternalItemUpsertDTO,
     response: Response,
     session: Session = Depends(get_session),

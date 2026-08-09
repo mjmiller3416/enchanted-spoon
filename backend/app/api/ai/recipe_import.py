@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.auth import require_pro
+from app.api.auth import require_within_usage_limit
 from app.database.db import get_session
 from app.dtos.recipe_import_dtos import (
     RecipeImportRequestDTO,
@@ -27,7 +27,7 @@ router = APIRouter()
 async def import_recipe(
     request: RecipeImportRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_pro),
+    current_user: User = Depends(require_within_usage_limit("recipes_imported")),
 ) -> RecipeImportResponseDTO:
     """Import a recipe from a website URL.
 

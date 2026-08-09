@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.auth import require_pro
+from app.api.auth import require_within_usage_limit
 from app.database.db import get_session
 from app.dtos.assistant_dtos import (
     AssistantRequestDTO,
@@ -28,7 +28,7 @@ router = APIRouter()
 async def chat_with_assistant(
     request: AssistantRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_pro),
+    current_user: User = Depends(require_within_usage_limit("ai_assistant_messages")),
 ) -> AssistantResponseDTO:
     """Unified chat endpoint for the AI assistant.
 
@@ -120,7 +120,7 @@ async def chat_with_assistant(
 async def ask_assistant(
     request: AssistantRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_pro),
+    current_user: User = Depends(require_within_usage_limit("ai_assistant_messages")),
 ) -> AssistantResponseDTO:
     """Send a message to the AI assistant and get a response.
 
@@ -134,7 +134,7 @@ async def ask_assistant(
 async def generate_recipe(
     request: AssistantRecipeRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_pro),
+    current_user: User = Depends(require_within_usage_limit("ai_assistant_messages")),
 ) -> AssistantRecipeResponseDTO:
     """Generate a complete recipe with optional AI image.
 
