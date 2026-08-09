@@ -42,8 +42,8 @@ hurt if ignored:
 | Phase | Focus | Depends on | Status (2026-08-09) |
 |---|---|---|---|
 | [0](#phase-0--reliability--cost-guardrails-do-first) | Reliability & cost guardrails | — | ✅ Complete, deployed |
-| [1](#phase-1--monetization-backend) | Monetization (backend) | Phase 0's usage-limit plumbing; a product decision | 🔶 #161–#163 done; #165 half-done; #164/#166 wait on Phase 2 |
-| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | Not started — next up |
+| [1](#phase-1--monetization-backend) | Monetization (backend) | Phase 0's usage-limit plumbing; a product decision | ✅ Complete (#164/#166 + #165 verification moved to Phase 2) |
+| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | Not started — next up; now owns #164, #166, #165 close-out |
 | [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Partial (prod CORS env set, backend .env.example) |
 | [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) | Not started |
 | [5](#phase-5--ai-feature-completeness) | AI feature completeness | Phase 0 | Not started |
@@ -164,22 +164,15 @@ timeline, and one of them is a diagnosed fix for an open bug.
       `customer.subscription.deleted` events. This is what finally makes the existing
       `has_pro_access` property meaningful for paying users instead of only the admin
       manual-grant path.
-- [ ] **If Phase 1's decision is (b):** (#164) extend Phase 0's limit-check to branch on tier
-      (free gets N/month, pro gets a higher cap or none) instead of the current binary
-      `require_pro` gate.
-- [🔶] **Admin visibility.** (#165) **Usage-by-user view shipped 2026-08-09** (`GET
-      /api/admin/usage` + "AI Usage" admin tab with month navigation and used/limit cells);
-      remaining: run a real test-mode checkout once the Phase 2 upgrade flow exists and
-      confirm the admin Users list renders Stripe-driven values. Original framing:
-      `AdminUserListDTO` already surfaces `subscription_tier`/
-      `subscription_status` read-only — once real Stripe data exists, confirm it flows
-      through correctly, and consider a lightweight usage-by-user view now that
-      `UserUsage` is finally being read somewhere (Phase 0).
-- [ ] **Graceful UX when a user hits their monthly AI cap.** (#166) Phase 0's limits cap
-      *pro* users too, but the frontend does nothing with the backend's structured 429
-      (`usage_limit_exceeded`) — users at cap see a generic error toast. Needed
-      regardless of the #161 outcome; Phase 2's paywall prompt should share the same
-      429/403 interception layer.
+- [✅] **Admin visibility.** (#165) **Usage-by-user view shipped 2026-08-09** (`GET
+      /api/admin/usage` + "AI Usage" admin tab with month navigation and used/limit cells).
+      The final verification step (real checkout → admin list renders Stripe-driven
+      values) moved to Phase 2, where the checkout UI it depends on gets built.
+
+**Phase 1 is complete.** Its two remaining items — #164 (tier-aware free caps) and #166
+(cap-hit 429 UX) — were moved into Phase 2 (2026-08-09) because both depend on the
+upgrade flow existing: free caps shouldn't activate until a capped user has an upgrade
+button to click, and the 429 UX shares one interception layer with the Phase 2 paywall.
 
 ## Phase 2 — Monetization (frontend)
 
@@ -192,11 +185,24 @@ timeline, and one of them is a diagnosed fix for an open bug.
 - [ ] **Account/billing settings section.** Settings → Profile shows only Clerk identity
       info. Add plan, renewal date, a usage meter (if Phase 1 goes metered), and a
       "Manage billing" link to the Stripe customer portal.
-- [ ] **Graceful 403 handling on AI calls.** `frontend/src/lib/api-client.ts` has only
-      generic error handling — a free user hitting any of the 7 pro-gated AI endpoints
-      today sees a raw/generic error toast, not an explanation or an upgrade path. Add a
-      dedicated paywall-prompt component that intercepts the 403 and offers the upgrade
-      flow instead.
+- [ ] **Graceful 403 + 429 handling on AI calls** *(absorbs #166, moved from Phase 1).*
+      `frontend/src/lib/api-client.ts` has only generic error handling — a free user
+      hitting any of the 7 pro-gated AI endpoints sees a raw/generic error toast, and a
+      capped user gets nothing from the backend's structured 429
+      (`usage_limit_exceeded`, which carries `current`/`limit`). Build ONE interception
+      layer for both: 403 → paywall prompt offering the upgrade flow; 429 → "monthly
+      limit reached (x/X), resets next month" with an upgrade nudge for free users.
+- [ ] **Enable the metered free tier** (#164, moved from Phase 1). Once the upgrade flow
+      above exists: relax the `require_pro` gate inside `require_within_usage_limit`
+      (`backend/app/api/auth/dependencies.py`) so free users fall through to the tier-cap
+      check, and set real "taste-test" free-cap values in `TIER_USAGE_LIMITS` (policy:
+      enough to see each AI feature work, not enough to truly use it — see the tier
+      philosophy note in #161). Sequenced last-ish deliberately: shipping it before the
+      paywall UX exists turns free users' 403s into unexplained 429s.
+- [ ] **Final Stripe verification** (#165 remainder, moved from Phase 1). Run a real
+      test-mode checkout through the new upgrade flow and confirm the admin Users list
+      renders the Stripe-driven `subscription_tier`/`subscription_status`/
+      `subscription_ends_at`. Closes #165.
 - [ ] **Surface the data that's already being fetched.** `useCurrentUser()`
       (`frontend/src/hooks/api/useAdmin.ts:21`) already returns `has_pro_access` and
       `subscription_tier` — today only `is_admin` is ever read from it. Once there's
