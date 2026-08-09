@@ -4,6 +4,7 @@ Repository layer for User model. Handles all direct database interactions
 related to users, including lookup, creation, and account claiming.
 """
 
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import select
@@ -59,6 +60,22 @@ class UserRepo:
             User if found, None otherwise.
         """
         stmt = select(User).where(User.email == email)
+        return self.session.scalars(stmt).first()
+
+    def get_by_stripe_customer_id(self, stripe_customer_id: str) -> Optional[User]:
+        """
+        Get user by Stripe customer ID.
+
+        Used by the Stripe webhook handler to resolve incoming events
+        (which identify the customer, not the internal user ID) to a User.
+
+        Args:
+            stripe_customer_id: The Stripe customer ID (e.g., "cus_abc123").
+
+        Returns:
+            User if found, None otherwise.
+        """
+        stmt = select(User).where(User.stripe_customer_id == stripe_customer_id)
         return self.session.scalars(stmt).first()
 
     def get_claimable_user(self, email: str) -> Optional[User]:
@@ -162,6 +179,43 @@ class UserRepo:
             The updated User (not yet committed).
         """
         user.stripe_customer_id = stripe_customer_id
+        self.session.flush()
+        return user
+
+    def update_subscription(
+        self,
+        user: User,
+        *,
+        stripe_customer_id: Optional[str] = None,
+        subscription_tier: Optional[str] = None,
+        subscription_status: Optional[str] = None,
+        subscription_ends_at: Optional[datetime] = None,
+    ) -> User:
+        """
+        Update a user's subscription state from a Stripe webhook event.
+
+        Only fields explicitly passed (non-None) are updated, so handlers can
+        set exactly the fields present on a given Stripe event without
+        clobbering unrelated state.
+
+        Args:
+            user: The user to update.
+            stripe_customer_id: Stripe customer ID to associate with this user.
+            subscription_tier: New subscription tier (e.g. "free", "pro").
+            subscription_status: New subscription status (e.g. "active", "canceled").
+            subscription_ends_at: When the current subscription period/access ends.
+
+        Returns:
+            The updated User (not yet committed).
+        """
+        if stripe_customer_id is not None:
+            user.stripe_customer_id = stripe_customer_id
+        if subscription_tier is not None:
+            user.subscription_tier = subscription_tier
+        if subscription_status is not None:
+            user.subscription_status = subscription_status
+        if subscription_ends_at is not None:
+            user.subscription_ends_at = subscription_ends_at
         self.session.flush()
         return user
 
