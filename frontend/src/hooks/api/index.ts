@@ -162,6 +162,8 @@ export { useUnits } from "./useUnits";
 export {
   // Current User
   useCurrentUser,
+  // Usage Metrics
+  useAdminUsage,
   // User Management
   useAdminUsers,
   useGrantPro,

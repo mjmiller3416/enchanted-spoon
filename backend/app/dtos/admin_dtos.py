@@ -7,8 +7,11 @@ from typing import TYPE_CHECKING, Any, List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.core.usage_limits import get_monthly_limit
+
 if TYPE_CHECKING:
     from app.models.user import User
+    from app.models.user_usage import UserUsage
 
 
 # ── Current User DTO ─────────────────────────────────────────────────────────
@@ -97,6 +100,83 @@ class AdminToggleAdminDTO(BaseModel):
     """Request DTO for toggling admin flag on a user."""
 
     is_admin: bool
+
+
+# ── Usage-by-User DTOs ──────────────────────────────────────────────────────
+
+
+class AdminUsageLimitsDTO(BaseModel):
+    """Per-field monthly caps for a user. ``None`` means unlimited."""
+
+    ai_images_generated: Optional[int] = None
+    ai_suggestions_requested: Optional[int] = None
+    ai_assistant_messages: Optional[int] = None
+    recipes_imported: Optional[int] = None
+
+
+class AdminUserUsageDTO(BaseModel):
+    """Response DTO for a single user's monthly AI feature usage."""
+
+    user_id: int
+    email: str
+    name: Optional[str] = None
+    is_admin: bool
+    subscription_tier: str
+    has_pro_access: bool
+    ai_images_generated: int
+    ai_suggestions_requested: int
+    ai_assistant_messages: int
+    recipes_imported: int
+    recipes_created: int
+    limits: AdminUsageLimitsDTO
+
+    @classmethod
+    def from_models(
+        cls, user: User, usage: Optional[UserUsage]
+    ) -> AdminUserUsageDTO:
+        """Build the DTO from a user and its (possibly missing) usage row.
+
+        Counters default to 0 when the user has no ``UserUsage`` row for the
+        requested month. Limits are resolved from the user's effective tier;
+        admins are uncapped, so all their limits are ``None`` (mirrors the
+        ``is_admin`` bypass in ``require_within_usage_limit``).
+        """
+        if user.is_admin:
+            limits = AdminUsageLimitsDTO()
+        else:
+            tier = "pro" if user.has_pro_access else "free"
+            limits = AdminUsageLimitsDTO(
+                ai_images_generated=get_monthly_limit(tier, "ai_images_generated"),
+                ai_suggestions_requested=get_monthly_limit(
+                    tier, "ai_suggestions_requested"
+                ),
+                ai_assistant_messages=get_monthly_limit(
+                    tier, "ai_assistant_messages"
+                ),
+                recipes_imported=get_monthly_limit(tier, "recipes_imported"),
+            )
+
+        return cls(
+            user_id=user.id,
+            email=user.email,
+            name=user.name,
+            is_admin=user.is_admin,
+            subscription_tier=user.subscription_tier,
+            has_pro_access=user.has_pro_access,
+            ai_images_generated=usage.ai_images_generated if usage else 0,
+            ai_suggestions_requested=usage.ai_suggestions_requested if usage else 0,
+            ai_assistant_messages=usage.ai_assistant_messages if usage else 0,
+            recipes_imported=usage.recipes_imported if usage else 0,
+            recipes_created=usage.recipes_created if usage else 0,
+            limits=limits,
+        )
+
+
+class AdminUsageResponseDTO(BaseModel):
+    """Response DTO for the /api/admin/usage endpoint."""
+
+    month: str
+    users: List[AdminUserUsageDTO]
 
 
 # ── Database Query DTOs ─────────────────────────────────────────────────────

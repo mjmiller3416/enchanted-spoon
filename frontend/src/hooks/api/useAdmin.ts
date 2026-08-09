@@ -58,6 +58,23 @@ export function useAdminUsers(skip: number = 0, limit: number = 50) {
 }
 
 /**
+ * Fetch AI + import/create usage per user for a given month (admin only).
+ * @param month Optional YYYY-MM string; defaults to the current UTC month server-side.
+ */
+export function useAdminUsage(month?: string) {
+  const { getToken } = useAuth();
+
+  return useQuery({
+    queryKey: adminQueryKeys.usage(month),
+    queryFn: async () => {
+      const token = await getToken();
+      return adminApi.getUsage(month, token);
+    },
+    staleTime: 30000,
+  });
+}
+
+/**
  * Grant pro access to a user.
  */
 export function useGrantPro() {
