@@ -25,6 +25,9 @@ openpyxl>=3.1.0
 # Environment
 python-dotenv>=1.0.0
 
+# Payments
+stripe>=8.0.0
+
 # Image Upload
 cloudinary>=1.36.0
 
