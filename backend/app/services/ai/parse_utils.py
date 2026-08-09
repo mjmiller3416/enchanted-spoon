@@ -72,11 +72,21 @@ def parse_recipe_dict(data: dict) -> RecipeGeneratedDTO:
 
     Returns:
         A fully populated RecipeGeneratedDTO with safe defaults for missing fields.
+
+    Raises:
+        ValueError: If the response has no ingredients or no directions —
+            a malformed or partial AI response, not a valid recipe.
     """
     ingredients = [
         GeneratedIngredientDTO(**ing)
         for ing in data.get("ingredients", [])
     ]
+    if not ingredients:
+        raise ValueError("AI response contained no ingredients")
+
+    directions = data.get("directions")
+    if not directions or not str(directions).strip():
+        raise ValueError("AI response contained no directions")
 
     return RecipeGeneratedDTO(
         recipe_name=data.get("recipe_name", "Untitled Recipe"),

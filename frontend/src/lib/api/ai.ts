@@ -14,7 +14,7 @@ import type {
   RecipeImportRequestDTO,
   RecipeImportResponseDTO,
 } from "@/types/ai";
-import { fetchApi } from "./base";
+import { AI_TIMEOUT_MS, fetchApi } from "./base";
 
 export const imageGenerationApi = {
   /**
@@ -40,7 +40,8 @@ export const imageGenerationApi = {
           ...(imageType && { image_type: imageType }),
         }),
       },
-      token
+      token,
+      AI_TIMEOUT_MS
     ),
 
   /**
@@ -64,7 +65,8 @@ export const imageGenerationApi = {
           reference_image_data: referenceImageData,
         }),
       },
-      token
+      token,
+      AI_TIMEOUT_MS
     ),
 };
 
@@ -75,7 +77,7 @@ export const cookingTipApi = {
    * @returns Response with cooking tip on success
    */
   getTip: (token?: string | null): Promise<CookingTipResponseDTO> =>
-    fetchApi<CookingTipResponseDTO>("/api/ai/cooking-tip", undefined, token),
+    fetchApi<CookingTipResponseDTO>("/api/ai/cooking-tip", undefined, token, AI_TIMEOUT_MS),
 };
 
 export const mealSuggestionsApi = {
@@ -95,7 +97,8 @@ export const mealSuggestionsApi = {
         method: "POST",
         body: JSON.stringify(request),
       },
-      token
+      token,
+      AI_TIMEOUT_MS
     ),
 };
 
@@ -110,7 +113,8 @@ export const nutritionEstimationApi = {
         method: "POST",
         body: JSON.stringify(request),
       },
-      token
+      token,
+      AI_TIMEOUT_MS
     ),
 };
 
@@ -131,7 +135,8 @@ export const recipeGenerationApi = {
         method: "POST",
         body: JSON.stringify(request),
       },
-      token
+      token,
+      AI_TIMEOUT_MS
     ),
 };
 
@@ -152,7 +157,8 @@ export const recipeImportApi = {
         method: "POST",
         body: JSON.stringify(request),
       },
-      token
+      token,
+      AI_TIMEOUT_MS
     ),
 };
 
@@ -179,7 +185,8 @@ export const AssistantApi = {
           conversation_history: conversationHistory,
         }),
       },
-      token
+      token,
+      AI_TIMEOUT_MS
     ),
 
   /**
@@ -203,7 +210,8 @@ export const AssistantApi = {
           conversation_history: conversationHistory,
         }),
       },
-      token
+      token,
+      AI_TIMEOUT_MS
     ),
 
 };

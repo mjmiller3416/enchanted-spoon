@@ -18,6 +18,12 @@ from ..models.ingredient import Ingredient
 from ..repositories.ingredient_repo import IngredientRepo
 
 
+# ── Domain Exceptions ────────────────────────────────────────────────────────────────────────────────────────
+class IngredientNotFoundError(Exception):
+    """Raised when an ingredient is not found or not owned by the user."""
+    pass
+
+
 # ── Ingredient Service ──────────────────────────────────────────────────────────────────────────────────────
 class IngredientService:
     """Provides higher-level ingredient operations and DTO handling.
@@ -114,12 +120,16 @@ class IngredientService:
             self.session.rollback()
             raise e
 
-    def update_ingredient(self, ingredient_id: int, update_dto: IngredientUpdateDTO) -> Optional[Ingredient]:
-        """Update an existing ingredient by ID."""
+    def update_ingredient(self, ingredient_id: int, update_dto: IngredientUpdateDTO) -> Ingredient:
+        """Update an existing ingredient by ID.
+
+        Raises:
+            IngredientNotFoundError: If the ingredient doesn't exist or isn't owned by the user.
+        """
+        ing = self.get_ingredient_by_id(ingredient_id)
+        if not ing:
+            raise IngredientNotFoundError(f"Ingredient {ingredient_id} not found")
         try:
-            ing = self.get_ingredient_by_id(ingredient_id)
-            if not ing:
-                return None
             if update_dto.ingredient_name is not None:
                 ing.ingredient_name = update_dto.ingredient_name
             if update_dto.ingredient_category is not None:
@@ -130,15 +140,18 @@ class IngredientService:
             self.session.rollback()
             raise e
 
-    def delete_ingredient(self, ingredient_id: int) -> bool:
-        """Delete an ingredient by ID."""
+    def delete_ingredient(self, ingredient_id: int) -> None:
+        """Delete an ingredient by ID.
+
+        Raises:
+            IngredientNotFoundError: If the ingredient doesn't exist or isn't owned by the user.
+        """
+        ing = self.get_ingredient_by_id(ingredient_id)
+        if not ing:
+            raise IngredientNotFoundError(f"Ingredient {ingredient_id} not found")
         try:
-            ing = self.get_ingredient_by_id(ingredient_id)
-            if not ing:
-                return False
             self.repo.delete(ing)
             self.session.commit()
-            return True
         except SQLAlchemyError as e:
             self.session.rollback()
             raise e

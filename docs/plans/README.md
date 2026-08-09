@@ -9,7 +9,8 @@ worth more after the fact than the checklist itself.
 
 | Doc | Status |
 |-----|--------|
-| [error-reporting.md](error-reporting.md) | Partially shipped — see status note at top of the doc |
+| [public-release-roadmap.md](public-release-roadmap.md) | Open — full pre-launch audit + phased plan, August 2026 |
+| [error-reporting.md](error-reporting.md) | Partially shipped — see status note at top of the doc; referenced from the roadmap's Phase 3 |
 
 ## Completed
 

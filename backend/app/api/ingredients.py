@@ -18,7 +18,7 @@ from app.dtos.ingredient_dtos import (
     IngredientUpdateDTO,
 )
 from app.models.user import User
-from app.services.ingredient_service import IngredientService
+from app.services.ingredient_service import IngredientNotFoundError, IngredientService
 
 router = APIRouter()
 
@@ -135,9 +135,9 @@ async def update_ingredient(
     service = IngredientService(session, current_user.id)
     try:
         ingredient = service.update_ingredient(ingredient_id, update_data)
-        if not ingredient:
-            raise HTTPException(status_code=404, detail="Ingredient not found")
         return _ingredient_to_response_dto(ingredient)
+    except IngredientNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -151,9 +151,10 @@ async def delete_ingredient(
     """Delete an ingredient."""
     service = IngredientService(session, current_user.id)
     try:
-        if not service.delete_ingredient(ingredient_id):
-            raise HTTPException(status_code=404, detail="Ingredient not found")
+        service.delete_ingredient(ingredient_id)
         return {"message": "Ingredient deleted successfully"}
+    except IngredientNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

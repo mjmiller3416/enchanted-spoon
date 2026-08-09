@@ -107,6 +107,10 @@ pytest tests/test_file.py -v
 - `GEMINI_NUTRITION_API_KEY` - For AI nutrition estimation
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` - Image uploads
 - `GITHUB_TOKEN`, `GITHUB_REPO` - Issue tracking integration
+- `STRIPE_SECRET_KEY` - Stripe API secret key (sk_xxx) for checkout/portal/customer calls
+- `STRIPE_WEBHOOK_SECRET` - Signing secret (whsec_xxx) for verifying `/api/webhooks/stripe` payloads
+- `STRIPE_PRICE_ID_PRO` - Price ID for the Pro subscription plan
+- `FRONTEND_URL` - Base URL for Stripe checkout/portal redirects (default: `http://localhost:3000`)
 
 ## Architecture
 

@@ -73,7 +73,7 @@ class NutritionEstimationRequestDTO(BaseModel):
     """Request DTO for AI-powered nutrition estimation."""
 
     recipe_name: str
-    ingredients: List[NutritionIngredientDTO]
+    ingredients: List[NutritionIngredientDTO] = Field(..., max_length=100)
     servings: Optional[int] = Field(None, ge=1)
 
 

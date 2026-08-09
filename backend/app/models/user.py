@@ -32,6 +32,12 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# Stripe subscription statuses that keep pro access. Anything else (canceled,
+# unpaid, incomplete_expired, ...) is treated as no longer paying. Shared with
+# the Stripe webhook handler so access checks and webhook writes agree.
+ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing", "past_due"}
+
+
 class User(Base):
     """
     Application user linked to Clerk authentication.
@@ -148,7 +154,7 @@ class User(Base):
             return True
 
         # Active paid subscription
-        if self.subscription_tier == "pro" and self.subscription_status == "active":
+        if self.subscription_tier == "pro" and self.subscription_status in ACTIVE_SUBSCRIPTION_STATUSES:
             return True
 
         # Granted temporary access (testers, promos)
@@ -163,7 +169,7 @@ class User(Base):
         """Why does this user have their current access level? (for debugging/support)"""
         if self.is_admin:
             return "admin"
-        if self.subscription_tier == "pro" and self.subscription_status == "active":
+        if self.subscription_tier == "pro" and self.subscription_status in ACTIVE_SUBSCRIPTION_STATUSES:
             return "subscription"
         if self.granted_pro_until and self.granted_pro_until > datetime.now(timezone.utc):
             return f"granted ({self.granted_by or 'manual'})"

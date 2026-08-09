@@ -2,6 +2,15 @@
 // CHANGELOG - Edit the markdown below
 // ============================================
 const CHANGELOG_MD = `
+## 2026-08-09 - Improvements
+- Groundwork for Pro subscriptions — Stripe checkout, billing portal, and automatic subscription syncing (upgrade flow UI coming soon)
+- AI requests now retry automatically on temporary failures instead of hanging
+- Monthly AI usage limits to keep costs predictable
+
+## 2026-08-09 - Bug Fixes
+- Meal Genie no longer produces empty recipe drafts when generation fails
+- Fixed missing-item errors in ingredient and unit settings showing as server errors
+
 ## 2026-08-05 - Bug Fixes
 - Recipe Browser filters, search, and sort now stay applied when you navigate away and come back — not just when opening a recipe
 - Fixed a Shopping List bug where manually added items could land in a duplicate "Other" category instead of joining the existing one

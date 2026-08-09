@@ -22,7 +22,7 @@ TEMPERATURE = 0.3  # Low temperature for factual accuracy
 MAX_OUTPUT_TOKENS = 1024
 
 # Environment variable for API key
-API_KEY_ENV_VAR = "GEMINI_RECIPE_GENERATION_API_KEY"
+API_KEY_ENV_VAR = "GEMINI_NUTRITION_API_KEY"
 
 # Prompt template for estimating nutrition facts
 PROMPT_TEMPLATE = """You are a professional nutritionist. Estimate the nutrition facts PER SERVING for this recipe.

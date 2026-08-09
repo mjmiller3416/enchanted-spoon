@@ -415,7 +415,11 @@ class RecipeImportService:
                 "No recipe was found on that page. Make sure the URL points directly to a recipe."
             )
 
-        return parse_recipe_dict(data)
+        try:
+            return parse_recipe_dict(data)
+        except ValueError as e:
+            logger.error(f"[RecipeImport] Invalid recipe data: {e}")
+            raise RecipeImportParseError(str(e)) from e
 
     # ── Source image download ────────────────────────────────────────────────
 

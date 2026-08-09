@@ -138,6 +138,9 @@ class RecipeGenerationService:
             raise RecipeParseError(
                 "Failed to parse recipe data from AI response"
             ) from e
+        except ValueError as e:
+            logger.error(f"[RecipeGeneration] Invalid recipe data: {e}")
+            raise RecipeParseError(str(e)) from e
         except (RecipeGenerationError, RecipeParseError):
             raise
         except ImportError as e:

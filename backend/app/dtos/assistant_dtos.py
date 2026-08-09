@@ -1,23 +1,28 @@
 """DTOs for the AI assistant (conversational chat + recipe generation)."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 
 from .recipe_generation_dtos import GeneratedIngredientDTO, RecipeGeneratedDTO
+
+# Matches the frontend's MAX_MESSAGES cap in hooks/persistence/useChatHistory.ts
+MAX_CONVERSATION_HISTORY = 50
 
 
 class AssistantMessageDTO(BaseModel):
     """A single message in the conversation."""
 
     role: Literal["user", "assistant"]
-    content: str
+    content: str = Field(..., max_length=8000)
 
 
 class AssistantRequestDTO(BaseModel):
     """Request DTO for assistant chat."""
 
-    message: str
-    conversation_history: Optional[List[AssistantMessageDTO]] = None
+    message: str = Field(..., max_length=4000)
+    conversation_history: Optional[List[AssistantMessageDTO]] = Field(
+        None, max_length=MAX_CONVERSATION_HISTORY
+    )
 
 
 class AssistantResponseDTO(BaseModel):
@@ -38,8 +43,10 @@ class AssistantResponseDTO(BaseModel):
 class AssistantRecipeRequestDTO(BaseModel):
     """Request DTO for generating a recipe via the assistant (legacy endpoint)."""
 
-    message: str
-    conversation_history: Optional[List[AssistantMessageDTO]] = None
+    message: str = Field(..., max_length=4000)
+    conversation_history: Optional[List[AssistantMessageDTO]] = Field(
+        None, max_length=MAX_CONVERSATION_HISTORY
+    )
     generate_image: bool = True
 
 

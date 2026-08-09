@@ -14,7 +14,7 @@ from app.dtos.ingredient_dtos import (
     IngredientUpdateDTO,
 )
 from app.models.ingredient import Ingredient
-from app.services.ingredient_service import IngredientService
+from app.services.ingredient_service import IngredientNotFoundError, IngredientService
 
 
 # ---------------------------------------------------------------------------
@@ -115,30 +115,27 @@ class TestIngredientServiceCRUD:
         assert result.ingredient_category == "Dry Goods"
 
     def test_update_ingredient_not_found(self, db_session, test_user):
-        """Updating a non-existent ingredient returns None."""
+        """Updating a non-existent ingredient raises IngredientNotFoundError."""
         service = IngredientService(db_session, test_user.id)
         update_dto = IngredientUpdateDTO(ingredient_name="Ghost")
 
-        result = service.update_ingredient(9999, update_dto)
-
-        assert result is None
+        with pytest.raises(IngredientNotFoundError):
+            service.update_ingredient(9999, update_dto)
 
     def test_delete_ingredient(self, db_session, test_user, sample_ingredient):
-        """Deleting an existing ingredient returns True and it's gone afterward."""
+        """Deleting an existing ingredient removes it."""
         service = IngredientService(db_session, test_user.id)
 
-        result = service.delete_ingredient(sample_ingredient.id)
+        service.delete_ingredient(sample_ingredient.id)
 
-        assert result is True
         assert service.get_ingredient_by_id(sample_ingredient.id) is None
 
     def test_delete_ingredient_not_found(self, db_session, test_user):
-        """Deleting a non-existent ingredient returns False."""
+        """Deleting a non-existent ingredient raises IngredientNotFoundError."""
         service = IngredientService(db_session, test_user.id)
 
-        result = service.delete_ingredient(9999)
-
-        assert result is False
+        with pytest.raises(IngredientNotFoundError):
+            service.delete_ingredient(9999)
 
 
 # ---------------------------------------------------------------------------

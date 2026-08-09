@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 from app.api import (
     admin,
+    billing,
     categories,
     conversion_rules,
     dashboard,
@@ -21,6 +22,7 @@ from app.api import (
     recipes,
     settings,
     shopping,
+    stripe_webhooks,
     upload,
     users,
 )
@@ -55,9 +57,13 @@ api_router.include_router(conversion_rules.router, prefix="/api/unit-conversions
 api_router.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 api_router.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 api_router.include_router(users.router, prefix="/api/users", tags=["users"])
+api_router.include_router(billing.router, prefix="/api/billing", tags=["billing"])
 
 # ── Admin routes ─────────────────────────────────────────────────────────
 api_router.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+
+# ── Webhooks (unauthenticated, verified via provider signature) ─────────
+api_router.include_router(stripe_webhooks.router, prefix="/api/webhooks/stripe", tags=["webhooks"])
 
 # ── AI-powered routes ────────────────────────────────────────────────────
 api_router.include_router(cooking_tips_router, prefix="/api/ai/cooking-tip", tags=["ai", "cooking-tips"])

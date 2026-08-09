@@ -38,6 +38,9 @@ from app.services.ai.recipe_generation.service import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+_INGREDIENT = {"ingredient_name": "Salt", "ingredient_category": "pantry"}
+
+
 def _make_gemini_response(text: str):
     """Create a mock Gemini API response containing the given text."""
     part = MagicMock()
@@ -229,18 +232,16 @@ class TestRecipeGenerationSuccess:
         assert result.recipe.prep_time is None
         assert result.recipe.difficulty is None
 
-    def test_empty_ingredients_list(self, recipe_service):
-        """Recipe with empty ingredients list is handled gracefully."""
+    def test_empty_ingredients_list_raises_parse_error(self, recipe_service):
+        """Recipe with empty ingredients list raises RecipeParseError, not a hollow success."""
         service, mock_client = recipe_service
 
         mock_client.models.generate_content.return_value = _make_gemini_response(
             _full_recipe_json(ingredients=[])
         )
 
-        result = service.generate(_make_request())
-
-        assert result.success is True
-        assert result.recipe.ingredients == []
+        with pytest.raises(RecipeParseError, match="ingredients"):
+            service.generate(_make_request())
 
     def test_no_images_by_default(self, recipe_service):
         """Images are None when generate_image=False."""
@@ -456,7 +457,7 @@ class TestParseRecipeDict:
 
     def test_parse_recipe_missing_name_uses_default(self):
         """Missing recipe_name falls back to 'Untitled Recipe'."""
-        data = {"ingredients": [], "directions": "Cook it."}
+        data = {"ingredients": [_INGREDIENT], "directions": "Cook it."}
         recipe = parse_recipe_dict(data)
         assert recipe.recipe_name == "Untitled Recipe"
 
@@ -466,6 +467,8 @@ class TestParseRecipeDict:
             "recipe_name": "Test",
             "prep_time": "15",
             "cook_time": "30.5",
+            "ingredients": [_INGREDIENT],
+            "directions": "Cook it.",
         }
         recipe = parse_recipe_dict(data)
         assert recipe.prep_time == 15
@@ -473,16 +476,39 @@ class TestParseRecipeDict:
 
     def test_parse_recipe_servings_as_string(self):
         """Servings provided as string is safely converted to int."""
-        data = {"recipe_name": "Test", "servings": "4"}
+        data = {
+            "recipe_name": "Test",
+            "servings": "4",
+            "ingredients": [_INGREDIENT],
+            "directions": "Cook it.",
+        }
         recipe = parse_recipe_dict(data)
         assert recipe.servings == 4
 
     def test_parse_recipe_invalid_time_returns_none(self):
         """Invalid time values return None instead of crashing."""
-        data = {"recipe_name": "Test", "prep_time": "quick", "cook_time": None}
+        data = {
+            "recipe_name": "Test",
+            "prep_time": "quick",
+            "cook_time": None,
+            "ingredients": [_INGREDIENT],
+            "directions": "Cook it.",
+        }
         recipe = parse_recipe_dict(data)
         assert recipe.prep_time is None
         assert recipe.cook_time is None
+
+    def test_parse_recipe_empty_ingredients_raises(self):
+        """Empty ingredients list raises ValueError instead of parsing as valid."""
+        data = {"recipe_name": "Test", "directions": "Cook it.", "ingredients": []}
+        with pytest.raises(ValueError, match="ingredients"):
+            parse_recipe_dict(data)
+
+    def test_parse_recipe_missing_directions_raises(self):
+        """Missing/blank directions raises ValueError instead of parsing as valid."""
+        data = {"recipe_name": "Test", "ingredients": [_INGREDIENT], "directions": "   "}
+        with pytest.raises(ValueError, match="directions"):
+            parse_recipe_dict(data)
 
 
 # ---------------------------------------------------------------------------

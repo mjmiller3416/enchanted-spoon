@@ -19,7 +19,10 @@ from app.dtos.unit_conversion_dtos import (
     UnitsResponseDTO,
 )
 from app.models.user import User
-from app.services.unit_conversion_service import UnitConversionService
+from app.services.unit_conversion_service import (
+    ConversionRuleNotFoundError,
+    UnitConversionService,
+)
 from app.utils.unit_conversion import MASS_UNITS, VOLUME_UNITS, COUNT_UNITS
 
 router = APIRouter()
@@ -144,9 +147,9 @@ async def update_rule(
     service = UnitConversionService(session, current_user.id)
     try:
         rule = service.update_rule(rule_id, update_data)
-        if not rule:
-            raise HTTPException(status_code=404, detail="Rule not found")
         return _rule_to_response_dto(rule)
+    except ConversionRuleNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -160,8 +163,9 @@ async def delete_rule(
     """Delete a rule by ID."""
     service = UnitConversionService(session, current_user.id)
     try:
-        if not service.delete_rule(rule_id):
-            raise HTTPException(status_code=404, detail="Rule not found")
+        service.delete_rule(rule_id)
         return {"message": "Rule deleted successfully"}
+    except ConversionRuleNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

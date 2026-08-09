@@ -34,6 +34,9 @@ jobs:
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
+        env:
+          # Lets the gh CLI authenticate if Claude invokes `gh pr create` via Bash
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
@@ -53,6 +56,7 @@ jobs:
           # automatic issue-context injection and reply-comment posting (tag mode).
           # Use --append-system-prompt instead so @claude mentions keep full context.
           claude_args: |
+            --allowedTools "Bash(gh pr create:*),Bash(gh pr view:*)"
             --append-system-prompt 'Follow these git conventions strictly for any commits or PRs you create:
 
             Commit messages: Use conventional commits format
@@ -68,4 +72,12 @@ jobs:
             Always end commits with:
             Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 
-            Target all PRs to the staging branch, never to main directly.'
+            Target all PRs to the staging branch, never to main directly.
+
+            After committing and pushing all your changes, open the pull request
+            yourself instead of just leaving a pre-filled PR link — run:
+              gh pr create --base staging --head <your-branch-name> --title "<type>: <description>" --body "<summary>"
+            Only run this once, after all commits for the task are pushed. The PR
+            must be a normal ready-for-review PR, not a draft. If `gh pr create`
+            fails due to authentication or permissions, fall back to reporting the
+            pre-filled PR link as before instead of retrying repeatedly.'

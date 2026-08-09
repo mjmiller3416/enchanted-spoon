@@ -1,14 +1,14 @@
 """DTOs for AI image generation."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal, Optional
 
 
 class ImageGenerationRequestDTO(BaseModel):
     """Request DTO for generating an AI image."""
 
-    recipe_name: str
-    custom_prompt: Optional[str] = None  # Custom prompt template (must include {recipe_name})
+    recipe_name: str = Field(..., max_length=255)
+    custom_prompt: Optional[str] = Field(None, max_length=500)  # Custom prompt template (must include {recipe_name})
     image_type: Literal["both", "reference", "banner"] = "both"
 
 

@@ -18,6 +18,12 @@ from ..models.unit_conversion_rule import UnitConversionRule
 from ..repositories.unit_conversion_repo import UnitConversionRepo
 
 
+# ── Domain Exceptions ────────────────────────────────────────────────────────────────────────────────────────
+class ConversionRuleNotFoundError(Exception):
+    """Raised when a unit conversion rule is not found or not owned by the user."""
+    pass
+
+
 # ── Unit Conversion Service ────────────────────────────────────────────────────────────────────────────────
 class UnitConversionService:
     """Provides unit conversion rule operations.
@@ -70,13 +76,17 @@ class UnitConversionService:
 
     def update_rule(
         self, rule_id: int, dto: UnitConversionRuleUpdateDTO
-    ) -> Optional[UnitConversionRule]:
-        """Update an existing rule."""
-        try:
-            rule = self.repo.get_by_id(rule_id)
-            if not rule:
-                return None
+    ) -> UnitConversionRule:
+        """Update an existing rule.
 
+        Raises:
+            ConversionRuleNotFoundError: If the rule doesn't exist or isn't owned by the user.
+        """
+        rule = self.repo.get_by_id(rule_id)
+        if not rule:
+            raise ConversionRuleNotFoundError(f"Conversion rule {rule_id} not found")
+
+        try:
             if dto.ingredient_name is not None:
                 rule.ingredient_name = dto.ingredient_name.lower().strip()
             if dto.from_unit is not None:
@@ -95,16 +105,20 @@ class UnitConversionService:
             self.session.rollback()
             raise e
 
-    def delete_rule(self, rule_id: int) -> bool:
-        """Delete a rule by ID."""
+    def delete_rule(self, rule_id: int) -> None:
+        """Delete a rule by ID.
+
+        Raises:
+            ConversionRuleNotFoundError: If the rule doesn't exist or isn't owned by the user.
+        """
+        rule = self.repo.get_by_id(rule_id)
+        if not rule:
+            raise ConversionRuleNotFoundError(f"Conversion rule {rule_id} not found")
+
         try:
-            rule = self.repo.get_by_id(rule_id)
-            if not rule:
-                return False
             self.repo.delete(rule)
             self.session.commit()
             self._invalidate_rule_map()
-            return True
         except SQLAlchemyError as e:
             self.session.rollback()
             raise e
