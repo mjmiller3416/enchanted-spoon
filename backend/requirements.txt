@@ -37,5 +37,8 @@ google-genai>=1.0.0
 # Recipe import (schema.org extraction from recipe websites)
 recipe-scrapers>=15.0.0
 
+# Payments
+stripe>=11.0.0
+
 # GUI (optional - only needed for desktop app)
 # PySide6>=6.6.0
