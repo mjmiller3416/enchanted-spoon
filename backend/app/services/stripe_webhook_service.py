@@ -139,6 +139,16 @@ class StripeWebhookService:
             )
             return
 
+        # Delayed payment methods complete checkout before the payment settles.
+        # Record the customer mapping but wait for invoice.paid to grant pro.
+        if checkout_session.get("payment_status") == "unpaid":
+            logger.info(
+                "checkout.session.completed for user %s is unpaid; deferring to invoice.paid",
+                user.id,
+            )
+            self.repo.update_subscription(user, stripe_customer_id=customer_id)
+            return
+
         self.repo.update_subscription(
             user,
             stripe_customer_id=customer_id,
@@ -169,7 +179,7 @@ class StripeWebhookService:
             user,
             subscription_tier=tier,
             subscription_status=status,
-            subscription_ends_at=self._to_datetime(subscription.get("current_period_end")),
+            subscription_ends_at=self._to_datetime(self._current_period_end(subscription)),
         )
 
     def _handle_subscription_deleted(self, subscription: Mapping[str, Any]) -> None:
@@ -206,6 +216,16 @@ class StripeWebhookService:
         if user is None:
             logger.warning("Stripe event referenced unknown customer_id=%s", customer_id)
         return user
+
+    @staticmethod
+    def _current_period_end(subscription: Mapping[str, Any]) -> Optional[int]:
+        # Stripe API 2025-03-31 ("basil") and later moved current_period_end
+        # off the Subscription object onto its items.
+        period_end = subscription.get("current_period_end")
+        if period_end is not None:
+            return period_end
+        items = (subscription.get("items") or {}).get("data") or []
+        return items[0].get("current_period_end") if items else None
 
     @staticmethod
     def _to_datetime(unix_timestamp: Optional[int]) -> Optional[datetime]:

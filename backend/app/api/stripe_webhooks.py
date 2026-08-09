@@ -5,6 +5,7 @@ Public route (no Clerk auth) - trust is established via Stripe's signature
 on the raw request body instead of a bearer token.
 """
 
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -17,6 +18,8 @@ from app.services.stripe_webhook_service import (
     StripeWebhookProcessingError,
     StripeWebhookService,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -42,11 +45,13 @@ async def handle_stripe_webhook(
     try:
         event = service.verify_and_parse_event(payload, stripe_signature, settings)
     except InvalidStripeSignatureError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("Stripe webhook signature verification failed: %s", e)
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
     try:
         service.handle_event(event)
     except StripeWebhookProcessingError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Stripe webhook processing failed: %s", e)
+        raise HTTPException(status_code=500, detail="Webhook processing failed")
 
     return {"received": True}

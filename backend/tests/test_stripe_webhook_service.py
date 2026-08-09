@@ -134,6 +134,52 @@ class TestHandleEventCheckoutCompleted:
         service.repo.update_subscription.assert_not_called()
         session.commit.assert_called_once()
 
+    def test_unpaid_checkout_records_customer_but_defers_pro(self):
+        service, session = _service_with_mock_repo()
+        user = User(id=7)
+        service.repo.get_by_id.return_value = user
+
+        event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "customer": "cus_delayed",
+                    "client_reference_id": "7",
+                    "payment_status": "unpaid",
+                }
+            },
+        }
+        service.handle_event(event)
+
+        service.repo.update_subscription.assert_called_once_with(
+            user, stripe_customer_id="cus_delayed"
+        )
+        session.commit.assert_called_once()
+
+    def test_no_payment_required_checkout_grants_pro(self):
+        service, session = _service_with_mock_repo()
+        user = User(id=8)
+        service.repo.get_by_id.return_value = user
+
+        event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "customer": "cus_trial",
+                    "client_reference_id": "8",
+                    "payment_status": "no_payment_required",
+                }
+            },
+        }
+        service.handle_event(event)
+
+        service.repo.update_subscription.assert_called_once_with(
+            user,
+            stripe_customer_id="cus_trial",
+            subscription_tier="pro",
+            subscription_status="active",
+        )
+
 
 # ---------------------------------------------------------------------------
 # invoice.paid
@@ -192,6 +238,32 @@ class TestHandleEventSubscriptionUpdated:
             subscription_tier=expected_tier,
             subscription_status=status,
             subscription_ends_at=datetime.fromtimestamp(1700000000, tz=timezone.utc),
+        )
+
+    def test_period_end_falls_back_to_subscription_items(self):
+        # Stripe API 2025-03-31+ ("basil") reports current_period_end on
+        # subscription items, not on the subscription object itself.
+        service, session = _service_with_mock_repo()
+        user = User(id=9)
+        service.repo.get_by_stripe_customer_id.return_value = user
+
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_basil",
+                    "status": "active",
+                    "items": {"data": [{"current_period_end": 1800000000}]},
+                }
+            },
+        }
+        service.handle_event(event)
+
+        service.repo.update_subscription.assert_called_once_with(
+            user,
+            subscription_tier="pro",
+            subscription_status="active",
+            subscription_ends_at=datetime.fromtimestamp(1800000000, tz=timezone.utc),
         )
 
 
