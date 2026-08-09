@@ -1,13 +1,17 @@
 """app/core/stripe_config.py
 
-Stripe configuration using pydantic-settings.
-Manages the API secret key and webhook signing secret.
+Stripe billing configuration using pydantic-settings.
+Manages API keys, the Pro subscription price ID, and redirect URLs
+used by Checkout and the billing portal.
 """
 
+import logging
 from functools import lru_cache
 from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class StripeSettings(BaseSettings):
@@ -15,8 +19,11 @@ class StripeSettings(BaseSettings):
     Stripe settings loaded from environment variables.
 
     Attributes:
-        stripe_secret_key: Stripe API secret key (sk_xxx) for server-side API calls
-        stripe_webhook_secret: Signing secret (whsec_xxx) used to verify webhook payloads
+        stripe_secret_key: Stripe secret key for API calls (sk_xxx)
+        stripe_webhook_secret: Signing secret for verifying webhook events (whsec_xxx)
+        stripe_price_id_pro: Price ID for the Pro subscription plan
+        frontend_url: Base URL of the frontend app, used to build Checkout
+            success/cancel URLs and the billing-portal return URL
     """
 
     model_config = SettingsConfigDict(
@@ -27,11 +34,13 @@ class StripeSettings(BaseSettings):
 
     stripe_secret_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
+    stripe_price_id_pro: Optional[str] = None
+    frontend_url: str = "http://localhost:3000"
 
     @property
     def is_configured(self) -> bool:
-        """Check if Stripe is properly configured to verify webhooks."""
-        return bool(self.stripe_webhook_secret)
+        """Check if Stripe is configured well enough to create checkout sessions."""
+        return bool(self.stripe_secret_key and self.stripe_price_id_pro)
 
 
 @lru_cache()

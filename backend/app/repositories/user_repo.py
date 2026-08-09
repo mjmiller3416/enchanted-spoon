@@ -167,6 +167,21 @@ class UserRepo:
             user.avatar_url = avatar_url
         return user
 
+    def set_stripe_customer_id(self, user: User, stripe_customer_id: str) -> User:
+        """
+        Persist the Stripe customer ID for a user.
+
+        Args:
+            user: The user to update.
+            stripe_customer_id: The Stripe customer ID (cus_xxx).
+
+        Returns:
+            The updated User (not yet committed).
+        """
+        user.stripe_customer_id = stripe_customer_id
+        self.session.flush()
+        return user
+
     def update_subscription(
         self,
         user: User,
