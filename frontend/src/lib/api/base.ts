@@ -1,6 +1,6 @@
 // Core API infrastructure: fetch wrapper, error handling, query string builder
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.213:8000";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // Default request timeout. AI endpoints (image/recipe generation, chat) can
 // legitimately run long, so those call sites pass a larger AI_TIMEOUT_MS.

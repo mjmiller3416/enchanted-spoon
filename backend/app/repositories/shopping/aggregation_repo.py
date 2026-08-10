@@ -21,6 +21,9 @@ from ...models.shopping_item import ShoppingItem
 from ...models.shopping_item_contribution import ShoppingItemContribution
 from ...utils.unit_conversion import get_dimension, to_base_unit, to_display_unit
 
+# Safety backstop for list queries that omit an explicit limit.
+MAX_LIST_ROWS = 1000
+
 
 # ── Data Classes for Aggregation ────────────────────────────────────────────────────────────────────────────
 @dataclass
@@ -292,8 +295,8 @@ class ShoppingAggregationRepo:
 
         if offset:
             stmt = stmt.offset(offset)
-        if limit:
-            stmt = stmt.limit(limit)
+        # Cap results when no explicit limit is given (see MAX_LIST_ROWS).
+        stmt = stmt.limit(limit or MAX_LIST_ROWS)
 
         result = self.session.execute(stmt)
         return result.scalars().all()

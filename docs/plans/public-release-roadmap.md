@@ -41,6 +41,14 @@ hurt if ignored:
 > interception, billing settings with usage meter, self-serve checkout, and the metered
 > free tier (#164) are built and verified locally against real Stripe test mode. Deploy,
 > then run one prod test-mode checkout to close #165.
+>
+> **Update 2026-08-09 (Phase 3):** most of gap 3 is now closed in code — CORS default no
+> longer combines wildcard + credentials, the home-LAN-IP fallback is gone, recipe-import
+> SSRF is hardened (image URL validated + redirects re-checked), list queries have a
+> server-side cap, startup config validation fails fast in production, the support email is
+> real (`info@whiskful.app` — app rebranding to **Whiskful**), security headers ship via
+> `next.config.ts`, `frontend/.env.example` exists, and a CI workflow gates the build.
+> Deferred: observability (Sentry/GlitchTip) and a full app-name rebrand.
 
 ## Status tracker
 
@@ -49,7 +57,7 @@ hurt if ignored:
 | [0](#phase-0--reliability--cost-guardrails-do-first) | Reliability & cost guardrails | — | ✅ Complete, deployed |
 | [1](#phase-1--monetization-backend) | Monetization (backend) | Phase 0's usage-limit plumbing; a product decision | ✅ Complete (#164/#166 + #165 verification moved to Phase 2) |
 | [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | 🔶 Code complete 2026-08-09 (#164/#166 done, verified locally) — deploy + one prod checkout closes #165 |
-| [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Partial (prod CORS env set, backend .env.example) |
+| [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Most items done 2026-08-09 (CORS default, LAN-IP fallback, SSRF, query caps, startup validation, support email, CI, env examples, security headers); observability deferred |
 | [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) | Not started |
 | [5](#phase-5--ai-feature-completeness) | AI feature completeness | Phase 0 | Not started |
 
@@ -229,50 +237,55 @@ run remains (last item).
 
 ## Phase 3 — Production hardening
 
-- [🔶] **Lock down CORS.** `backend/app/main.py:20-29` defaults `CORS_ORIGINS` to `"*"`
-      with `allow_credentials=True` if the env var is unset — Starlette reflects the
-      literal request `Origin` back in that configuration, so any origin can make
-      credentialed requests. `backend/.env` has no `CORS_ORIGINS` entry, making this an
-      easy miss. **Done: Railway prod has `CORS_ORIGINS` set to the frontend origin
-      (verified 2026-08-09).** Remaining: fix the unsafe wildcard+credentials *default* in
-      code — note `origin/hotfix/cors-credentials-conflict` holds an old unmerged partial
-      fix (disables credentials when origin is `*`); fold it in or supersede it, then
-      delete that branch.
-- [ ] **Fix the hardcoded LAN IP fallback.** `frontend/src/lib/api-client.ts:15`,
-      `api-server.ts:12`, and `lib/api/base.ts:3` all fall back to
-      `http://192.168.1.213:8000` (a developer's home network) if
-      `NEXT_PUBLIC_API_URL` is unset, instead of failing loudly. Same pattern in
-      `sitemap.ts`/`robots.ts` falling back to `localhost:3000`.
-- [ ] **Add startup config validation.** Nothing currently checks that
-      `SQLALCHEMY_DATABASE_URL` points at Postgres rather than silently falling back to a
-      throwaway SQLite file (`backend/app/database/db.py:14-17`), or that Clerk keys are
-      present — `AuthSettings.is_configured` (`backend/app/core/auth_config.py:51-54`) is
-      defined but never called anywhere. Wire it into a startup check, and add an explicit
-      guard against `AUTH_DISABLED=true` in a production-looking environment.
-- [ ] **Replace the placeholder support email.** `frontend/src/lib/config.ts:5`
-      (`support@mealgenie.app`) is live today on the Privacy page, Terms page, and
-      marketing footer — there's already a `TODO(launch)` comment sitting right above it.
-- [ ] **Turn CI into an actual gate.** `.github/workflows/` currently only has an
-      `@claude`-mention responder and an AI PR-review bot — neither runs `pytest` or
-      `npm run build`/`lint`. Nothing blocks a PR with new test failures or a broken
-      build from merging today.
-- [🔶] **Add `.env.example` for both `backend/` and `frontend/`** — there's currently no
-      single source of truth listing every env var Railway needs. **`backend/.env.example`
-      landed with #168 (2026-08-09); `frontend/` still missing.**
-- [ ] **Fix the SSRF gap in recipe import.** `backend/app/services/ai/recipe_import/service.py:422-453`
-      (`_download_image`) fetches a scraped `og:image`/schema.org image URL without
-      running it through the same SSRF check (`_validate_url`, lines 148-174) applied to
-      the page URL itself. Both HTTP clients also use `follow_redirects=True`, which can
-      bypass validation via a redirect even where it is checked.
-- [ ] **Cap unbounded list queries.** `recipe_repo.py:424-428` and similar only apply a
-      `LIMIT` when the caller passes one — an omitted `limit`/`offset` returns everything.
-      Low risk at today's per-user data volumes, but add a sane server-side default before
-      the user base grows.
-- [ ] *(Lower priority)* security headers (CSP/HSTS/X-Frame-Options) via
-      `next.config.ts` or an edge layer; harden the admin SQL console's keyword-denylist
-      into an allowlist or point it at a read-only DB role.
-- [ ] **Observability** — see [`error-reporting.md`](error-reporting.md); still the
-      single largest untracked-here gap (Sentry/GlitchTip not started).
+- [✅] **Lock down CORS.** `backend/app/main.py` no longer defaults to
+      `allow_credentials=True` alongside a wildcard origin. Origins are now parsed with
+      whitespace stripped, and `allow_credentials` is only enabled when specific origins
+      are configured (`allow_credentials = CORS_ORIGINS != ["*"]`) — superseding the old
+      `origin/hotfix/cors-credentials-conflict` partial fix. **Railway prod already has
+      `CORS_ORIGINS` set to the frontend origin (verified 2026-08-09).** *Remaining manual
+      step: delete the now-stale `origin/hotfix/cors-credentials-conflict` remote branch.*
+- [✅] **Fix the hardcoded LAN IP fallback.** `frontend/src/lib/api-client.ts`,
+      `api-server.ts`, and `lib/api/base.ts` now fall back to `http://localhost:8000` (the
+      documented dev default) instead of a developer's home network IP. `sitemap.ts` /
+      `robots.ts` keep their `localhost:3000` fallback intentionally — that's the
+      documented `NEXT_PUBLIC_APP_URL` dev default, not a leaked private address.
+- [✅] **Add startup config validation.** New `backend/app/core/startup.py` (`validate_config`,
+      wired into a FastAPI `lifespan`). In a production environment (`ENVIRONMENT=production`)
+      it aborts startup if `AUTH_DISABLED=true`, if Clerk isn't configured
+      (`AuthSettings.is_configured`), or if `SQLALCHEMY_DATABASE_URL` still points at SQLite;
+      in dev it logs the same conditions as notices. `ENVIRONMENT` added to `backend/.env.example`.
+- [✅] **Replace the placeholder support email.** `frontend/src/lib/config.ts` now uses
+      `info@whiskful.app` (rebrand to **Whiskful**; domain purchased 2026-08-09) and the
+      `TODO(launch)` comment is removed. *Note: a full app-name rebrand (page titles, OG
+      tags, backend API title, marketing copy) is a separate cross-cutting task — only the
+      support email was changed here.*
+- [🔶] **Turn CI into an actual gate.** New `.github/workflows/ci.yml`: a **backend** job
+      (Python 3.11, `pytest`) and a **frontend** job (Node 20, `npm run lint` + `npm run
+      build`). `npm run build` is the hard gate. pytest and lint are `continue-on-error`
+      (report-only) for now because both have a known pre-existing baseline of failures
+      (33 async-mock tests; 9 react-hooks lint errors) — drop `continue-on-error` on each
+      once its baseline is cleared to make it a hard gate.
+- [✅] **Add `.env.example` for both `backend/` and `frontend/`.** `frontend/.env.example`
+      added (mirrors `.env.local`, secrets blanked); `backend/.env.example` landed earlier
+      with #168.
+- [✅] **Fix the SSRF gap in recipe import.** `_download_image` now runs the scraped image
+      URL through `_validate_url` before fetching. Both HTTP clients switched to
+      `follow_redirects=False`; a shared `_fetch_following_validated_redirects` helper
+      follows redirects manually (capped at `MAX_REDIRECTS=5`), re-validating every hop so
+      a 3xx `Location` can't bounce the request to a private/loopback host. *(DNS-rebinding
+      — a hostname that resolves to a private IP — is still out of scope; the guard checks
+      IP literals and redirect targets, not resolved DNS.)*
+- [✅] **Cap unbounded list queries.** `recipe_repo.filter_recipes`, `meal_repo.filter_meals`,
+      and `shopping/aggregation_repo.search_shopping_items` now apply a `MAX_LIST_ROWS = 1000`
+      backstop when the caller omits `limit`, instead of returning the whole table.
+- [🔶] *(Lower priority)* **Security headers** added via `next.config.ts` `headers()`:
+      `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, HSTS,
+      `Permissions-Policy`. **CSP intentionally deferred** — it needs a careful allowlist
+      for Clerk/Cloudinary/the API origin. Still open: harden the admin SQL console's
+      keyword-denylist into an allowlist or point it at a read-only DB role.
+- [ ] **Observability** *(deferred to a dedicated follow-up, 2026-08-09)* — see
+      [`error-reporting.md`](error-reporting.md); still the single largest untracked-here
+      gap (Sentry/GlitchTip not started).
 
 ---
 
