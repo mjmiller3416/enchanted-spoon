@@ -201,6 +201,6 @@ Derive from branch name or summarize commits:
 - [workflows/merge.md](workflows/merge.md) - Squash merge to staging
 - [workflows/deploy.md](workflows/deploy.md) - PR from staging to main
 - [workflows/backport.md](workflows/backport.md) - Sync hotfixes from main to staging
-- [workflows/cleanup.md](workflows/cleanup.md) - Remove merged and stale branches
+- [workflows/cleanup.md](workflows/cleanup.md) - Remove merged/stale branches and close resolved issues
 - [workflows/pr.md](workflows/pr.md) - Push and create PR
 - [workflows/status.md](workflows/status.md) - Show status and suggest action
