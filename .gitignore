@@ -104,15 +104,6 @@ lilly.md
 .claude/tmp/diff_frontend_src_lib_api_ai.ts.txt
 .claude/tmp/diff_frontend_src_lib_api_index.ts.txt
 .claude/tmp/diff_frontend_src_types_ai.ts.txt
-backend/tests/__init__.py
-backend/tests/conftest.py
-backend/tests/test_nutrition_api.py
-backend/tests/test_nutrition_dtos.py
-backend/tests/test_nutrition_model.py
-backend/tests/test_nutrition_repo.py
-backend/tests/test_nutrition_service.py
-backend/tests/test_wizard_generation_api.py
-backend/tests/test_wizard_generation_service.py
 chat_example.md
 sarah.md
 nora.md
