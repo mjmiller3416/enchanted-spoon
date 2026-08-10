@@ -40,7 +40,10 @@ def _create_test_app(user: User | None = None) -> FastAPI:
     app = FastAPI()
     app.include_router(router, prefix="/api/ai/wizard-generation")
 
-    from app.api.auth import require_pro
+    # AI routes gate on require_within_usage_limit, which resolves the user via
+    # get_current_user — the binary require_pro gate was dropped when the
+    # metered free tier landed (#164).
+    from app.api.auth import get_current_user
     from app.database.db import get_session
 
     mock_session = MagicMock()
@@ -50,7 +53,7 @@ def _create_test_app(user: User | None = None) -> FastAPI:
     app.dependency_overrides[get_session] = lambda: mock_session
 
     if user:
-        app.dependency_overrides[require_pro] = lambda: user
+        app.dependency_overrides[get_current_user] = lambda: user
 
     return app
 
@@ -366,20 +369,24 @@ class TestRecipeGenerationValidation:
 class TestRecipeGenerationAuth:
     """Tests for authentication requirements."""
 
-    def test_no_auth_returns_403(self):
-        """Request without pro access returns 403."""
+    def test_no_auth_returns_401(self):
+        """An unauthenticated request is rejected before the AI service runs.
+
+        AI routes no longer gate on pro access (metered free tier, #164) — they
+        require authentication via get_current_user and meter usage per tier.
+        """
         from fastapi import HTTPException
 
-        from app.api.auth import require_pro
+        from app.api.auth import get_current_user
         from app.database.db import get_session
 
         app = FastAPI()
         app.include_router(router, prefix="/api/ai/wizard-generation")
 
         def deny_access():
-            raise HTTPException(status_code=403, detail="Pro subscription required")
+            raise HTTPException(status_code=401, detail="Not authenticated")
 
-        app.dependency_overrides[require_pro] = deny_access
+        app.dependency_overrides[get_current_user] = deny_access
         app.dependency_overrides[get_session] = lambda: MagicMock()
 
         client = TestClient(app)
@@ -389,7 +396,7 @@ class TestRecipeGenerationAuth:
             json=_valid_request_body(),
         )
 
-        assert response.status_code == 403
+        assert response.status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -458,7 +465,8 @@ class TestRecipeGenerationUsageLimit:
 
     def test_over_cap_returns_429(self):
         """A user at their monthly cap gets 429 before the AI service runs."""
-        from app.api.auth import require_pro
+        from app.api.auth import get_current_user
+        from app.database.db import get_session
         from app.models.user_usage import UserUsage
 
         user = _make_pro_user()
@@ -471,7 +479,7 @@ class TestRecipeGenerationUsageLimit:
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.first.return_value = maxed_usage
         app.dependency_overrides[get_session] = lambda: mock_session
-        app.dependency_overrides[require_pro] = lambda: user
+        app.dependency_overrides[get_current_user] = lambda: user
 
         client = TestClient(app)
         response = client.post(
@@ -484,7 +492,8 @@ class TestRecipeGenerationUsageLimit:
 
     def test_admin_bypasses_cap(self):
         """Admins skip the usage-limit check entirely, even over cap."""
-        from app.api.auth import require_pro
+        from app.api.auth import get_current_user
+        from app.database.db import get_session
         from app.models.user_usage import UserUsage
 
         admin = MagicMock(spec=User)
@@ -501,7 +510,7 @@ class TestRecipeGenerationUsageLimit:
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.first.return_value = maxed_usage
         app.dependency_overrides[get_session] = lambda: mock_session
-        app.dependency_overrides[require_pro] = lambda: admin
+        app.dependency_overrides[get_current_user] = lambda: admin
 
         with patch("app.api.ai.recipe_generation.UserCategoryService"), \
                 patch("app.api.ai.recipe_generation.get_recipe_generation_service") as mock_get_service, \
@@ -520,7 +529,8 @@ class TestRecipeGenerationUsageLimit:
 
     def test_under_cap_proceeds(self):
         """A user under their monthly cap is allowed through to the AI service."""
-        from app.api.auth import require_pro
+        from app.api.auth import get_current_user
+        from app.database.db import get_session
         from app.models.user_usage import UserUsage
 
         user = _make_pro_user()
@@ -533,7 +543,7 @@ class TestRecipeGenerationUsageLimit:
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.first.return_value = low_usage
         app.dependency_overrides[get_session] = lambda: mock_session
-        app.dependency_overrides[require_pro] = lambda: user
+        app.dependency_overrides[get_current_user] = lambda: user
 
         with patch("app.api.ai.recipe_generation.UserCategoryService"), \
                 patch("app.api.ai.recipe_generation.get_recipe_generation_service") as mock_get_service, \
