@@ -14,6 +14,10 @@ from app.dtos.recipe_generation_dtos import (
 )
 from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.recipe_generation import get_recipe_generation_service
+from app.services.ai.recipe_generation.service import (
+    RecipeGenerationError,
+    RecipeParseError,
+)
 from app.services.ai.response_utils import extract_text_from_response
 
 from .prompts import MODEL_NAME, API_KEY_ENV_VAR
@@ -249,29 +253,43 @@ Use your friendly Genie personality."""
             context_data.get("allowed_categories", []) if context_data else []
         )
 
-        try:
-            request = RecipeGenerationRequestDTO(
-                prompt="\n".join(prompt_parts),
-                allowed_categories=allowed_categories,
-                preferences=None,
-                generate_image=False,
-                estimate_nutrition=False,
-            )
-            # Override servings in the prompt via preferences if non-default
-            if servings and servings != 4:
-                request.preferences = RecipeGenerationPreferencesDTO(servings=servings)
+        request = RecipeGenerationRequestDTO(
+            prompt="\n".join(prompt_parts),
+            allowed_categories=allowed_categories,
+            preferences=None,
+            generate_image=False,
+            estimate_nutrition=False,
+        )
+        # Override servings in the prompt via preferences if non-default
+        if servings and servings != 4:
+            request.preferences = RecipeGenerationPreferencesDTO(servings=servings)
 
-            service = get_recipe_generation_service()
-            result = await service.generate(request)
-            if result.success and result.recipe and result.recipe.ingredients:
-                return result.recipe
-            logger.warning(
-                f"[Assistant] Recipe generation for '{recipe_name}' produced no "
-                f"usable recipe (success={result.success}, ingredients="
-                f"{len(result.recipe.ingredients) if result.recipe else 0})"
-            )
-        except Exception as e:
-            logger.warning(f"[Assistant] Recipe generation via service failed: {e}")
+        service = get_recipe_generation_service()
+
+        # A single malformed/truncated AI response (e.g. a longer, more elaborate
+        # recipe hitting the output token limit or emitting one bad ingredient
+        # entry) shouldn't sink the whole request — retry a couple of times
+        # before telling the user generation failed.
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                result = await service.generate(request)
+                if result.success and result.recipe and result.recipe.ingredients:
+                    return result.recipe
+                logger.warning(
+                    f"[Assistant] Recipe generation for '{recipe_name}' produced no "
+                    f"usable recipe (attempt {attempt}/{max_attempts}, "
+                    f"success={result.success}, ingredients="
+                    f"{len(result.recipe.ingredients) if result.recipe else 0})"
+                )
+            except (RecipeParseError, RecipeGenerationError) as e:
+                logger.warning(
+                    f"[Assistant] Recipe generation via service failed "
+                    f"(attempt {attempt}/{max_attempts}): {e}"
+                )
+            except Exception as e:
+                logger.warning(f"[Assistant] Recipe generation via service failed: {e}")
+                break
 
         # Let the caller know generation failed instead of handing back a
         # recipe that looks complete but has no ingredients/directions.
