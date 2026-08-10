@@ -12,7 +12,7 @@ export function Hero() {
             <span className="text-primary">The shopping list writes itself.</span>
           </h1>
           <p className="max-w-2xl text-lg text-muted-foreground">
-            Meal Genie keeps your recipes, weekly menu, and grocery run in one
+            Whiskful keeps your recipes, weekly menu, and grocery run in one
             place — with AI that imports recipes from any URL or dreams up new ones.
           </p>
           <div className="flex items-center gap-4">

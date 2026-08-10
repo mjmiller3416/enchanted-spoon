@@ -71,7 +71,7 @@ export function AskAssistantWidget() {
             <div className="p-1.5 rounded-lg bg-primary-surface">
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
-            <h2 className="text-lg font-semibold text-foreground">Ask Meal Genie</h2>
+            <h2 className="text-lg font-semibold text-foreground">Ask the Genie</h2>
           </div>
           <AnimatePresence>
             {hasMessages && (

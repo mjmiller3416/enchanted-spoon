@@ -9,7 +9,7 @@ import {
 
 export const metadata: Metadata = {
   title: "What's New",
-  description: "New features, improvements, and fixes in Meal Genie.",
+  description: "New features, improvements, and fixes in Whiskful.",
 };
 
 export default function WhatsNewPage() {

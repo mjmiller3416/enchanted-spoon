@@ -131,7 +131,7 @@ class AssistantServiceCore:
             {
                 "role": "model",
                 "parts": [
-                    {"text": "Got it! I'm Meal Genie, ready to help. What sounds good tonight? 🍳"}
+                    {"text": "Got it! I'm Genie, ready to help. What sounds good tonight? 🍳"}
                 ],
             }
         )

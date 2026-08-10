@@ -164,7 +164,7 @@ export const recipeImportApi = {
 
 export const AssistantApi = {
   /**
-   * Send a message to Meal Genie
+   * Send a message to the Genie
    * AI decides whether to chat, suggest recipes, or generate a full recipe
    * @param message The user's message
    * @param conversationHistory Optional previous messages for context
@@ -190,7 +190,7 @@ export const AssistantApi = {
     ),
 
   /**
-   * Send a message to Meal Genie (alias for chat)
+   * Send a message to the Genie (alias for chat)
    * @deprecated Use chat() instead
    * @param message The user's message
    * @param conversationHistory Optional previous messages for context

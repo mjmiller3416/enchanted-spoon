@@ -60,7 +60,7 @@ interface RecipeWizardViewProps {
   mode?: "create" | "edit";
   /** Recipe to load when mode is "edit". */
   recipeId?: number | null;
-  /** Generated recipe to pre-fill a create-mode wizard (e.g. from Meal Genie). */
+  /** Generated recipe to pre-fill a create-mode wizard (e.g. from the Genie). */
   initialGenerated?: RecipeGenerationResponseDTO | null;
 }
 
@@ -75,7 +75,7 @@ export function RecipeWizardView({
   recipeId = null,
   initialGenerated = null,
 }: RecipeWizardViewProps) {
-  const { data: categories = [], isLoading: categoriesLoading, error: categoriesError } = useCategories();
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
 
   const handleSave = useCallback(() => {
     onOpenChange(false);

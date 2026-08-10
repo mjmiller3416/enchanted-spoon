@@ -1,4 +1,4 @@
-# Meal Genie UI — build conventions
+# Whiskful UI — build conventions
 
 ## Canvas & theme
 Dark mode is the DEFAULT (`:root` holds the dark palette); light mode exists only when the `light` class is on the root `<html>` element. No provider is required — components work standalone (`Tooltip` embeds its own provider). Give every screen the app canvas: `bg-background text-foreground`. Mount `<Toaster />` once if you use toasts.

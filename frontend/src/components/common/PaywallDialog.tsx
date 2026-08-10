@@ -52,7 +52,7 @@ export function PaywallDialog() {
       : "You've used this month's free allowance";
 
   const description = !isLimit
-    ? "AI-powered features — importing recipes from a URL, generating images, and the Meal Genie assistant — are part of Meal Genie Pro."
+    ? "AI-powered features — importing recipes from a URL, generating images, and the Genie assistant — are part of Whiskful Pro."
     : isPro
       ? `You've hit this month's cap for ${event?.featureLabel}. It resets at the start of next month.`
       : `The free plan includes a taste of every AI feature. You've used this month's allowance for ${event?.featureLabel} — it resets at the start of next month.`;

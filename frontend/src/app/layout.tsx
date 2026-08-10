@@ -24,13 +24,13 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
-    default: "Meal Genie — Recipes, meal planning, and smart shopping lists",
-    template: "%s · Meal Genie",
+    default: "Whiskful — Recipes, meal planning, and smart shopping lists",
+    template: "%s · Whiskful",
   },
   description:
     "Save recipes, plan your week, and get an auto-built shopping list. AI-powered recipe import and generation.",
   openGraph: {
-    siteName: "Meal Genie",
+    siteName: "Whiskful",
     type: "website",
     url: "/",
   },

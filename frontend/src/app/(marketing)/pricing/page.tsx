@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Meal Genie is free for recipes, meal planning, and shopping lists. Go Pro for full AI power — recipe import, generation, food photography, and the assistant.",
+    "Whiskful is free for recipes, meal planning, and shopping lists. Go Pro for full AI power — recipe import, generation, food photography, and the assistant.",
 };
 
 const FREE_FEATURES = [
@@ -24,7 +24,7 @@ const PRO_FEATURES = [
   "Import recipes from any URL",
   "Generate complete recipes from a prompt",
   "AI food photography for your recipes",
-  "Meal Genie assistant — chat, ideas, and tips",
+  "Genie assistant — chat, ideas, and tips",
   "Generous monthly limits you'll rarely feel",
 ];
 
@@ -102,7 +102,7 @@ export default function PricingPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Already using Meal Genie? Upgrade anytime from{" "}
+        Already using Whiskful? Upgrade anytime from{" "}
         <span className="font-medium text-foreground">Settings → Plan &amp; Billing</span>.
         Cancel whenever — your recipes stay yours.
       </p>

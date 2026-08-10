@@ -73,7 +73,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
             Send Feedback
           </DialogTitle>
           <DialogDescription>
-            Help us improve Meal Genie by sharing your thoughts
+            Help us improve Whiskful by sharing your thoughts
           </DialogDescription>
         </DialogHeader>
 

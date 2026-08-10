@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Meal Genie** is a full-stack recipe management and meal planning application with AI-powered features. It consists of:
+**Whiskful** is a full-stack recipe management and meal planning application with AI-powered features. It consists of:
 
 - **Frontend**: Next.js 16 + React 19 with TypeScript, Tailwind CSS v4, shadcn/ui (New York style)
 - **Backend**: FastAPI + SQLAlchemy 2.0 with Pydantic v2, SQLite (dev) / PostgreSQL (prod)
@@ -100,7 +100,7 @@ pytest tests/test_file.py -v
 - `CLERK_PUBLISHABLE_KEY` - Used to derive JWKS URL
 - `INTEGRATION_API_KEY` - Shared secret for trusted first-party app pushes (X-API-Key header on `/api/shopping/external/*`)
 - `INTEGRATION_USER_ID` - User account that integration pushes are written to
-- `GEMINI_ASSISTANT_API_KEY` - For Meal Genie chat
+- `GEMINI_ASSISTANT_API_KEY` - For Genie chat
 - `GEMINI_TIP_API_KEY` - For cooking tips
 - `GEMINI_IMAGE_API_KEY` - For image generation
 - `GEMINI_RECIPE_GENERATION_API_KEY` - For AI recipe generation

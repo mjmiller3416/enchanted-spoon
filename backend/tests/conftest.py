@@ -1,4 +1,4 @@
-"""Shared test fixtures for the Meal Genie backend test suite.
+"""Shared test fixtures for the Whiskful backend test suite.
 
 Provides an in-memory SQLite database, session management, and common
 test data factories.

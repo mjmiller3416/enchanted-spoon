@@ -35,7 +35,7 @@ interface UseChatHistoryReturn {
 }
 
 /**
- * Hook for persisting Meal Genie chat history in localStorage.
+ * Hook for persisting Genie chat history in localStorage.
  *
  * @example
  * ```tsx

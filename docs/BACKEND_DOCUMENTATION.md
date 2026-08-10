@@ -1,4 +1,4 @@
-# Meal Genie Backend Documentation
+# Whiskful Backend Documentation
 
 Reference for architecture decisions, patterns, and workflows. For API details, see FastAPI docs at `/docs`. For model/DTO fields, read the source files directly.
 
@@ -105,7 +105,7 @@ Planner entries have a `shopping_mode` enum:
 
 All AI features use Google Gemini (`google-genai>=1.0.0`). Services live in `app/services/ai/`, endpoints in `app/api/ai/`. Each AI feature uses a separate Gemini API key for independent rate limiting.
 
-**Meal Genie Assistant** (`services/ai/assistant/`):
+**Genie Assistant** (`services/ai/assistant/`):
 - Multi-turn conversational AI with function calling
 - Sub-package: `service.py`, `prompts.py`, `tools.py`, `context.py`, `generators.py`
 - Uses `user_context_builder.py` to inject user's recipes, meals, planner state, shopping list

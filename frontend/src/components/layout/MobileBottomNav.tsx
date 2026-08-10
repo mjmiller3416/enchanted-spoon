@@ -307,7 +307,7 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
                 className="flex items-center justify-start gap-3 px-5 py-3 w-full h-auto rounded-none text-sm text-foreground"
               >
                 <Sparkles className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
-                Ask Meal Genie
+                Ask the Genie
               </Button>
             )}
 

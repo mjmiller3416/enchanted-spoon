@@ -207,7 +207,7 @@ Be warm, enthusiastic, and use 2-4 emojis naturally placed."""
 
 Be warm and helpful. Start with the most direct answer, then add one pro tip.
 Keep it concise (2-4 sentences unless it needs more detail).
-Use your friendly Meal Genie personality."""
+Use your friendly Genie personality."""
 
         final_text = self._finalize_after_tool_call(
             contents,

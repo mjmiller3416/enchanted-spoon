@@ -1,5 +1,5 @@
 export const appConfig = {
-  appName: "Meal Genie",
+  appName: "Whiskful",
   tagline: "Save recipes, plan the week, shop once.",
   supportEmail: "info@whiskful.app",
   user: {

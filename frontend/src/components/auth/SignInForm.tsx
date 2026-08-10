@@ -174,7 +174,7 @@ export function SignInForm() {
           <Logo className="h-12 w-12 text-primary" />
         </div>
         <div className="space-y-2">
-          <CardTitle className="text-2xl">Sign in to Meal Genie</CardTitle>
+          <CardTitle className="text-2xl">Sign in to Whiskful</CardTitle>
           <CardDescription>
             {step === "email" && "Welcome back! Please sign in to continue"}
             {step === "password" && `Enter your password for ${email}`}

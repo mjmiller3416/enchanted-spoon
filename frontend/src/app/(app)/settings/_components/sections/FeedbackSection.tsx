@@ -34,7 +34,7 @@ export function FeedbackSection() {
         <SectionHeader
           icon={MessageSquare}
           title="Send Feedback"
-          description="Help us improve Meal Genie by sharing your thoughts"
+          description="Help us improve Whiskful by sharing your thoughts"
         />
 
         <div className="space-y-6">
@@ -121,7 +121,7 @@ export function FeedbackSection() {
           <div className="bg-elevated rounded-xl p-4 border border-border">
             <p className="text-sm text-muted-foreground">
               Your feedback helps us prioritize improvements. Thank you
-              for helping make Meal Genie better!
+              for helping make Whiskful better!
             </p>
           </div>
         </div>

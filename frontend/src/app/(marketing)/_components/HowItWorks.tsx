@@ -13,7 +13,7 @@ const STEPS: Step[] = [
   {
     vignette: <SaveVignette />,
     title: "Save recipes",
-    body: "Type them in, import from any URL, or let Meal Genie generate one for you.",
+    body: "Type them in, import from any URL, or let the Genie generate one for you.",
   },
   {
     vignette: <PlanVignette />,

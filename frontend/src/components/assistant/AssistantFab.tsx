@@ -11,7 +11,7 @@ import { useSettings } from "@/hooks/persistence";
 const FAB_ROUTES = ["/recipes", "/meal-planner"];
 
 /**
- * Mobile-only floating "Ask Meal Genie" button. Desktop keeps the TopNav
+ * Mobile-only floating "Ask the Genie" button. Desktop keeps the TopNav
  * sparkle; mobile users otherwise have to dig into the More sheet.
  * Can be turned off in Settings → AI Features (aiFeatures.showAssistantFab).
  */
@@ -26,7 +26,7 @@ export function AssistantFab() {
   return (
     <Button
       size="icon"
-      aria-label="Ask Meal Genie"
+      aria-label="Ask the Genie"
       onClick={openAssistant}
       className="md:hidden fixed bottom-24 right-4 z-40 size-12 rounded-full shadow-floating print:hidden"
     >

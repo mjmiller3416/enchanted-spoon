@@ -1,6 +1,6 @@
 {
-  "name": "Meal Genie",
-  "short_name": "Meal Genie",
+  "name": "Whiskful",
+  "short_name": "Whiskful",
   "description": "Save recipes, plan your week, and get an auto-built shopping list.",
   "start_url": "/",
   "display": "standalone",

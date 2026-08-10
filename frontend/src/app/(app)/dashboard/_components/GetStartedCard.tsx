@@ -35,7 +35,7 @@ export function GetStartedCard({ recipesDone, planDone }: GetStartedCardProps) {
   return (
     <Card className="gap-0 p-6 shadow-raised md:p-8">
       <h3 className="text-xl font-semibold text-foreground">
-        Welcome to Meal Genie 🧞
+        Welcome to Whiskful 🧞
       </h3>
       <p className="mt-1 text-sm text-muted-foreground">
         Three steps to your first planned week.
@@ -54,7 +54,7 @@ export function GetStartedCard({ recipesDone, planDone }: GetStartedCardProps) {
             </Button>
             <Button variant="outline" onClick={openAssistant}>
               <Sparkles className="size-4" strokeWidth={1.5} />
-              Ask Meal Genie
+              Ask the Genie
             </Button>
           </div>
         </SetupStep>

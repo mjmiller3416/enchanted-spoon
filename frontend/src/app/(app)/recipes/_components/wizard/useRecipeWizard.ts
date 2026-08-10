@@ -50,7 +50,7 @@ interface UseRecipeWizardOptions {
   mode?: "create" | "edit";
   /** Recipe to load when mode is "edit". */
   recipeId?: number | null;
-  /** Generated recipe used to pre-fill a create-mode wizard (e.g. from Meal Genie). */
+  /** Generated recipe used to pre-fill a create-mode wizard (e.g. from the Genie). */
   initialGenerated?: RecipeGenerationResponseDTO | null;
 }
 
@@ -549,7 +549,7 @@ export function useRecipeWizard({
   }, [isEditMode, isInitialized, recipeId, getToken, populateFromRecipe]);
 
   // ---------------------------------------------------------------------------
-  // Create mode: seed from a pre-generated recipe (e.g. handed off by Meal Genie)
+  // Create mode: seed from a pre-generated recipe (e.g. handed off by the Genie)
   // ---------------------------------------------------------------------------
   const seededRef = useRef(false);
   useEffect(() => {

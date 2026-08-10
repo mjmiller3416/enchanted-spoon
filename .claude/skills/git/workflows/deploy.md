@@ -80,7 +80,7 @@ Even solo, a PR for production deploys gives you:
    - Remove technical jargon (file names, function names, etc.)
    - Focus on user impact ("what changed" not "how")
    - Use proper em dashes (—) not hyphens for clarifications
-   - Mention specific feature areas (Meal Genie, Shopping List, Recipe Browser, Meal Planner, etc.)
+   - Mention specific feature areas (Genie, Shopping List, Recipe Browser, Meal Planner, etc.)
    - Combine related commits into single bullets when appropriate
    - Use present tense and active voice
    - Start with action verbs when possible
@@ -97,7 +97,7 @@ Even solo, a PR for production deploys gives you:
    Changelog: New multi-select filters in Recipe Browser for easier recipe searching
 
    Commit: fix(auth): prevent token leak in error responses
-   Changelog: Fixed authentication issue with AI features — image generation and Meal Genie now properly authenticate requests
+   Changelog: Fixed authentication issue with AI features — image generation and Genie now properly authenticate requests
    ```
 
    **Step 3d: Show preview and confirm**

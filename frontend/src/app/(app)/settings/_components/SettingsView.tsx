@@ -180,7 +180,7 @@ export function SettingsView() {
               {/* Version Info */}
               <div className="mt-4 px-4 py-3 text-center">
                 <p className="text-xs text-muted-foreground">
-                  Meal Genie v{packageJson.version}
+                  Whiskful v{packageJson.version}
                 </p>
                 <p className="text-xs text-muted-foreground/70 mt-1">Made with ❤️</p>
               </div>

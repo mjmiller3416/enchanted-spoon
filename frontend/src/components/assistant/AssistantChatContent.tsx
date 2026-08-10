@@ -132,7 +132,7 @@ export function AssistantChatContent({
           <div className="p-1.5 rounded-lg bg-primary-surface">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
-          <h2 className="text-base font-semibold text-foreground">Meal Genie</h2>
+          <h2 className="text-base font-semibold text-foreground">Genie</h2>
         </div>
         <div className="flex items-center gap-1">
           <AnimatePresence>

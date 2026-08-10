@@ -43,7 +43,7 @@ export function AppearanceSection({
         <SectionHeader
           icon={Palette}
           title="Appearance"
-          description="Customize how Meal Genie looks on your device"
+          description="Customize how Whiskful looks on your device"
           accentColor="secondary"
         />
 

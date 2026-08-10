@@ -1,9 +1,9 @@
 ---
 name: verify
-description: How to launch and drive Meal Genie locally to verify changes end-to-end (backend + frontend + authenticated browser session).
+description: How to launch and drive Whiskful locally to verify changes end-to-end (backend + frontend + authenticated browser session).
 ---
 
-# Verifying Meal Genie changes at runtime
+# Verifying Whiskful changes at runtime
 
 ## Launch
 

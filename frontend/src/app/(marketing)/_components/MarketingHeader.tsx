@@ -11,7 +11,7 @@ export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-border bg-background/80 backdrop-blur-sm">
       <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4 lg:px-6">
-        <Link href="/" className="flex items-center gap-3" aria-label="Meal Genie home">
+        <Link href="/" className="flex items-center gap-3" aria-label="Whiskful home">
           <Logo className="h-8 w-8 shrink-0 text-primary" />
           <span className="whitespace-nowrap text-lg font-semibold text-foreground">
             {appConfig.appName}
