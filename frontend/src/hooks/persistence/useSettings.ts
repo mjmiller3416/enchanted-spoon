@@ -60,7 +60,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     avatar: "",
   },
   appearance: {
-    theme: "system",
+    theme: "dark",
   },
   recipePreferences: {
     defaultSortOrder: "alphabetical",
