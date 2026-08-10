@@ -171,7 +171,7 @@ export function SignInForm() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center space-y-4">
         <div className="flex justify-center">
-          <Logo className="h-12 w-12 text-primary" />
+          <Logo className="h-12 w-auto" />
         </div>
         <div className="space-y-2">
           <CardTitle className="text-2xl">Sign in to Whiskful</CardTitle>

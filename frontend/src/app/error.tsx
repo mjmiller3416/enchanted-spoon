@@ -16,7 +16,7 @@ export default function ErrorBoundary({
     <main className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardContent className="flex flex-col items-center gap-6 py-12 text-center">
-          <Logo className="h-12 w-12 text-primary" />
+          <Logo className="h-12 w-auto" />
           <div className="space-y-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Something went wrong

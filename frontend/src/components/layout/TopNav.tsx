@@ -500,7 +500,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
       >
         {/* Left section: Logo + App Name + Hamburger */}
         <div className="flex items-center gap-3 mr-6">
-          <Logo className="w-8 h-8 text-primary flex-shrink-0" />
+          <Logo className="h-8 w-auto flex-shrink-0" />
           <span className="text-lg font-semibold text-foreground whitespace-nowrap">
             {appConfig.appName}
           </span>
@@ -621,7 +621,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
         <SheetContent side="left" className="w-72 p-0">
           <SheetHeader className="px-4 pt-6 pb-2">
             <SheetTitle className="flex items-center gap-3">
-              <Logo className="w-8 h-8 text-primary" />
+              <Logo className="h-8 w-auto" />
               {appConfig.appName}
             </SheetTitle>
           </SheetHeader>
