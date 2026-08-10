@@ -7,6 +7,8 @@ export interface CurrentUserDTO {
   avatar_url: string | null;
   is_admin: boolean;
   subscription_tier: string;
+  subscription_status: string;
+  subscription_ends_at: string | null;
   has_pro_access: boolean;
   access_reason: string;
 }
@@ -18,6 +20,7 @@ export interface AdminUserDTO {
   avatar_url: string | null;
   subscription_tier: string;
   subscription_status: string;
+  subscription_ends_at: string | null;
   is_admin: boolean;
   has_pro_access: boolean;
   access_reason: string;

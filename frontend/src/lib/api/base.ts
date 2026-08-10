@@ -62,7 +62,14 @@ export async function fetchApi<T>(
 
     try {
       const errorData = await response.json();
-      errorMessage = errorData.detail || errorData.message || errorMessage;
+      // `detail` may be a structured object (e.g. usage_limit_exceeded 429s
+      // carry {error, field, current, limit, message}) — never let an object
+      // become the Error message.
+      const detail = errorData.detail;
+      errorMessage =
+        (typeof detail === "string" ? detail : detail?.message) ||
+        errorData.message ||
+        errorMessage;
       details = errorData;
     } catch {
       // Ignore JSON parse errors

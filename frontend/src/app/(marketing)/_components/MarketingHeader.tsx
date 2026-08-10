@@ -18,6 +18,9 @@ export function MarketingHeader() {
           </span>
         </Link>
         <div className="flex items-center gap-2">
+          <Button asChild variant="ghost" className="hidden sm:inline-flex">
+            <Link href="/pricing">Pricing</Link>
+          </Button>
           <Button asChild variant="ghost">
             <Link href="/sign-in">Sign in</Link>
           </Button>

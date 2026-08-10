@@ -180,11 +180,16 @@ export function AdminUsersSection() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {getAccessBadge(user)}
 
-                    {user.granted_pro_until && (
+                    {user.granted_pro_until ? (
                       <span className="text-xs text-muted-foreground hidden sm:inline">
                         until {formatDate(user.granted_pro_until)}
                       </span>
-                    )}
+                    ) : user.access_reason === "subscription" &&
+                      user.subscription_ends_at ? (
+                      <span className="text-xs text-muted-foreground hidden sm:inline">
+                        renews {formatDate(user.subscription_ends_at)}
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0">

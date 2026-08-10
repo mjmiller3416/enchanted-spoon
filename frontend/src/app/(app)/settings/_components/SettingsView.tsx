@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,10 +12,12 @@ import { SidebarPageSkeleton } from "@/components/layout/SidebarPageSkeleton";
 import { DataManagementSection } from "./sections/DataManagementSection";
 import { useSettings, DEFAULT_SETTINGS } from "@/hooks/persistence/useSettings";
 import { useTheme } from "@/hooks/ui";
+import { currentUserQueryKeys } from "@/hooks/api/queryKeys";
 import packageJson from "../../../../../package.json";
 
 import { CategoryNav, CATEGORIES, type SettingsCategory } from "./CategoryNav";
 import { ProfileSection } from "./sections/ProfileSection";
+import { BillingSection } from "./sections/BillingSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { FeedbackSection } from "./sections/FeedbackSection";
 import { AIFeaturesSection } from "./sections/AIFeaturesSection";
@@ -21,15 +25,42 @@ import { RecipePreferencesSection } from "./sections/RecipePreferencesSection";
 import { ShoppingListSection } from "./sections/ShoppingListSection";
 
 export function SettingsView() {
-  const [activeCategory, setActiveCategory] =
-    useState<SettingsCategory>("profile");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  // Stripe Checkout returns to /settings?checkout=success|cancelled
+  // (see BillingService success_url/cancel_url) — land on the billing tab.
+  const [activeCategory, setActiveCategory] = useState<SettingsCategory>(() =>
+    searchParams.get("checkout") ? "billing" : "profile"
+  );
   const { settings, isLoaded, updateSettings, resetSection } = useSettings();
   const { theme, setTheme } = useTheme();
 
+  const checkoutHandled = useRef(false);
+  useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    if (!checkout || checkoutHandled.current) return;
+    checkoutHandled.current = true;
+
+    if (checkout === "success") {
+      toast.success("Welcome to Pro! Your subscription is now active.");
+      // Webhook writes the new tier — refetch profile + usage caps.
+      queryClient.invalidateQueries({ queryKey: currentUserQueryKeys.all });
+    } else if (checkout === "cancelled") {
+      toast.info("Checkout cancelled — no changes were made.");
+    }
+    router.replace("/settings", { scroll: false });
+  }, [searchParams, router, queryClient]);
+
   // Handle reset current section
   const handleResetSection = () => {
-    // Feedback and Data Management are actions, not persistent settings
-    if (activeCategory === "feedback" || activeCategory === "dataManagement") {
+    // Feedback, Data Management, and Billing are actions/server state,
+    // not persistent local settings
+    if (
+      activeCategory === "feedback" ||
+      activeCategory === "dataManagement" ||
+      activeCategory === "billing"
+    ) {
       toast.info("This section has no saved settings to reset");
       return;
     }
@@ -46,6 +77,9 @@ export function SettingsView() {
       case "profile":
         // Profile is now managed by Clerk - no props needed
         return <ProfileSection />;
+
+      case "billing":
+        return <BillingSection />;
 
       case "appearance":
         return <AppearanceSection theme={theme} onThemeChange={setTheme} />;

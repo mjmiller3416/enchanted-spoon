@@ -36,6 +36,11 @@ hurt if ignored:
 > (Phase 0 deployed), and the full Stripe backend (checkout, portal, webhook sync) is live
 > in test mode with the $4.99/mo Pro price configured. Gap 3 (hardening) remains the main
 > open front alongside the Phase 2 upgrade-flow UI.
+>
+> **Update 2026-08-09 (later):** Phase 2 is code complete — pricing page, paywall/429
+> interception, billing settings with usage meter, self-serve checkout, and the metered
+> free tier (#164) are built and verified locally against real Stripe test mode. Deploy,
+> then run one prod test-mode checkout to close #165.
 
 ## Status tracker
 
@@ -43,7 +48,7 @@ hurt if ignored:
 |---|---|---|---|
 | [0](#phase-0--reliability--cost-guardrails-do-first) | Reliability & cost guardrails | — | ✅ Complete, deployed |
 | [1](#phase-1--monetization-backend) | Monetization (backend) | Phase 0's usage-limit plumbing; a product decision | ✅ Complete (#164/#166 + #165 verification moved to Phase 2) |
-| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | Not started — next up; now owns #164, #166, #165 close-out |
+| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | 🔶 Code complete 2026-08-09 (#164/#166 done, verified locally) — deploy + one prod checkout closes #165 |
 | [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Partial (prod CORS env set, backend .env.example) |
 | [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) | Not started |
 | [5](#phase-5--ai-feature-completeness) | AI feature completeness | Phase 0 | Not started |
@@ -176,37 +181,49 @@ button to click, and the 429 UX shares one interception layer with the Phase 2 p
 
 ## Phase 2 — Monetization (frontend)
 
-- [ ] **Pricing page.** No `pricing/` route exists in the `(marketing)` group today, and
-      current marketing copy ("Free to use", "Get started free" — `Hero.tsx`,
-      `CtaBand.tsx`) doesn't mention a paid tier at all.
-- [ ] **Checkout + upgrade flow.** No upgrade button, paywall modal, or "Upgrade to Pro"
-      CTA exists anywhere in the app today. "Pro" can currently only be turned on by an
-      admin, manually, per user — there's no self-serve path even if a user wanted to pay.
-- [ ] **Account/billing settings section.** Settings → Profile shows only Clerk identity
-      info. Add plan, renewal date, a usage meter (if Phase 1 goes metered), and a
-      "Manage billing" link to the Stripe customer portal.
-- [ ] **Graceful 403 + 429 handling on AI calls** *(absorbs #166, moved from Phase 1).*
-      `frontend/src/lib/api-client.ts` has only generic error handling — a free user
-      hitting any of the 7 pro-gated AI endpoints sees a raw/generic error toast, and a
-      capped user gets nothing from the backend's structured 429
-      (`usage_limit_exceeded`, which carries `current`/`limit`). Build ONE interception
-      layer for both: 403 → paywall prompt offering the upgrade flow; 429 → "monthly
-      limit reached (x/X), resets next month" with an upgrade nudge for free users.
-- [ ] **Enable the metered free tier** (#164, moved from Phase 1). Once the upgrade flow
-      above exists: relax the `require_pro` gate inside `require_within_usage_limit`
-      (`backend/app/api/auth/dependencies.py`) so free users fall through to the tier-cap
-      check, and set real "taste-test" free-cap values in `TIER_USAGE_LIMITS` (policy:
-      enough to see each AI feature work, not enough to truly use it — see the tier
-      philosophy note in #161). Sequenced last-ish deliberately: shipping it before the
-      paywall UX exists turns free users' 403s into unexplained 429s.
-- [ ] **Final Stripe verification** (#165 remainder, moved from Phase 1). Run a real
-      test-mode checkout through the new upgrade flow and confirm the admin Users list
-      renders the Stripe-driven `subscription_tier`/`subscription_status`/
-      `subscription_ends_at`. Closes #165.
-- [ ] **Surface the data that's already being fetched.** `useCurrentUser()`
-      (`frontend/src/hooks/api/useAdmin.ts:21`) already returns `has_pro_access` and
-      `subscription_tier` — today only `is_admin` is ever read from it. Once there's
-      somewhere to show it, this is a small change.
+**Code complete 2026-08-09** — everything below built and verified locally end-to-end
+(sign-in as free user → 429 → paywall dialog → checkout session → Stripe-hosted test
+page → cancel return to Settings → Plan & Billing). Only the post-deploy prod checkout
+run remains (last item).
+
+- [✅] **Pricing page.** `(marketing)/pricing` route: Free vs Pro ($4.99/mo) cards,
+      linked from the marketing header + footer, added to `sitemap.ts` and the public
+      routes in `proxy.ts`. CtaBand copy updated from "Free to use" to "Free to start"
+      with a Pro/pricing mention.
+- [✅] **Checkout + upgrade flow.** "Upgrade to Pro — $4.99/mo" buttons in the paywall
+      dialog and Settings → Plan & Billing, both driving `POST
+      /api/billing/checkout-session` → Stripe-hosted Checkout
+      (`hooks/api/useBilling.ts`). Return params `?checkout=success|cancelled` land on
+      the billing tab with a toast; success invalidates the cached profile/usage.
+- [✅] **Account/billing settings section.** New Settings → Plan & Billing category
+      (`sections/BillingSection.tsx`): plan badge, renewal date
+      (`subscription_ends_at`, now on `CurrentUserDTO`), per-feature usage meter
+      (new `GET /api/users/me/usage`), Upgrade CTA for free users, "Manage billing" →
+      Stripe portal for subscribers.
+- [✅] **Graceful 403 + 429 handling on AI calls** *(closes #166)*. ONE interception
+      layer in `lib/paywall.ts`: React Query mutations are caught globally via
+      `MutationCache.onError` (QueryProvider); the wizard's direct generate/import calls
+      and the assistant chat call it explicitly. 403 pro-required → upgrade paywall
+      dialog; 429 `usage_limit_exceeded` → "used this month's allowance (x/X), resets
+      next month" with upgrade CTA for free users (plain notice for capped pro users).
+      Also fixed `fetchApi`/`apiFetch` turning structured 429 detail objects into
+      `[object Object]` error messages.
+- [✅] **Enable the metered free tier** (#164). `require_within_usage_limit` now depends
+      on `get_current_user` instead of `require_pro` — free users fall through to the
+      tier-cap check. Taste-test caps in `TIER_USAGE_LIMITS`: 3 images / 10 suggestions
+      (shared by 4 features) / 10 assistant messages / 5 imports per month. Covered by
+      `tests/test_metered_free_tier.py` (free under/at cap, pro, admin exempt, usage
+      endpoint).
+- [🔶] **Final Stripe verification** (#165 remainder). Local end-to-end passed: checkout
+      session created from the paywall, Stripe customer persisted
+      (`stripe_customer_id` written), cancel path returns to the billing tab. The admin
+      Users list now renders `subscription_ends_at` ("renews {date}") next to the tier
+      badge. **Remaining (needs this code deployed):** one real test-mode checkout in
+      prod through the upgrade flow → confirm the webhook flips the tier and the admin
+      list shows the Stripe-driven values. Then close #165.
+- [✅] **Surface the data that's already being fetched.** `subscription_tier` /
+      `has_pro_access` / `subscription_status` / `subscription_ends_at` now render in
+      Settings → Plan & Billing and the admin Users list.
 
 ---
 

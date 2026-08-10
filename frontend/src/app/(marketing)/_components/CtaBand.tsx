@@ -18,7 +18,15 @@ export function CtaBand() {
             This week&apos;s meals, planned in minutes.
           </h2>
           <p className="max-w-xl text-muted-foreground">
-            Free to use — save your first recipe and plan your first week tonight.
+            Free to start — save your first recipe and plan your first week
+            tonight. Go{" "}
+            <Link
+              href="/pricing"
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              Pro
+            </Link>{" "}
+            when you want the AI doing the heavy lifting.
           </p>
           <Button asChild size="lg">
             <Link href="/sign-up">Get started free</Link>

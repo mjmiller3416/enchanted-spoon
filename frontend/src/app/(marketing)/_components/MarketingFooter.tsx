@@ -17,6 +17,9 @@ export function MarketingFooter() {
           aria-label="Footer"
           className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground"
         >
+          <Link href="/pricing" className="transition-colors hover:text-foreground">
+            Pricing
+          </Link>
           <Link href="/privacy" className="transition-colors hover:text-foreground">
             Privacy
           </Link>

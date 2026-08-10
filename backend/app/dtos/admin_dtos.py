@@ -26,6 +26,8 @@ class CurrentUserDTO(BaseModel):
     avatar_url: Optional[str] = None
     is_admin: bool
     subscription_tier: str
+    subscription_status: str
+    subscription_ends_at: Optional[datetime] = None
     has_pro_access: bool
     access_reason: str
 
@@ -38,6 +40,8 @@ class CurrentUserDTO(BaseModel):
             avatar_url=user.avatar_url,
             is_admin=user.is_admin,
             subscription_tier=user.subscription_tier,
+            subscription_status=user.subscription_status,
+            subscription_ends_at=user.subscription_ends_at,
             has_pro_access=user.has_pro_access,
             access_reason=user.access_reason,
         )
@@ -55,6 +59,7 @@ class AdminUserListDTO(BaseModel):
     avatar_url: Optional[str] = None
     subscription_tier: str
     subscription_status: str
+    subscription_ends_at: Optional[datetime] = None
     is_admin: bool
     has_pro_access: bool
     access_reason: str
@@ -72,6 +77,7 @@ class AdminUserListDTO(BaseModel):
             avatar_url=user.avatar_url,
             subscription_tier=user.subscription_tier,
             subscription_status=user.subscription_status,
+            subscription_ends_at=user.subscription_ends_at,
             is_admin=user.is_admin,
             has_pro_access=user.has_pro_access,
             access_reason=user.access_reason,
@@ -113,6 +119,23 @@ class AdminUsageLimitsDTO(BaseModel):
     ai_assistant_messages: Optional[int] = None
     recipes_imported: Optional[int] = None
 
+    @classmethod
+    def for_user(cls, user: User) -> AdminUsageLimitsDTO:
+        """Resolve per-field caps from the user's effective tier.
+
+        Admins are uncapped, so all their limits are ``None`` (mirrors the
+        ``is_admin`` bypass in ``require_within_usage_limit``).
+        """
+        if user.is_admin:
+            return cls()
+        tier = "pro" if user.has_pro_access else "free"
+        return cls(
+            ai_images_generated=get_monthly_limit(tier, "ai_images_generated"),
+            ai_suggestions_requested=get_monthly_limit(tier, "ai_suggestions_requested"),
+            ai_assistant_messages=get_monthly_limit(tier, "ai_assistant_messages"),
+            recipes_imported=get_monthly_limit(tier, "recipes_imported"),
+        )
+
 
 class AdminUserUsageDTO(BaseModel):
     """Response DTO for a single user's monthly AI feature usage."""
@@ -137,24 +160,10 @@ class AdminUserUsageDTO(BaseModel):
         """Build the DTO from a user and its (possibly missing) usage row.
 
         Counters default to 0 when the user has no ``UserUsage`` row for the
-        requested month. Limits are resolved from the user's effective tier;
-        admins are uncapped, so all their limits are ``None`` (mirrors the
-        ``is_admin`` bypass in ``require_within_usage_limit``).
+        requested month. Limits are resolved from the user's effective tier
+        via ``AdminUsageLimitsDTO.for_user``.
         """
-        if user.is_admin:
-            limits = AdminUsageLimitsDTO()
-        else:
-            tier = "pro" if user.has_pro_access else "free"
-            limits = AdminUsageLimitsDTO(
-                ai_images_generated=get_monthly_limit(tier, "ai_images_generated"),
-                ai_suggestions_requested=get_monthly_limit(
-                    tier, "ai_suggestions_requested"
-                ),
-                ai_assistant_messages=get_monthly_limit(
-                    tier, "ai_assistant_messages"
-                ),
-                recipes_imported=get_monthly_limit(tier, "recipes_imported"),
-            )
+        limits = AdminUsageLimitsDTO.for_user(user)
 
         return cls(
             user_id=user.id,
@@ -177,6 +186,28 @@ class AdminUsageResponseDTO(BaseModel):
 
     month: str
     users: List[AdminUserUsageDTO]
+
+
+class CurrentUserUsageDTO(BaseModel):
+    """Response DTO for /api/users/me/usage — the settings usage meter."""
+
+    month: str
+    ai_images_generated: int
+    ai_suggestions_requested: int
+    ai_assistant_messages: int
+    recipes_imported: int
+    limits: AdminUsageLimitsDTO
+
+    @classmethod
+    def from_models(cls, user: User, usage: UserUsage) -> CurrentUserUsageDTO:
+        return cls(
+            month=usage.month,
+            ai_images_generated=usage.ai_images_generated or 0,
+            ai_suggestions_requested=usage.ai_suggestions_requested or 0,
+            ai_assistant_messages=usage.ai_assistant_messages or 0,
+            recipes_imported=usage.recipes_imported or 0,
+            limits=AdminUsageLimitsDTO.for_user(user),
+        )
 
 
 # ── Database Query DTOs ─────────────────────────────────────────────────────

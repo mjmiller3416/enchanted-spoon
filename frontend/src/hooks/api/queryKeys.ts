@@ -54,6 +54,7 @@ export const adminQueryKeys = {
 
 export const currentUserQueryKeys = {
   all: ["currentUser"] as const,
+  usage: () => [...currentUserQueryKeys.all, "usage"] as const,
 };
 
 // Re-export shopping keys for consistency
