@@ -342,7 +342,9 @@ export function NutritionStep({
             {estimateMutation.isError && (
               <div role="alert" aria-live="assertive">
                 <p className="text-sm text-destructive">
-                  Failed to estimate nutrition. Please try again.
+                  {estimateMutation.error instanceof Error && estimateMutation.error.message
+                    ? estimateMutation.error.message
+                    : "Failed to estimate nutrition. Please try again."}
                 </p>
               </div>
             )}

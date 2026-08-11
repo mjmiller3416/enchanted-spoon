@@ -69,6 +69,27 @@ class TestGenerateRecipeFromArgs:
 
         assert result is None
 
+    async def test_transient_parse_error_is_retried(self):
+        """A single malformed/truncated AI response (issue #177) should not sink
+        the whole request — the service should retry before giving up."""
+        from app.services.ai.recipe_generation.service import RecipeParseError
+
+        service = _make_service()
+        recipe = _full_recipe()
+        with patch(
+            "app.services.ai.assistant.generators.get_recipe_generation_service"
+        ) as get_service:
+            get_service.return_value.generate = AsyncMock(
+                side_effect=[
+                    RecipeParseError("truncated JSON"),
+                    RecipeGenerationResponseDTO(success=True, recipe=recipe),
+                ]
+            )
+            result = await service._generate_recipe_from_args({"recipe_name": "Tacos"})
+
+        assert result is recipe
+        assert get_service.return_value.generate.await_count == 2
+
     async def test_hollow_success_returns_none(self):
         """success=True but no ingredients must not be treated as a real recipe."""
         service = _make_service()
