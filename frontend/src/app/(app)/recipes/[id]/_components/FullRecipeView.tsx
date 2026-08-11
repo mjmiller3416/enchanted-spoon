@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FavoriteButton } from "@/components/common/FavoriteButton";
+import { useWakeLock } from "@/hooks/ui";
 import { backOrFallback } from "@/lib/navigation";
 import type { RecipeResponseDTO, NutritionFactsResponseDTO } from "@/types/recipe";
 
@@ -124,6 +125,13 @@ export function FullRecipeView() {
   // Print functionality from custom hook
   const { printDialogOpen, setPrintDialogOpen, printOptions, handlePrint } = usePrintRecipe();
 
+  // Cook Mode — keep the screen awake while following the recipe
+  const {
+    isSupported: cookModeSupported,
+    isActive: cookMode,
+    toggle: toggleCookMode,
+  } = useWakeLock();
+
   // Local state for dialogs
   const [mealPlanDialogOpen, setMealPlanDialogOpen] = useState(false);
   const [manageGroupsDialogOpen, setManageGroupsDialogOpen] = useState(false);
@@ -193,6 +201,9 @@ export function FullRecipeView() {
           <RecipeHeaderCard
             recipe={recipe}
             recipeId={recipeId}
+            cookMode={cookMode}
+            cookModeSupported={cookModeSupported}
+            onCookModeToggle={toggleCookMode}
             onMealPlanClick={() => setMealPlanDialogOpen(true)}
             onManageGroupsClick={() => setManageGroupsDialogOpen(true)}
             onPrintClick={() => setPrintDialogOpen(true)}
