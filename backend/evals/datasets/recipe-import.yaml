@@ -1,0 +1,107 @@
+# Recipe-import golden set — STRUCTURED tier (faithful normalization, not creation).
+# `source_block` mirrors what the service feeds Gemini: the structured-scrape block
+# (recipe_import/service.py:_build_source_block) or the raw-text fallback. Ground
+# truth lives in the extra vars and is checked by assertions/recipeImport.js:
+#   expected_name              — recipe_name must contain this (case-insensitive)
+#   expected_ingredient_count  — the faithfulness signal: did it keep EVERY ingredient
+#   ingredient_count_tolerance — 0 for structured blocks, loosened for prose fallback
+#   expect_no_recipe           — true → output must be exactly {"no_recipe_found": true}
+
+- description: "structured: classic pancakes (schema.org block)"
+  vars:
+    allowed_categories: &cats "american|chinese|french|indian|italian|japanese|mediterranean|mexican|thai|other"
+    source_block: |-
+      Structured recipe data extracted from the page:
+      Title: Classic Fluffy Pancakes
+      Description: Light and fluffy pancakes perfect for weekend breakfast.
+      Prep time (minutes): 10
+      Cook time (minutes): 15
+      Yields: 4 servings
+      Cuisine: American
+      Ingredients:
+      - 1 1/2 cups all-purpose flour
+      - 3 1/2 teaspoons baking powder
+      - 1 tablespoon white sugar
+      - 1 1/4 cups milk
+      - 1 egg
+      - 3 tablespoons butter, melted
+      Instructions:
+      Sift together the flour, baking powder and sugar. Make a well in the center and pour in the milk, egg and melted butter; mix until smooth. Heat a lightly oiled griddle over medium-high heat. Pour batter onto the griddle, about 1/4 cup per pancake. Brown on both sides and serve hot.
+    expected_name: "Pancakes"
+    expected_ingredient_count: 6
+    ingredient_count_tolerance: 0
+    expect_no_recipe: false
+
+- description: "structured: chicken alfredo (schema.org block)"
+  vars:
+    allowed_categories: *cats
+    source_block: |-
+      Structured recipe data extracted from the page:
+      Title: Creamy Chicken Alfredo
+      Description: Restaurant-style fettuccine alfredo with pan-seared chicken.
+      Prep time (minutes): 15
+      Cook time (minutes): 20
+      Yields: 4 servings
+      Cuisine: Italian
+      Ingredients:
+      - 1 pound fettuccine
+      - 2 tablespoons butter
+      - 2 cloves garlic, minced
+      - 1 cup heavy cream
+      - 1 1/2 cups grated parmesan cheese
+      - 2 boneless skinless chicken breasts
+      - 1 tablespoon olive oil
+      - salt and pepper to taste
+      Instructions:
+      Cook the fettuccine until al dente. Season and sear the chicken in olive oil, then slice. In the same pan melt butter, cook garlic, add cream and parmesan and simmer until thick. Toss the pasta in the sauce, top with sliced chicken.
+    expected_name: "Alfredo"
+    expected_ingredient_count: 8
+    ingredient_count_tolerance: 0
+    expect_no_recipe: false
+
+- description: "structured: guacamole (schema.org block)"
+  vars:
+    allowed_categories: *cats
+    source_block: |-
+      Structured recipe data extracted from the page:
+      Title: Fresh Restaurant-Style Guacamole
+      Description: A bright, chunky guacamole ready in ten minutes.
+      Prep time (minutes): 10
+      Yields: 6 servings
+      Cuisine: Mexican
+      Ingredients:
+      - 3 ripe avocados
+      - 1 lime, juiced
+      - 1 teaspoon salt
+      - 1/2 cup diced onion
+      - 3 tablespoons chopped fresh cilantro
+      - 2 roma tomatoes, diced
+      - 1 clove garlic, minced
+      Instructions:
+      Mash the avocados with the lime juice and salt. Fold in the onion, cilantro, tomatoes and garlic. Let sit 10 minutes for flavors to meld, then serve.
+    expected_name: "Guacamole"
+    expected_ingredient_count: 7
+    ingredient_count_tolerance: 0
+    expect_no_recipe: false
+
+- description: "text fallback: banana bread (raw page prose)"
+  vars:
+    allowed_categories: *cats
+    source_block: |-
+      Raw text content of the page (extract the recipe from it):
+      The Best Banana Bread My grandmother's banana bread is moist, sweet, and comes together in one bowl. Ready in about an hour and makes one loaf (about 8 slices). You will need 2 to 3 very ripe bananas, mashed, 1/3 cup melted butter, 1 teaspoon baking soda, a pinch of salt, 3/4 cup sugar, 1 large egg, beaten, 1 teaspoon vanilla extract, and 1 1/2 cups all-purpose flour. Preheat the oven to 350 F. Mix the mashed bananas with the melted butter, then stir in the baking soda and salt. Stir in the sugar, egg, and vanilla, then mix in the flour. Pour into a buttered loaf pan and bake for 50 minutes to an hour. Comments (42) Leave a review Print this recipe.
+    expected_name: "Banana Bread"
+    expected_ingredient_count: 8
+    ingredient_count_tolerance: 1
+    expect_no_recipe: false
+
+- description: "no recipe: about page (must return no_recipe_found)"
+  vars:
+    allowed_categories: *cats
+    source_block: |-
+      Raw text content of the page (extract the recipe from it):
+      About Our Company Founded in 2012, our test kitchen is dedicated to bringing you trustworthy, thoroughly tested advice. Meet the team, read about our editorial standards, and learn how we independently review kitchen equipment. Subscribe to our newsletter for weekly updates. Contact us | Careers | Privacy Policy | Terms of Service.
+    expected_name: ""
+    expected_ingredient_count: 0
+    ingredient_count_tolerance: 0
+    expect_no_recipe: true

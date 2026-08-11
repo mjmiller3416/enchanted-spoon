@@ -1,0 +1,10 @@
+Generate a single, helpful cooking tip about {{category}}. The tip should be:
+- Practical and actionable
+- About 1-2 sentences long
+- Suitable for home cooks of all skill levels
+- Something specific and useful, not generic advice
+- Include one concrete detail (time, temperature, ratio, or specific tool) when appropriate
+
+Avoid overused tips like "don't overcrowd the pan", "reserve pasta water", or "pat protein dry" unless providing a truly novel angle.
+
+Just provide the tip text directly, no prefix like "Tip:" or bullet points.

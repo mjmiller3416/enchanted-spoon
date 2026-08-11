@@ -1,0 +1,18 @@
+# Cooking-tips golden set — OPEN-ENDED tier.
+# Production picks a category from a 37-item shuffle bag (cooking_tips.py:28-67)
+# and asks for one tip. Quality is judged, not diffed. This is a representative
+# subset of those categories (add more rows to widen coverage — each row is one
+# generation per provider). Consistency/variety across repeats is measured by
+# the config's `repeat` setting, not here.
+- vars: { category: "grilling and barbecue" }
+- vars: { category: "baking and pastry" }
+- vars: { category: "knife skills and cutting techniques" }
+- vars: { category: "sauce making" }
+- vars: { category: "stir-frying and wok cooking" }
+- vars: { category: "cooking with herbs and spices" }
+- vars: { category: "flavor balancing (salt, acid, fat, heat)" }
+- vars: { category: "caramelization and browning" }
+- vars: { category: "seafood preparation" }
+- vars: { category: "meat preparation and resting" }
+- vars: { category: "substitutions and ingredient swaps" }
+- vars: { category: "bread and yeast fermentation" }

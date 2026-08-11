@@ -1,0 +1,86 @@
+# Recipe-generation golden set — STRUCTURED tier.
+# Generative, so we don't diff against a fixed recipe; the programmatic assertions
+# (assertions/recipeSchema.js) check: valid JSON, RecipeGeneratedDTO shape, category/
+# unit enums, 6-15 ingredients, 5-10 direction steps, sane quantities, and — when
+# expect_nutrition is true — macro↔calorie reconciliation (4/4/9) via nutritionSchema.js.
+#
+# `allowed_categories` and `nutrition_schema` mirror what the service interpolates
+# (recipe_generation/service.py:77-88). Anchored on the first row, aliased after.
+# `expect_nutrition` tells the assertion whether a nutrition_facts block must exist.
+
+- description: "weeknight chicken casserole (no prefs)"
+  vars:
+    prompt: "A cozy chicken and rice casserole for a weeknight"
+    preferences_text: ""
+    allowed_categories: &cats "american|chinese|french|indian|italian|japanese|mediterranean|mexican|thai|other"
+    nutrition_schema: &nutschema |-
+      ,
+        "nutrition_facts": {
+          "calories": <integer or null>,
+          "protein_g": <float or null>,
+          "total_fat_g": <float or null>,
+          "saturated_fat_g": <float or null>,
+          "trans_fat_g": <float or null>,
+          "cholesterol_mg": <float or null>,
+          "sodium_mg": <float or null>,
+          "total_carbs_g": <float or null>,
+          "dietary_fiber_g": <float or null>,
+          "total_sugars_g": <float or null>
+        }
+    expect_nutrition: true
+
+- description: "spicy vegan thai curry (dietary+category prefs)"
+  vars:
+    prompt: "A spicy Thai curry"
+    preferences_text: "\nPreferences:\n- Category: thai\n- Dietary preference: vegan"
+    allowed_categories: *cats
+    nutrition_schema: *nutschema
+    expect_nutrition: true
+
+- description: "quick pasta (no prefs)"
+  vars:
+    prompt: "A quick 20-minute pasta dinner"
+    preferences_text: ""
+    allowed_categories: *cats
+    nutrition_schema: *nutschema
+    expect_nutrition: true
+
+- description: "gluten-free dessert (dietary+meal_type prefs)"
+  vars:
+    prompt: "A rich chocolate dessert"
+    preferences_text: "\nPreferences:\n- Dietary preference: gluten-free\n- Meal type: dessert"
+    allowed_categories: *cats
+    nutrition_schema: *nutschema
+    expect_nutrition: true
+
+- description: "hearty beef stew (servings pref)"
+  vars:
+    prompt: "A hearty beef stew for a cold day"
+    preferences_text: "\nPreferences:\n- Servings: 6"
+    allowed_categories: *cats
+    nutrition_schema: *nutschema
+    expect_nutrition: true
+
+- description: "grilled shrimp salad (no prefs)"
+  vars:
+    prompt: "A light summer salad with grilled shrimp"
+    preferences_text: ""
+    allowed_categories: *cats
+    nutrition_schema: *nutschema
+    expect_nutrition: true
+
+- description: "keto breakfast (dietary+meal_type prefs)"
+  vars:
+    prompt: "A keto breakfast with eggs and avocado"
+    preferences_text: "\nPreferences:\n- Dietary preference: keto\n- Meal type: breakfast"
+    allowed_categories: *cats
+    nutrition_schema: *nutschema
+    expect_nutrition: true
+
+- description: "margherita pizza (nutrition OFF path)"
+  vars:
+    prompt: "A simple margherita pizza"
+    preferences_text: ""
+    allowed_categories: *cats
+    nutrition_schema: ""
+    expect_nutrition: false

@@ -78,15 +78,29 @@ attribution right when the eval needs it most.
 
 | Phase | Focus | Depends on | Status |
 |---|---|---|---|
-| [0](#phase-0--eval-harness-first-the-ruler) | Offline eval harness + go/no-go decision | — | Not started |
-| [1](#phase-1--the-provider-seam) | The provider seam (`LLMClient` + Gemini adapter) | Phase 0 says "go" | Not started |
-| [2](#phase-2--add-providers) | Add OpenAI (+ Claude) adapters, config-driven routing | Phase 1 | Not started |
-| [3](#phase-3--in-app-validation--rollout) | Shadow/canary in-app, decide routing per service | Phase 2 | Not started |
-| [4](#phase-4--the-assistant-migration-hard-tier) | Assistant/function-calling migration | Phase 3 shows a chat win | Not started |
-| [5](#phase-5--ops-observability-cost-fallback-continuous-eval) | Observability, cost tracking, fallback, continuous eval | Phase 2 | Not started |
+| [0](#phase-0--eval-harness-first-the-ruler) | Offline eval harness + go/no-go decision | — | ✅ **DONE (2026-08-11) — DECISION: NO-GO, stay on Gemini 3.5-flash** |
+| [1](#phase-1--the-provider-seam) | The provider seam (`LLMClient` + Gemini adapter) | Phase 0 says "go" | Not needed¹ |
+| [2](#phase-2--add-providers) | Add OpenAI (+ Claude) adapters, config-driven routing | Phase 1 | Not needed¹ |
+| [3](#phase-3--in-app-validation--rollout) | Shadow/canary in-app, decide routing per service | Phase 2 | Not needed¹ |
+| [4](#phase-4--the-assistant-migration-hard-tier) | Assistant/function-calling migration | Phase 3 shows a chat win | Not needed¹ |
+| [5](#phase-5--ops-observability-cost-fallback-continuous-eval) | Observability, cost tracking, fallback, continuous eval | Phase 2 | Optional — GPT-5.6 Terra validated as fallback |
 
 Phase 0 is a hard gate — nothing after it is justified until its numbers exist. Phase 5 can
 begin in parallel with Phase 3 once the seam (Phase 1) is in.
+
+> **¹ Phase 0 outcome (harness at `backend/evals/`, full writeup in
+> `backend/evals/scorecard/findings.md`):** against the real production config
+> (`gemini-3.5-flash`, thinking disabled), Gemini is the **fastest and cheapest**
+> provider on all five services with competitive-to-best quality — GPT-5.6 Terra and
+> Claude Sonnet 5 don't beat it on quality-adjusted cost anywhere. So Phases 1–4 are
+> **not justified**; the project succeeded by saving the refactor. Two follow-ups:
+> (a) **do not adopt `gemini-3.6-flash`** — it can't disable thinking, making it
+> slower/heavier and prone to truncating structured JSON (its exploratory scorecard
+> is archived at `backend/evals/scorecard/scorecard-gemini-3.6.md`); (b) Gemini's
+> occasional malformed JSON on recipe-generation (13%) + nutrition (17%) is the only
+> soft spot — already mitigated in-app by `_extract_json`/retry; if prod telemetry
+> shows it's user-impacting, scope a *targeted* switch of just those two services to
+> GPT-5.6 Terra (the cheapest 0%-malformed option). Keep GPT-5.6 as the Phase-5 fallback.
 
 ## Guiding principles & non-goals
 
@@ -282,10 +296,10 @@ thing durable instead of a one-time bake-off.
 
 | # | Decision | Phase | Notes |
 |---|---|---|---|
-| D1 | **Is any switch worth it, per service?** | 0 | The hard gate. "No everywhere" is a valid, money-saving outcome. |
-| D2 | Keep Claude in the provider matrix? | 0 | Free to include; drop only if the data says so. |
-| D3 | Final routing (provider+model) per service | 3 | Expect a mix. Record it as the new baseline. |
-| D4 | Migrate the assistant off Gemini at all? | 4 | Gated on D3 showing a chat win worth the tool-loop rewrite. |
+| D1 | **Is any switch worth it, per service?** | 0 | ✅ **RESOLVED: NO — stay on Gemini 3.5-flash everywhere.** It's fastest + cheapest on all 5 with competitive quality (`backend/evals/scorecard/findings.md`). Only soft spot: malformed structured JSON on recipe-gen/nutrition (already mitigated in-app) → targeted GPT-5.6 switch only if telemetry shows user impact. |
+| D2 | Keep Claude in the provider matrix? | 0 | ✅ Included. Sonnet 5 matched on quality but was slowest + priciest — not the challenger to beat; GPT-5.6 Terra was. |
+| D3 | Final routing (provider+model) per service | 3 | Moot given D1 = no switch. Baseline stays: `gemini-3.5-flash` per service (current prod). |
+| D4 | Migrate the assistant off Gemini at all? | 4 | No — gated on a chat win that D1 didn't produce. |
 | D5 | Adopt LiteLLM proxy vs. direct SDK adapters? | 5 | Adopt only if fallback + unified logging earn the extra hop. |
 
 ## Appendix — the scorecard

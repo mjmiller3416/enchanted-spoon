@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "Recipe generation — STRUCTURED tier (quality/correctness-dominated 'wow' feature)"
+
+# Production baseline: gemini-3.5-flash, temperature 0.7, max_output_tokens 8192,
+# JSON mode, thinking disabled (recipe_generation/service.py:90-99). Per-model param
+# reality probed 2026-08-11 — see cooking-tips.yaml header + README (incl. the 3.6 swap).
+providers:
+  - id: google:gemini-3.5-flash
+    label: "gemini-3.5-flash"
+    config:
+      generationConfig:
+        temperature: 0.7
+        maxOutputTokens: 8192
+        responseMimeType: application/json
+        thinkingConfig:
+          thinkingBudget: 0
+  - id: openai:gpt-5.6-terra
+    label: "gpt-5.6-terra"
+    config:
+      max_completion_tokens: 8192
+      reasoning_effort: none
+      response_format:
+        type: json_object
+  # Claude has no JSON mode; the tolerant parser (assertions/lib.js) handles any
+  # fences/preamble exactly as the app does, and the malformed-JSON rate is measured.
+  - id: anthropic:messages:claude-sonnet-5
+    label: "claude-sonnet-5"
+    config:
+      max_tokens: 8192
+      thinking:
+        type: disabled
+
+prompts:
+  - file://../prompts/recipe-generation.txt
+
+tests: file://../datasets/recipe-generation.yaml
+
+defaultTest:
+  assert:
+    - type: javascript
+      value: file://../assertions/recipeGeneration.js:parses
+      metric: json_parse
+    - type: javascript
+      value: file://../assertions/recipeGeneration.js:schemaValid
+      metric: schema_valid
+    - type: javascript
+      value: file://../assertions/recipeGeneration.js:directionsSteps
+      metric: directions_steps
+    - type: javascript
+      value: file://../assertions/recipeGeneration.js:quantitiesSane
+      metric: quantities_sane
+    - type: javascript
+      value: file://../assertions/recipeGeneration.js:macroReconciliation
+      metric: macro_reconcile

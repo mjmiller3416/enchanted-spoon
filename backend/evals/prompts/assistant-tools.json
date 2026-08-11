@@ -1,0 +1,47 @@
+[
+  {
+    "name": "suggest_recipes",
+    "description": "Suggest 4-6 recipe ideas as brief teasers based on the user's request. Use when user asks for ideas, suggestions, dinner options, or 'what can I make with X'. Returns recipe name ideas with brief descriptions.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "main_ingredient": { "type": "STRING", "description": "Primary ingredient mentioned (e.g., 'chicken', 'pasta'). Optional." },
+        "cuisine_style": { "type": "STRING", "description": "Cuisine or style preference (e.g., 'Italian', 'quick', 'cozy'). Optional." },
+        "dietary_restrictions": { "type": "STRING", "description": "Any dietary needs mentioned (e.g., 'vegetarian', 'gluten-free'). Optional." },
+        "time_constraint": { "type": "STRING", "description": "Time limit if mentioned (e.g., '30 minutes', 'quick'). Optional." },
+        "mood_or_vibe": { "type": "STRING", "description": "Desired vibe (e.g., 'comfort food', 'fancy', 'easy'). Optional." }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "create_recipe",
+    "description": "Generate a complete recipe with ingredients and instructions. Use when user selects a specific suggestion OR explicitly asks for a full recipe. Returns structured recipe data.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "recipe_name": { "type": "STRING", "description": "Name of the recipe to create" },
+        "style_notes": { "type": "STRING", "description": "Any style/variation notes from the conversation" },
+        "dietary_restrictions": { "type": "STRING", "description": "Dietary requirements to follow. Default: 'none'" },
+        "servings": { "type": "INTEGER", "description": "Number of servings. Default: 4" }
+      },
+      "required": ["recipe_name"]
+    }
+  },
+  {
+    "name": "answer_cooking_question",
+    "description": "Answer a cooking technique question, provide a tip, suggest substitutions, or troubleshoot a problem. Use for general cooking Q&A that doesn't require recipe suggestions or generation.",
+    "parameters": {
+      "type": "OBJECT",
+      "properties": {
+        "question_type": {
+          "type": "STRING",
+          "enum": ["technique", "substitution", "troubleshooting", "timing", "food_safety", "general"],
+          "description": "Category of the cooking question"
+        },
+        "context": { "type": "STRING", "description": "Relevant context from the user's question" }
+      },
+      "required": ["question_type"]
+    }
+  }
+]
