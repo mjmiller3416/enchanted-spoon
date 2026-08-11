@@ -12,6 +12,7 @@ import {
   UtensilsCrossed,
   Share2,
   FolderOpen,
+  ChefHat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,6 +42,11 @@ import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
 interface RecipeHeaderCardProps {
   recipe: RecipeResponseDTO;
   recipeId: number;
+  /** Whether Cook Mode (keep-screen-awake) is currently on. */
+  cookMode: boolean;
+  /** Whether the browser supports the wake lock — hides the toggle when false. */
+  cookModeSupported: boolean;
+  onCookModeToggle: () => void;
   onMealPlanClick: () => void;
   onManageGroupsClick: () => void;
   onPrintClick: () => void;
@@ -55,6 +61,9 @@ interface RecipeHeaderCardProps {
 export function RecipeHeaderCard({
   recipe,
   recipeId,
+  cookMode,
+  cookModeSupported,
+  onCookModeToggle,
   onMealPlanClick,
   onManageGroupsClick,
   onPrintClick,
@@ -220,6 +229,27 @@ export function RecipeHeaderCard({
             <CalendarPlus className="w-4 h-4" />
             Add to Meal Plan
           </Button>
+
+          {cookModeSupported && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={cookMode ? "default" : "outline"}
+                  className="gap-2"
+                  onClick={onCookModeToggle}
+                  aria-pressed={cookMode}
+                >
+                  <ChefHat className="w-4 h-4" />
+                  {cookMode ? "Cook Mode On" : "Cook Mode"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {cookMode
+                  ? "Screen will stay awake — tap to turn off"
+                  : "Keep the screen awake while you cook"}
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           <Button
             onClick={onManageGroupsClick}
