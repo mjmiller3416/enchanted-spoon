@@ -235,22 +235,31 @@ Outside the repo. Cross-references the deferred rebrand items in
 `public-release-roadmap.md:258–276` — **those `whiskful.app` targets are superseded by
 `enchantedspoon.app`.**
 
-- [ ] **Domain / DNS** — point `enchantedspoon.app` at the Railway frontend (Railway custom domain).
-- [ ] **Railway env vars** (names unchanged, values updated):
-      frontend `NEXT_PUBLIC_APP_URL` → `https://enchantedspoon.app`;
-      backend `CORS_ORIGINS` → `https://enchantedspoon.app`;
+**Executed 2026-08-12 via Railway MCP.** Merged `staging`→`main` (`94fe39f9`) — production live
+at `enchantedspoon.app` serving Enchanted Spoon (title/OG/site_name verified, backend `/docs` 200).
+
+- [x] **Domain / DNS** — `enchantedspoon.app` was already custom-bound to the Railway `frontend`
+      service (no rebind needed); verified serving the new build.
+- [x] **Railway env vars** (names unchanged, values updated):
+      frontend `NEXT_PUBLIC_APP_URL` → `https://enchantedspoon.app` (was **missing entirely**);
+      backend `CORS_ORIGINS` → `https://enchantedspoon.app` (+ railway frontend domain fallback);
       backend `FRONTEND_URL` → `https://enchantedspoon.app` (Stripe redirect base).
-      (Recall: compose the DB URL from `RAILWAY_PRIVATE_DOMAIN`, never the public proxy.)
+      (DB URL left composed from `RAILWAY_PRIVATE_DOMAIN`.)
+- [x] **SEO metadata routes** — fixed `robots.ts`/`sitemap.ts` baking the `localhost` fallback
+      (Railway doesn't expose `NEXT_PUBLIC_*` to static generation): forced `dynamic`
+      (`281cd2c`, merged `d466db1a`). Verified live: both now emit `https://enchantedspoon.app`.
 - [ ] **Clerk** — add `https://enchantedspoon.app` to allowed origins; set fallback redirect
-      URLs; update app display name + email templates.
-- [ ] **Stripe** — rename product "Whiskful Pro" → "Enchanted Spoon Pro"; refresh Checkout
-      branding. **`STRIPE_PRICE_ID_PRO` unchanged** (renaming a product doesn't change price IDs).
+      URLs; update app display name + email templates. *(user dashboard — pending)*
+- [ ] **Stripe** — rename product → "Enchanted Spoon Pro" (Product name field, not the Price);
+      refresh Checkout branding. **`STRIPE_PRICE_ID_PRO` unchanged** (renaming a product doesn't
+      change price IDs). *(user dashboard — pending)*
 - [ ] **Support email** — `info@enchantedspoon.app` live and monitored; update anywhere the
       support address is referenced (config.ts done in Phase 1; check backend/GitHub-issue paths).
 - [ ] **Social handles** — claim/brand (from Phase 0).
-- [ ] **GitHub repo** — optional rename (`recipe-app` → `enchanted-spoon`); if done, update the
-      `GITHUB_REPO` env for the issue-tracking integration.
-- [ ] **OG / preview images & favicon** — deploy the new-mark assets from Phase 1 §4.
+- [x] **GitHub repo** — rename **intentionally skipped** per user (`recipe-app` retained);
+      `GITHUB_REPO` env unchanged.
+- [x] **OG / preview images & favicon** — new-mark assets from Phase 1 §4 deployed; `og:image`
+      resolves to `https://enchantedspoon.app/opengraph-image.png`.
 
 ---
 
