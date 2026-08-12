@@ -1,6 +1,7 @@
 # Enchanted Spoon Rename Plan
 
-> **Status:** Open — not started. This is the **final** name change. Do the legal/priority
+> **Status:** Phases 0 & 1 COMPLETE (2026-08-11, branch `staging`, commits `fae4e44` +
+> `a16ad69`); Phases 2 & 3 remain. This is the **final** name change. Do the legal/priority
 > step (Phase 0) *before* investing in the code rename. Ship Phase 1 (user-visible) first;
 > Phase 2 (invisible internal IDs) and Phase 3 (external systems) follow deliberately.
 >
@@ -108,46 +109,52 @@ Protect the name before investing effort in it — you've been burned twice by s
 Everything the user or market sees. One PR, verify against the running app, deploy. Bucket B
 (assistant) and Bucket C (internal IDs) are **out of scope** for this phase.
 
-### 1. Central config (single source of truth)
-- [ ] `frontend/src/lib/config.ts` — `appName: "Whiskful"` → `"Enchanted Spoon"`;
-      `supportEmail: "info@whiskful.app"` → `"info@enchantedspoon.app"`; review `tagline`.
+### 1. Central config (single source of truth) ✅
+- [x] `frontend/src/lib/config.ts` — `appName: "Whiskful"` → `"Enchanted Spoon"`;
+      `supportEmail: "info@whiskful.app"` → `"info@enchantedspoon.app"`; `tagline` kept
+      (name-independent).
 
-### 2. Metadata / SEO / PWA
-- [ ] `frontend/src/app/layout.tsx` — title `default` + `template`, OG `siteName` (3 hardcoded
-      "Whiskful"). Import from `appConfig` where possible.
-- [ ] `frontend/src/app/manifest.webmanifest` — `name`, `short_name` (static JSON — hardcode).
-      Consider `theme_color` #8b5cf6 if the rebrand touches color (optional).
-- [ ] Marketing metadata descriptions (hardcoded "Whiskful"):
+### 2. Metadata / SEO / PWA ✅
+- [x] `frontend/src/app/layout.tsx` — title `default` + `template`, OG `siteName` — all routed
+      through `appConfig.appName`.
+- [x] `frontend/src/app/manifest.webmanifest` — `name`, `short_name` (hardcoded). `theme_color`
+      left unchanged.
+- [x] Marketing metadata descriptions:
       `(marketing)/privacy/page.tsx`, `terms/page.tsx`, `whats-new/page.tsx`, `pricing/page.tsx`
-      (JSON-LD description). Route through `appConfig.appName` where it's a description string.
+      (JSON-LD description) — all via `appConfig.appName`.
 
-### 3. Frontend UI strings — convert hardcoded "Whiskful" → `appConfig.appName`
-> `appConfig.appName` is already consumed by `TopNav`, `MarketingHeader`, `MarketingFooter`,
-> marketing `page.tsx`, `privacy`, `terms`. The following **hardcode** it — fix them AND (ideally)
-> switch to `appConfig.appName` so future renames are one line:
-- [ ] `(marketing)/_components/Hero.tsx`
-- [ ] `(marketing)/pricing/page.tsx` — "Whiskful Pro", "Already using Whiskful?"
-- [ ] `components/auth/SignInForm.tsx` — "Sign in to Whiskful"
-- [ ] `components/auth/SignUpForm.tsx` — "Welcome to Whiskful!"
-- [ ] `components/common/FeedbackDialog.tsx`
-- [ ] `(app)/settings/_components/sections/FeedbackSection.tsx` (×2)
-- [ ] `(app)/settings/_components/sections/AppearanceSection.tsx`
-- [ ] `(app)/settings/_components/SettingsView.tsx` — version line
-- [ ] `(app)/dashboard/_components/GetStartedCard.tsx` — "Welcome to Whiskful 🧞" (see **D4**)
-- [ ] `components/common/PaywallDialog.tsx` — "Whiskful Pro"
+### 3. Frontend UI strings — convert hardcoded "Whiskful" → `appConfig.appName` ✅
+> All converted to `appConfig.appName` (not just re-labelled) so future renames are one line.
+> Bonus: `MarketingHeader.tsx` `aria-label="Whiskful home"` (missed by this list) also fixed.
+- [x] `(marketing)/_components/Hero.tsx`
+- [x] `(marketing)/pricing/page.tsx` — "Already using Whiskful?" + JSON-LD (no "Whiskful Pro" string was present)
+- [x] `components/auth/SignInForm.tsx` — "Sign in to Whiskful"
+- [x] `components/auth/SignUpForm.tsx` — "Welcome to Whiskful!"
+- [x] `components/common/FeedbackDialog.tsx`
+- [x] `(app)/settings/_components/sections/FeedbackSection.tsx` (×2)
+- [x] `(app)/settings/_components/sections/AppearanceSection.tsx`
+- [x] `(app)/settings/_components/SettingsView.tsx` — version line
+- [x] `(app)/dashboard/_components/GetStartedCard.tsx` — "Welcome to {appName} ✨" (**D4** → sparkle)
+- [x] `components/common/PaywallDialog.tsx` — "…are part of {appName} Pro."
 
-### 4. Brand visual assets (design deliverable — parallel track)
-- [ ] `frontend/src/components/layout/Logo.tsx` — **currently a whisk-and-sparkle mark**
-      (a Whiskful visual pun). Enchanted Spoon needs a **new wordmark + icon** (spoon, not whisk).
-- [ ] Favicon, OG/social preview images, PWA icons — regenerate with the new mark.
-- [ ] `.design-sync/previews/Logo.tsx` — mirror the new wordmark.
+### 4. Brand visual assets ✅
+- [x] New spoon-and-sparkle mark at `frontend/public/logo.svg` (user-provided). `Logo.tsx`
+      repointed to `/logo.svg`; old `app-icon.svg`/`name.svg`/`wordmark-horizontal.svg` removed
+      (were unused). **Note:** the component had been rendering `app-icon.svg`, not `logo.svg`.
+- [x] Favicon, OG/social preview, PWA icons — regenerated from `logo.svg` via `sharp`:
+      `src/app/icon.png` (512), `apple-icon.png` (180, white bg), `favicon.ico` (16/32/48),
+      `opengraph-image.png` (1200×630 composed banner).
+- [x] `.design-sync/previews/Logo.tsx` — wordmark text updated (it's a text mock, not the mark).
 
-### 5. Backend strings
-- [ ] `backend/app/main.py` — API `title`, `description`, root running-message (×4).
-- [ ] `backend/app/router.py`, `backend/app/api/__init__.py` — module docstrings.
-- [ ] `backend/scripts/seed_database.py` — headers/labels (×5).
-- [ ] `backend/alembic.ini`, `backend/tests/conftest.py` — comment/docstring.
-- [ ] `backend/.env.example` — comments referencing `whiskful.app` → `enchantedspoon.app`.
+### 5. Backend strings ✅
+- [x] `backend/app/main.py` — API `title`, `description`, root running-message (×4).
+- [x] `backend/app/router.py`, `backend/app/api/__init__.py` — module docstrings.
+- [x] `backend/scripts/seed_database.py` — headers/labels (×5).
+- [x] `backend/alembic.ini`, `backend/tests/conftest.py` — comment/docstring.
+- [x] `backend/.env.example` — `whiskful.app` → `enchantedspoon.app`. (Also `frontend/.env.example`,
+      which this list missed; note it's gitignored so the edit is local-only.)
+- [x] Assistant prompt brand word: `services/ai/assistant/prompts.py` — "Whiskful" → "Enchanted
+      Spoon", **"Genie" kept** (per §5 note / D1).
 
 > **§5 note — assistant prompt brand reference (Bucket A inside Bucket B territory):**
 > `backend/app/services/ai/assistant/prompts.py` and `backend/evals/prompts/assistant-system.txt`
@@ -156,24 +163,30 @@ Everything the user or market sees. One PR, verify against the running app, depl
 > Also `service.py:134` "I'm Genie" and `generators.py:214` "friendly Genie personality" — leave
 > unless D1 changes the assistant name.
 
-### 6. Evals harness (`backend/evals/`)
-- [ ] `scorecard/*.md`, `README.md`, `package.json` (name/description), `.env.example`,
-      `scorecard/generate.mjs`, `prompts/assistant-system.txt` — "Whiskful" → "Enchanted Spoon".
-      (Low urgency — internal tooling — but included for completeness.)
+### 6. Evals harness (`backend/evals/`) ✅
+- [x] `scorecard/*.md`, `README.md`, `package.json` (name → `enchanted-spoon-ai-evals` +
+      description), `.env.example`, `scorecard/generate.mjs`, `prompts/assistant-system.txt`
+      (Genie kept) — "Whiskful" → "Enchanted Spoon". (`package-lock.json` name also updated but
+      it's gitignored → local-only.)
 
-### 7. Docs & agent instructions
-- [ ] `docs/FRONTEND_DOCUMENTATION.md`, `docs/BACKEND_DOCUMENTATION.md` — titles.
-- [ ] `.claude/CLAUDE.md`, `AGENTS.md` — the "**Whiskful** is a full-stack…" overview line.
-- [ ] `docs/RECIPE_IMAGE.md` — brand mentions only (leave `meal-genie/` folder refs — Bucket C).
-- [ ] **Leave** `docs/plans/completed/**` and historical entries in `public-release-roadmap.md`
-      as-is — they're records of *what was true then*. (Optionally add a one-line note that the
-      final name is Enchanted Spoon.)
+### 7. Docs & agent instructions ✅
+- [x] `docs/FRONTEND_DOCUMENTATION.md`, `docs/BACKEND_DOCUMENTATION.md` — titles.
+- [x] `.claude/CLAUDE.md`, `AGENTS.md` — the "**Whiskful** is a full-stack…" overview line.
+      (Also updated: `.claude/skills/verify/SKILL.md`, `.design-sync/conventions.md`, `NOTES.md`,
+      `previews/Sheet.tsx`, `previews/StatCard.tsx`.)
+- [x] `docs/RECIPE_IMAGE.md` — **no brand ("Whiskful") mentions present**, so nothing to change
+      (its `meal-genie/` refs are Bucket C, left as-is).
+- [x] **Left as-is** (honored): `docs/plans/completed/**` and historical `public-release-roadmap.md`
+      entries — records of *what was true then*.
 
 ### 8. Verification (Phase 1 done-check)
-- [ ] `grep -ri "whiskful"` returns only intentional historical/doc records.
-- [ ] Run the app (see `.claude/skills/verify`): tab title, sidebar/nav wordmark, sign-in/up,
-      settings, paywall, marketing pages, PWA manifest name all read "Enchanted Spoon".
-- [ ] `npm run lint` + `npx tsc` clean; backend `pytest` green.
+- [x] `grep -ri "whiskful"` returns only intentional records (`docs/plans/**` + a deliberate
+      `Logo.tsx` TODO comment).
+- [ ] **REMAINING:** Run the app (see `.claude/skills/verify`): tab title, sidebar/nav wordmark,
+      sign-in/up, settings, paywall, marketing pages, PWA manifest name all read "Enchanted Spoon".
+- [x] `npm run lint` + `npx tsc` clean (no new problems from the rename). ⚠️ backend `pytest`
+      **not run** — changes are docstrings/strings that can't affect outcomes, and the suite has a
+      known pre-broken baseline; `py_compile` of all touched files passed.
 
 ---
 
