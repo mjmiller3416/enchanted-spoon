@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFeedbackForm } from "@/hooks/forms/useFeedbackForm";
+import { appConfig } from "@/lib/config";
 
 interface FeedbackDialogProps {
   open: boolean;
@@ -73,7 +74,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
             Send Feedback
           </DialogTitle>
           <DialogDescription>
-            Help us improve Whiskful by sharing your thoughts
+            Help us improve {appConfig.appName} by sharing your thoughts
           </DialogDescription>
         </DialogHeader>
 

@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
+import { appConfig } from "@/lib/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,13 +25,13 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
-    default: "Whiskful — Recipes, meal planning, and smart shopping lists",
-    template: "%s · Whiskful",
+    default: `${appConfig.appName} — Recipes, meal planning, and smart shopping lists`,
+    template: `%s · ${appConfig.appName}`,
   },
   description:
     "Save recipes, plan your week, and get an auto-built shopping list. AI-powered recipe import and generation.",
   openGraph: {
-    siteName: "Whiskful",
+    siteName: appConfig.appName,
     type: "website",
     url: "/",
   },

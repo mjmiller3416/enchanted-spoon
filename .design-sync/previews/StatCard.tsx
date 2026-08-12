@@ -1,7 +1,7 @@
 import { StatCard } from "recipe-app";
 import { BookOpen, Heart, Flame, CalendarDays, ShoppingBasket, ChefHat } from "lucide-react";
 
-// Dashboard stat tiles — one per chart-color preset, real Whiskful stats.
+// Dashboard stat tiles — one per chart-color preset, real Enchanted Spoon stats.
 export const ColorPresets = () => (
   <div className="bg-background p-6 rounded-xl grid grid-cols-2 gap-4 max-w-2xl">
     <StatCard icon={BookOpen} value={42} label="Total Recipes" colorClass="purple" />

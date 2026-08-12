@@ -1,4 +1,4 @@
-# Whiskful Backend Documentation
+# Enchanted Spoon Backend Documentation
 
 Reference for architecture decisions, patterns, and workflows. For API details, see FastAPI docs at `/docs`. For model/DTO fields, read the source files directly.
 

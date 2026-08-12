@@ -4,11 +4,11 @@ import { Check, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { appConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description:
-    "Whiskful is free for recipes, meal planning, and shopping lists. Go Pro for full AI power — recipe import, generation, food photography, and the assistant.",
+  description: `${appConfig.appName} is free for recipes, meal planning, and shopping lists. Go Pro for full AI power — recipe import, generation, food photography, and the assistant.`,
 };
 
 const FREE_FEATURES = [
@@ -102,7 +102,7 @@ export default function PricingPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Already using Whiskful? Upgrade anytime from{" "}
+        Already using {appConfig.appName}? Upgrade anytime from{" "}
         <span className="font-medium text-foreground">Settings → Plan &amp; Billing</span>.
         Cancel whenever — your recipes stay yours.
       </p>

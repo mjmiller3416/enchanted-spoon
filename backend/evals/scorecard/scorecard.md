@@ -1,4 +1,4 @@
-# Whiskful AI Provider Scorecard (Phase 0)
+# Enchanted Spoon AI Provider Scorecard (Phase 0)
 
 _Generated from: cooking-tips, recipe-generation, recipe-import, nutrition-estimation, meal-suggestions._
 _Run date: 2026-08-11_

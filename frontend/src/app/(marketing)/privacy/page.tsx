@@ -4,7 +4,7 @@ import { appConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How Whiskful collects, uses, and protects your data.",
+  description: `How ${appConfig.appName} collects, uses, and protects your data.`,
 };
 
 const LAST_UPDATED = "July 13, 2026";

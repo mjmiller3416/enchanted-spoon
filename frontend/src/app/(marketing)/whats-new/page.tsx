@@ -6,10 +6,11 @@ import {
   getCategoryIcon,
   getCategoryColor,
 } from "@/data/changelog";
+import { appConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "What's New",
-  description: "New features, improvements, and fixes in Whiskful.",
+  description: `New features, improvements, and fixes in ${appConfig.appName}.`,
 };
 
 export default function WhatsNewPage() {

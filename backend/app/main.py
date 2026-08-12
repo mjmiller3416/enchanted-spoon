@@ -1,6 +1,6 @@
 """app/main.py
 
-Main FastAPI application for Whiskful.
+Main FastAPI application for Enchanted Spoon.
 """
 
 import os
@@ -26,8 +26,8 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Whiskful API",
-    description="Backend API for the Whiskful recipe management and meal planning application",
+    title="Enchanted Spoon API",
+    description="Backend API for the Enchanted Spoon recipe management and meal planning application",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -68,7 +68,7 @@ app.include_router(api_router)
 async def root():
     """Root endpoint - API health check."""
     return {
-        "message": "Whiskful API is running",
+        "message": "Enchanted Spoon API is running",
         "version": "1.0.0",
         "docs_url": "/docs",
     }

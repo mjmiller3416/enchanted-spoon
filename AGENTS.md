@@ -6,7 +6,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-**Whiskful** is a full-stack recipe management and meal planning application with AI-powered features. It consists of:
+**Enchanted Spoon** is a full-stack recipe management and meal planning application with AI-powered features. It consists of:
 
 - **Frontend**: Next.js 16 + React 19 with TypeScript, Tailwind CSS v4, shadcn/ui (New York style)
 - **Backend**: FastAPI + SQLAlchemy 2.0 with Pydantic v2, SQLite (dev) / PostgreSQL (prod)

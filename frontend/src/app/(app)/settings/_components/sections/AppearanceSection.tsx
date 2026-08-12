@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "../SectionHeader";
+import { appConfig } from "@/lib/config";
 
 interface AppearanceSectionProps {
   theme: "light" | "dark" | "system";
@@ -43,7 +44,7 @@ export function AppearanceSection({
         <SectionHeader
           icon={Palette}
           title="Appearance"
-          description="Customize how Whiskful looks on your device"
+          description={`Customize how ${appConfig.appName} looks on your device`}
           accentColor="secondary"
         />
 

@@ -21,6 +21,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Logo } from "@/components/layout/Logo";
+import { appConfig } from "@/lib/config";
 
 type SignUpStep = "details" | "verification";
 
@@ -163,7 +164,7 @@ export function SignUpForm() {
             {step === "details" ? "Create your account" : "Verify your email"}
           </CardTitle>
           <CardDescription>
-            {step === "details" && "Welcome to Whiskful! Let's get started"}
+            {step === "details" && `Welcome to ${appConfig.appName}! Let's get started`}
             {step === "verification" && `Enter the code sent to ${email}`}
           </CardDescription>
         </div>

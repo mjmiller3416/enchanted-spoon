@@ -199,7 +199,7 @@ for (const file of ordered) {
 }
 
 const generatedAt = process.env.SCORECARD_TIMESTAMP || "(set SCORECARD_TIMESTAMP or fill in the run date)";
-const body = `# Whiskful AI Provider Scorecard (Phase 0)
+const body = `# Enchanted Spoon AI Provider Scorecard (Phase 0)
 
 _Generated from: ${seen.join(", ") || "no services"}._
 _Run date: ${generatedAt}_

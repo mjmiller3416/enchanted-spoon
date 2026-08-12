@@ -4,7 +4,12 @@ interface LogoProps {
 }
 
 /**
- * Whiskful brand mark — the whisk-and-sparkle icon.
+ * Enchanted Spoon brand mark.
+ *
+ * TODO(rebrand): the artwork at `/public/app-icon.svg` is still the legacy
+ * whisk-and-sparkle mark from the Whiskful name. It needs a new spoon-based
+ * wordmark + icon (design track). Favicon, OG/social preview, and PWA icons
+ * (`/public/icon.png`, `/public/apple-icon.png`) must be regenerated to match.
  *
  * Renders the shared `/app-icon.svg` so the in-app logo always tracks the
  * source brand asset (edit the SVG and every placement updates). The mark uses

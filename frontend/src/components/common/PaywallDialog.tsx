@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useCurrentUser, useStartCheckout } from "@/hooks/api";
 import { subscribePaywall, type PaywallEvent } from "@/lib/paywall";
+import { appConfig } from "@/lib/config";
 
 /**
  * Upgrade prompt for AI access gates (#166). Opens when any AI call fails
@@ -52,7 +53,7 @@ export function PaywallDialog() {
       : "You've used this month's free allowance";
 
   const description = !isLimit
-    ? "AI-powered features — importing recipes from a URL, generating images, and the Genie assistant — are part of Whiskful Pro."
+    ? `AI-powered features — importing recipes from a URL, generating images, and the Genie assistant — are part of ${appConfig.appName} Pro.`
     : isPro
       ? `You've hit this month's cap for ${event?.featureLabel}. It resets at the start of next month.`
       : `The free plan includes a taste of every AI feature. You've used this month's allowance for ${event?.featureLabel} — it resets at the start of next month.`;

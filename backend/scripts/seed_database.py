@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Whiskful Database Seeder
+Enchanted Spoon Database Seeder
 
-A comprehensive database seeding utility for the Whiskful recipe application.
+A comprehensive database seeding utility for the Enchanted Spoon recipe application.
 Creates realistic recipes, ingredients, meal selections, and shopping data.
 
 Usage:
@@ -1545,7 +1545,7 @@ def seed_shopping_data(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Whiskful Database Seeder - Populate the database with realistic mock data",
+        description="Enchanted Spoon Database Seeder - Populate the database with realistic mock data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -1598,11 +1598,11 @@ Examples:
     # Header
     print()
     if args.clear_only:
-        print("Whiskful Database Clearer")
+        print("Enchanted Spoon Database Clearer")
         print("=" * 25)
         print("Mode: clear-only")
     else:
-        print("Whiskful Database Seeder")
+        print("Enchanted Spoon Database Seeder")
         print("=" * 24)
         print(f"Mode: {args.mode}")
         print(f"Recipe count: {args.count}")

@@ -1,4 +1,4 @@
-# Whiskful AI provider evaluation (Phase 0)
+# Enchanted Spoon AI provider evaluation (Phase 0)
 
 The **ruler before the cut**. This is the offline eval harness from
 [`docs/plans/ai-gateway-and-eval.md`](../../docs/plans/ai-gateway-and-eval.md)

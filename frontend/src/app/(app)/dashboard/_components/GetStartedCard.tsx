@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
 import { useAssistantDialog } from "@/lib/providers/AssistantProvider";
+import { appConfig } from "@/lib/config";
 
 interface GetStartedCardProps {
   recipesDone: boolean;
@@ -35,7 +36,7 @@ export function GetStartedCard({ recipesDone, planDone }: GetStartedCardProps) {
   return (
     <Card className="gap-0 p-6 shadow-raised md:p-8">
       <h3 className="text-xl font-semibold text-foreground">
-        Welcome to Whiskful 🧞
+        Welcome to {appConfig.appName} ✨
       </h3>
       <p className="mt-1 text-sm text-muted-foreground">
         Three steps to your first planned week.

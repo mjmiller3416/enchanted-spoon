@@ -1,8 +1,8 @@
 {
-  "name": "whiskful-ai-evals",
+  "name": "enchanted-spoon-ai-evals",
   "version": "0.1.0",
   "private": true,
-  "description": "Phase 0 provider evaluation harness for Whiskful's AI services (promptfoo). Measures Gemini vs OpenAI vs Claude per service before any gateway refactor.",
+  "description": "Phase 0 provider evaluation harness for Enchanted Spoon's AI services (promptfoo). Measures Gemini vs OpenAI vs Claude per service before any gateway refactor.",
   "type": "module",
   "scripts": {
     "tips": "promptfoo eval -c configs/cooking-tips.yaml -o output/cooking-tips.json",

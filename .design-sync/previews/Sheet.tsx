@@ -93,7 +93,7 @@ export const NavigationDrawer = () => (
   <Sheet open>
     <SheetContent side="left" onOpenAutoFocus={(e) => e.preventDefault()}>
       <SheetHeader>
-        <SheetTitle>Whiskful</SheetTitle>
+        <SheetTitle>Enchanted Spoon</SheetTitle>
         <SheetDescription>Plan smarter. Cook happier.</SheetDescription>
       </SheetHeader>
       <Separator />

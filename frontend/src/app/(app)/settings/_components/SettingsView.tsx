@@ -14,6 +14,7 @@ import { useSettings, DEFAULT_SETTINGS } from "@/hooks/persistence/useSettings";
 import { useTheme } from "@/hooks/ui";
 import { currentUserQueryKeys } from "@/hooks/api/queryKeys";
 import packageJson from "../../../../../package.json";
+import { appConfig } from "@/lib/config";
 
 import { CategoryNav, CATEGORIES, type SettingsCategory } from "./CategoryNav";
 import { ProfileSection } from "./sections/ProfileSection";
@@ -180,7 +181,7 @@ export function SettingsView() {
               {/* Version Info */}
               <div className="mt-4 px-4 py-3 text-center">
                 <p className="text-xs text-muted-foreground">
-                  Whiskful v{packageJson.version}
+                  {appConfig.appName} v{packageJson.version}
                 </p>
                 <p className="text-xs text-muted-foreground/70 mt-1">Made with ❤️</p>
               </div>

@@ -21,6 +21,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Logo } from "@/components/layout/Logo";
+import { appConfig } from "@/lib/config";
 
 type SignInStep = "email" | "password" | "verification";
 
@@ -174,7 +175,7 @@ export function SignInForm() {
           <Logo className="h-12 w-auto" />
         </div>
         <div className="space-y-2">
-          <CardTitle className="text-2xl">Sign in to Whiskful</CardTitle>
+          <CardTitle className="text-2xl">Sign in to {appConfig.appName}</CardTitle>
           <CardDescription>
             {step === "email" && "Welcome back! Please sign in to continue"}
             {step === "password" && `Enter your password for ${email}`}
