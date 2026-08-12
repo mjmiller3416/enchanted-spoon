@@ -248,8 +248,10 @@ at `enchantedspoon.app` serving Enchanted Spoon (title/OG/site_name verified, ba
 - [x] **SEO metadata routes** — fixed `robots.ts`/`sitemap.ts` baking the `localhost` fallback
       (Railway doesn't expose `NEXT_PUBLIC_*` to static generation): forced `dynamic`
       (`281cd2c`, merged `d466db1a`). Verified live: both now emit `https://enchantedspoon.app`.
-- [ ] **Clerk** — add `https://enchantedspoon.app` to allowed origins; set fallback redirect
-      URLs; update app display name + email templates. *(user dashboard — pending)*
+- [x] **Clerk** — production instance created (Frontend API `clerk.enchantedspoon.app`, 5 CNAMEs
+      added, DNS + GTS TLS cert verified), dev users copied over, `pk_live`/`sk_live` swapped into
+      Railway on both services + 4 `NEXT_PUBLIC_CLERK_*` redirect vars set; rebuilt + verified live
+      (2026-08-12). *(optional polish left: app display name + email-template branding)*
 - [ ] **Stripe** — rename product → "Enchanted Spoon Pro" (Product name field, not the Price);
       refresh Checkout branding. **`STRIPE_PRICE_ID_PRO` unchanged** (renaming a product doesn't
       change price IDs). *(user dashboard — pending)*
