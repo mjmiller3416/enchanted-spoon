@@ -37,7 +37,7 @@ export interface ShoppingListSettings {
 
 export interface AIFeaturesSettings {
   imageGenerationPrompt: string;
-  /** Floating "Ask Meal Genie" button on mobile Recipes/Planner pages */
+  /** Floating "Ask the Genie" button on mobile Recipes/Planner pages */
   showAssistantFab: boolean;
 }
 
@@ -60,7 +60,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     avatar: "",
   },
   appearance: {
-    theme: "system",
+    theme: "dark",
   },
   recipePreferences: {
     defaultSortOrder: "alphabetical",

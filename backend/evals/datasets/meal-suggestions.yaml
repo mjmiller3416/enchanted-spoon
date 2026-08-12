@@ -1,0 +1,14 @@
+# Meal-suggestions golden set — OPEN-ENDED tier.
+# Production builds the user turn as: "Dish: {name}{ (category)}{ for meal_type}"
+# (meal_suggestions.py:70-73). Each row supplies that assembled `dish` string.
+# The tip is judged (dish-specific, actionable, one concrete detail), not diffed.
+- vars: { dish: "Dish: Grilled Chicken Thighs (chicken) for dinner" }
+- vars: { dish: "Dish: Spaghetti Carbonara (italian) for dinner" }
+- vars: { dish: "Dish: Beef Tacos (mexican) for dinner" }
+- vars: { dish: "Dish: Vegetable Stir-Fry (chinese) for lunch" }
+- vars: { dish: "Dish: Salmon Fillet (seafood) for dinner" }
+- vars: { dish: "Dish: Buttermilk Pancakes (breakfast) for breakfast" }
+- vars: { dish: "Dish: Caesar Salad (american) for lunch" }
+- vars: { dish: "Dish: Mushroom Risotto (italian) for dinner" }
+- vars: { dish: "Dish: Chocolate Chip Cookies (dessert) for snack" }
+- vars: { dish: "Dish: Lentil Soup (mediterranean) for lunch" }

@@ -15,6 +15,9 @@ from sqlalchemy.orm import Session, joinedload
 from ..models.meal import Meal
 from ..models.recipe import Recipe
 
+# Safety backstop for list queries that omit an explicit limit.
+MAX_LIST_ROWS = 1000
+
 
 # -- Meal Repository -----------------------------------------------------------------------------
 class MealRepo:
@@ -178,8 +181,8 @@ class MealRepo:
         if offset:
             stmt = stmt.offset(offset)
 
-        if limit:
-            stmt = stmt.limit(limit)
+        # Cap results when no explicit limit is given (see MAX_LIST_ROWS).
+        stmt = stmt.limit(limit or MAX_LIST_ROWS)
 
         result = self.session.execute(stmt)
         meals = result.scalars().unique().all()

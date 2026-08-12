@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatMessageList } from "./ChatMessageList";
+import { classifyAiGateError } from "@/lib/paywall";
 
 export function AskAssistantWidget() {
   const [input, setInput] = useState("");
@@ -36,7 +37,14 @@ export function AskAssistantWidget() {
       }
     } catch (error) {
       console.error("Failed to get response:", error);
-      addMessage({ role: "assistant", content: "Sorry, something went wrong. Please try again." });
+      // Access-gate errors already open the paywall dialog (QueryProvider's
+      // MutationCache) — keep the chat bubble consistent with it.
+      addMessage({
+        role: "assistant",
+        content: classifyAiGateError(error)
+          ? "You've used this month's assistant allowance — see the upgrade options to keep chatting."
+          : "Sorry, something went wrong. Please try again.",
+      });
     }
   }, [input, askMutation, messages, addMessage]);
 
@@ -63,7 +71,7 @@ export function AskAssistantWidget() {
             <div className="p-1.5 rounded-lg bg-primary-surface">
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
-            <h2 className="text-lg font-semibold text-foreground">Ask Meal Genie</h2>
+            <h2 className="text-lg font-semibold text-foreground">Ask the Genie</h2>
           </div>
           <AnimatePresence>
             {hasMessages && (

@@ -1,0 +1,129 @@
+# Genie chat golden set — realistic user questions, judged on conversational
+# quality/voice (not diffed). Each row is a conversation in `vars.messages`.
+# Multi-turn rows carry a canned assistant turn so every model faces the SAME
+# follow-up context (fair comparison of "does it remember / build on it").
+
+# ── Single-turn: ingredient-driven ─────────────────────────────────────────
+- description: "ingredient dinner ideas (chicken/broccoli/rice)"
+  vars:
+    messages:
+      - { role: user, content: "Give me some dinner ideas using chicken, broccoli, and rice" }
+
+- description: "what can I make with chicken (should surface saved roast chicken)"
+  vars:
+    messages:
+      - { role: user, content: "What can I make with chicken?" }
+
+- description: "casual: ground beef, no idea"
+  vars:
+    messages:
+      - { role: user, content: "i have a pound of ground beef and no idea what to do with it lol" }
+
+# ── Single-turn: vibe-driven ───────────────────────────────────────────────
+- description: "vibe: cozy rainy night"
+  vars:
+    messages:
+      - { role: user, content: "I want something cozy for a rainy night" }
+
+- description: "vibe: bored, surprise me"
+  vars:
+    messages:
+      - { role: user, content: "I'm so bored of my usual dinners. Surprise me with something fun?" }
+
+- description: "vibe+constraint: impressive but easy date night"
+  vars:
+    messages:
+      - { role: user, content: "Something impressive but not too hard for a date night in?" }
+
+# ── Single-turn: constraint-driven ─────────────────────────────────────────
+- description: "constraint: quick vegetarian lunch, 20 min"
+  vars:
+    messages:
+      - { role: user, content: "Quick vegetarian lunch idea? I only have like 20 minutes" }
+
+- description: "constraint: healthy weekly meal prep"
+  vars:
+    messages:
+      - { role: user, content: "Can you give me a healthy meal-prep idea I can make for the week?" }
+
+# ── Single-turn: cooking help / Q&A ────────────────────────────────────────
+- description: "substitution: buttermilk"
+  vars:
+    messages:
+      - { role: user, content: "What's a good substitute for buttermilk?" }
+
+- description: "troubleshooting: broken hollandaise"
+  vars:
+    messages:
+      - { role: user, content: "Help! My hollandaise just broke and looks curdled. Can I save it?" }
+
+- description: "food safety/timing: roast whole chicken"
+  vars:
+    messages:
+      - { role: user, content: "How long do I roast a whole chicken and at what temperature?" }
+
+- description: "pairing: what goes with salmon"
+  vars:
+    messages:
+      - { role: user, content: "What sides go well with salmon?" }
+
+# ── Multi-turn: continuity / build-on-context ──────────────────────────────
+- description: "multi-turn: pick the 2nd suggestion + make it spicy"
+  vars:
+    messages:
+      - { role: user, content: "I want something cozy for a rainy night" }
+      - role: assistant
+        content: |-
+          Ooh a cozy rainy night calls for something warm and comforting 💛 Here are a few ideas:
+
+          **Creamy Tuscan Chicken**
+          Pan-seared chicken in a garlicky sun-dried tomato cream sauce — feels fancy, comes together in one skillet.
+
+          **Butternut Squash Risotto**
+          Slow-stirred and velvety, with a little parmesan and sage. The kind of thing that makes the whole kitchen smell amazing.
+
+          **Beef & Guinness Stew**
+          Low and slow, fall-apart beef with a deep savory broth. Ultimate rainy-day hug in a bowl.
+
+          Want me to turn any of these into a full recipe? Just say which one! 🍳
+      - { role: user, content: "Ooh the second one — can you make it a little spicy?" }
+
+- description: "multi-turn: make the pasta ideas vegetarian"
+  vars:
+    messages:
+      - { role: user, content: "Give me a few pasta dinner ideas" }
+      - role: assistant
+        content: |-
+          Pasta night, love it! 🍝 A few to tempt you:
+
+          **Spaghetti Carbonara**
+          Silky egg-and-pecorino sauce with crispy pancetta. Simple but restaurant-level when done right.
+
+          **Sausage & Broccoli Rabe Orecchiette**
+          Garlicky, a little spicy, with sweet Italian sausage — hearty and fast.
+
+          **Lemon Shrimp Scampi Linguine**
+          Bright, buttery, garlicky. Feels light but satisfying.
+
+          Want me to turn any of these into a full recipe? Just say which one! 🍳
+      - { role: user, content: "Can any of those be made vegetarian?" }
+
+- description: "multi-turn: turn a suggestion into a full recipe"
+  vars:
+    messages:
+      - { role: user, content: "What can I make with eggs for breakfast?" }
+      - role: assistant
+        content: |-
+          Eggs are the best canvas 🍳 A few ideas:
+
+          **Fluffy Cheddar Chive Omelette**
+          Three-egg, folded soft, with a handful of sharp cheddar and fresh chives.
+
+          **Shakshuka**
+          Eggs poached in a smoky spiced tomato-pepper sauce — scoop it up with crusty bread.
+
+          **Savory Veggie Fried Rice with a Jammy Egg**
+          Great for using up leftover rice, topped with a soft-yolk egg.
+
+          Want me to turn any of these into a full recipe? Just say which one! 🍳
+      - { role: user, content: "Let's do the shakshuka — give me the full recipe" }

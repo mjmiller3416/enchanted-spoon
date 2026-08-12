@@ -4,7 +4,7 @@ import { appConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How Meal Genie collects, uses, and protects your data.",
+  description: `How ${appConfig.appName} collects, uses, and protects your data.`,
 };
 
 const LAST_UPDATED = "July 13, 2026";
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong className="text-foreground">AI feature inputs.</strong> When you use AI
-            features (recipe generation, URL import, the Meal Genie assistant, cooking tips,
+            features (recipe generation, URL import, the Genie assistant, cooking tips,
             nutrition estimation, image generation), the prompts and relevant recipe context
             are processed by Google Gemini to produce results. We also track your usage counts
             of these features.

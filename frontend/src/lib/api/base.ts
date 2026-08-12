@@ -1,6 +1,6 @@
 // Core API infrastructure: fetch wrapper, error handling, query string builder
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.213:8000";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // Default request timeout. AI endpoints (image/recipe generation, chat) can
 // legitimately run long, so those call sites pass a larger AI_TIMEOUT_MS.
@@ -62,7 +62,14 @@ export async function fetchApi<T>(
 
     try {
       const errorData = await response.json();
-      errorMessage = errorData.detail || errorData.message || errorMessage;
+      // `detail` may be a structured object (e.g. usage_limit_exceeded 429s
+      // carry {error, field, current, limit, message}) — never let an object
+      // become the Error message.
+      const detail = errorData.detail;
+      errorMessage =
+        (typeof detail === "string" ? detail : detail?.message) ||
+        errorData.message ||
+        errorMessage;
       details = errorData;
     } catch {
       // Ignore JSON parse errors

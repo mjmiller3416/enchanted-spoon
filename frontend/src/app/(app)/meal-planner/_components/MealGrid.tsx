@@ -5,7 +5,8 @@ import {
   DndContext,
   DragOverlay,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -33,6 +34,7 @@ interface MealGridProps {
   onItemClick?: (item: MealGridItem) => void;
   onAddMealClick?: () => void;
   onCycleShoppingMode?: (item: MealGridItem) => void;
+  pendingShoppingModeId?: number | null;
   onReorder?: (reorderedItems: MealGridItem[]) => void;
   className?: string;
 }
@@ -89,6 +91,7 @@ export function MealGrid({
   onItemClick,
   onAddMealClick,
   onCycleShoppingMode,
+  pendingShoppingModeId,
   onReorder,
   className,
 }: MealGridProps) {
@@ -103,8 +106,17 @@ export function MealGrid({
   }, [propItems]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { delay: 250, tolerance: 5 },
+    // Mouse: activate on a small movement (not a hold) so a drag begins the
+    // instant the user moves, while a plain click → release (no movement)
+    // still falls through to onClick and selects the meal. Fixes the janky
+    // press-and-wait delay reported on desktop.
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    // Touch: keep a short press-and-hold so a vertical swipe scrolls the page
+    // instead of being captured as a drag (works with touch-pan-y on the card).
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -166,6 +178,7 @@ export function MealGrid({
                 isAnyDragging={activeId != null}
                 onClick={() => onItemClick?.(item)}
                 onCycleShoppingMode={() => onCycleShoppingMode?.(item)}
+                isShoppingModePending={pendingShoppingModeId === item.id}
               />
             ))}
 

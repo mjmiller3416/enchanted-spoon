@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.core.usage_limits import get_monthly_limit
 from app.models.user_usage import UserUsage
 from app.services.usage_service import UsageLimitExceededError, UsageService
 
@@ -44,12 +45,21 @@ class TestCheckLimitAtOrOverCap:
 
 
 class TestCheckLimitFreeTier:
-    def test_free_tier_is_blocked_immediately(self):
-        """Free tier has a 0 cap on AI fields today - any request is denied."""
+    def test_free_tier_under_cap_is_allowed(self):
+        """Free tier is metered (taste-test allowance), not blocked outright (#164)."""
         service = _service_with_usage(ai_suggestions_requested=0)
 
-        with pytest.raises(UsageLimitExceededError):
+        service.check_limit("ai_suggestions_requested", "free")  # should not raise
+
+    def test_free_tier_at_cap_is_blocked(self):
+        cap = get_monthly_limit("free", "ai_suggestions_requested")
+        service = _service_with_usage(ai_suggestions_requested=cap)
+
+        with pytest.raises(UsageLimitExceededError) as exc_info:
             service.check_limit("ai_suggestions_requested", "free")
+
+        assert exc_info.value.limit == cap
+        assert exc_info.value.current == cap
 
 
 class TestCheckLimitUncappedField:
@@ -58,7 +68,8 @@ class TestCheckLimitUncappedField:
         service.check_limit("recipes_created", "pro")  # uncapped, should not raise
 
     def test_unknown_tier_falls_back_to_free_caps(self):
-        service = _service_with_usage(ai_suggestions_requested=0)
+        free_cap = get_monthly_limit("free", "ai_suggestions_requested")
+        service = _service_with_usage(ai_suggestions_requested=free_cap)
 
         with pytest.raises(UsageLimitExceededError):
             service.check_limit("ai_suggestions_requested", "some_future_tier")

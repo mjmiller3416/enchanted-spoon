@@ -1,4 +1,4 @@
-# Meal Genie Frontend Documentation
+# Enchanted Spoon Frontend Documentation
 
 Architecture decisions and patterns for the Next.js frontend. For component APIs, types, and hooks, read the source files directly.
 

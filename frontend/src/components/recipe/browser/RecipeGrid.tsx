@@ -11,7 +11,7 @@ export interface RecipeGridProps {
   onClearFilters: () => void;
   /** Empty-collection CTA: opens the recipe wizard (browse mode only) */
   onAddRecipe?: () => void;
-  /** Empty-collection CTA: opens the Meal Genie assistant (browse mode only) */
+  /** Empty-collection CTA: opens the Genie assistant (browse mode only) */
   onGenerateRecipe?: () => void;
   /** Select mode configuration */
   selectionMode?: boolean;
@@ -59,7 +59,7 @@ export function RecipeGrid({
               {onGenerateRecipe && (
                 <Button variant="outline" onClick={onGenerateRecipe}>
                   <Sparkles className="size-4" strokeWidth={1.5} />
-                  Generate with Meal Genie
+                  Generate with the Genie
                 </Button>
               )}
             </div>

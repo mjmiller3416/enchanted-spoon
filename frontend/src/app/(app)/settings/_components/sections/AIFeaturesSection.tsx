@@ -162,10 +162,10 @@ export function AIFeaturesSection({
             <div className="space-y-1">
               <Label htmlFor="assistant-fab" className="flex items-center gap-2">
                 <Smartphone className="h-3.5 w-3.5 text-muted-foreground" />
-                Meal Genie quick button
+                Genie quick button
               </Label>
               <p className="text-xs text-muted-foreground">
-                Show a floating &ldquo;Ask Meal Genie&rdquo; button on the Recipes and
+                Show a floating &ldquo;Ask the Genie&rdquo; button on the Recipes and
                 Planner pages on mobile.
               </p>
             </div>

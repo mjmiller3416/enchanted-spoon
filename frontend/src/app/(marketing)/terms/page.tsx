@@ -4,7 +4,7 @@ import { appConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "The terms that govern your use of Meal Genie.",
+  description: `The terms that govern your use of ${appConfig.appName}.`,
 };
 
 const LAST_UPDATED = "July 13, 2026";

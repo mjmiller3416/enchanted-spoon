@@ -158,10 +158,19 @@ export {
 // Unit Conversion Hooks
 export { useUnits } from "./useUnits";
 
+// Billing Hooks
+export {
+  useMyUsage,
+  useStartCheckout,
+  useOpenBillingPortal,
+} from "./useBilling";
+
 // Admin Hooks
 export {
   // Current User
   useCurrentUser,
+  // Usage Metrics
+  useAdminUsage,
   // User Management
   useAdminUsers,
   useGrantPro,

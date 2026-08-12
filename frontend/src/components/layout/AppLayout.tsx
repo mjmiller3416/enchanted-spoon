@@ -16,6 +16,7 @@ import {
 } from "@/lib/providers/RecipeWizardProvider";
 import { RecipeWizardView } from "@/app/(app)/recipes/_components/wizard/RecipeWizardView";
 import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
+import { PaywallDialog } from "@/components/common/PaywallDialog";
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const {
@@ -50,6 +51,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         initialGenerated={generatedSeed}
       />
       <ScrollToTopButton />
+      <PaywallDialog />
     </div>
   );
 }

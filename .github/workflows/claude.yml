@@ -31,6 +31,19 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Provision the backend Python env so Claude can actually run pytest.
+      # Without this the runner has no interpreter/deps and test runs fail.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
@@ -56,8 +69,10 @@ jobs:
           # automatic issue-context injection and reply-comment posting (tag mode).
           # Use --append-system-prompt instead so @claude mentions keep full context.
           claude_args: |
-            --allowedTools "Bash(gh pr create:*),Bash(gh pr view:*)"
-            --append-system-prompt 'Follow these git conventions strictly for any commits or PRs you create:
+            --allowedTools "Bash(gh pr create:*),Bash(gh pr view:*),Bash(pytest:*),Bash(python:*),Bash(python -m pytest:*),Bash(pip install:*),Bash(cd:*)"
+            --append-system-prompt 'The backend Python environment is already installed in this runner (Python 3.11 with all deps from backend/requirements.txt). Run backend tests with: cd backend && python -m pytest tests/ -q (target a single file with: cd backend && python -m pytest tests/test_file.py -v). Do not claim the sandbox blocks Python execution.
+
+            Follow these git conventions strictly for any commits or PRs you create:
 
             Commit messages: Use conventional commits format
               <type>: <description>

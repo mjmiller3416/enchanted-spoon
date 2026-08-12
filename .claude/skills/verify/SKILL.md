@@ -1,9 +1,9 @@
 ---
 name: verify
-description: How to launch and drive Meal Genie locally to verify changes end-to-end (backend + frontend + authenticated browser session).
+description: How to launch and drive Enchanted Spoon locally to verify changes end-to-end (backend + frontend + authenticated browser session).
 ---
 
-# Verifying Meal Genie changes at runtime
+# Verifying Enchanted Spoon changes at runtime
 
 ## Launch
 

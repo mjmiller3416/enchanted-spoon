@@ -6,6 +6,7 @@ import type {
   AdminToggleAdminRequest,
   AdminQueryRequest,
   AdminQueryResponse,
+  AdminUsageResponse,
 } from "@/types/admin";
 import { fetchApi, buildQueryString } from "./base";
 
@@ -60,6 +61,18 @@ export const adminApi = {
     fetchApi<void>(
       `/api/admin/users/${userId}`,
       { method: "DELETE" },
+      token,
+    ),
+
+  // ── Usage Metrics ──────────────────────────────────────────────────────
+
+  getUsage: (
+    month?: string,
+    token?: string | null,
+  ): Promise<AdminUsageResponse> =>
+    fetchApi<AdminUsageResponse>(
+      `/api/admin/usage${buildQueryString({ month })}`,
+      undefined,
       token,
     ),
 

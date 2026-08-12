@@ -1,6 +1,6 @@
 """app/router.py
 
-Centralised route registration for the Meal Genie API.
+Centralised route registration for the Enchanted Spoon API.
 """
 
 from fastapi import APIRouter

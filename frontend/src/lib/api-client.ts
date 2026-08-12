@@ -11,8 +11,8 @@ import { useAuth } from "@clerk/nextjs";
 import { useCallback, useMemo } from "react";
 import { ApiError } from "@/lib/api/base";
 
-// API base URL from environment variable or default to localhost
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.213:8000";
+// API base URL from environment variable, defaulting to the local dev backend.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 /**
  * Core authenticated fetch function for client components
@@ -54,7 +54,13 @@ export async function apiFetch<T>(
 
     try {
       const errorData = await response.json();
-      errorMessage = errorData.detail || errorData.message || errorMessage;
+      // `detail` may be a structured object (e.g. usage_limit_exceeded 429s) —
+      // never let an object become the Error message.
+      const detail = errorData.detail;
+      errorMessage =
+        (typeof detail === "string" ? detail : detail?.message) ||
+        errorData.message ||
+        errorMessage;
       details = errorData;
     } catch {
       // Ignore JSON parse errors

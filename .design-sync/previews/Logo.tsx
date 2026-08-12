@@ -14,7 +14,7 @@ export const Sizes = () => (
 export const Wordmark = () => (
   <div className="bg-background text-foreground p-6 rounded-xl flex items-center gap-3">
     <Logo className="w-8 h-8 text-primary" />
-    <span className="text-lg font-semibold text-foreground">Meal Genie</span>
+    <span className="text-lg font-semibold text-foreground">Enchanted Spoon</span>
   </div>
 );
 

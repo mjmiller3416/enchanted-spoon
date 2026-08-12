@@ -7,6 +7,7 @@ import { useChatHistory } from "@/hooks/persistence";
 import { useAssistantChat } from "@/hooks/api/useAI";
 import { useChatScroll } from "@/hooks/ui";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
+import { classifyAiGateError } from "@/lib/paywall";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -84,7 +85,14 @@ export function AssistantChatContent({
       }
     } catch (error) {
       console.error("Failed to get response:", error);
-      addMessage({ role: "assistant", content: "Sorry, something went wrong. Please try again." });
+      // Access-gate errors already open the paywall dialog (QueryProvider's
+      // MutationCache) — keep the chat bubble consistent with it.
+      addMessage({
+        role: "assistant",
+        content: classifyAiGateError(error)
+          ? "You've used this month's assistant allowance — see the upgrade options to keep chatting."
+          : "Sorry, something went wrong. Please try again.",
+      });
     }
   }, [input, chatMutation, messages, addMessage]);
 
@@ -124,7 +132,7 @@ export function AssistantChatContent({
           <div className="p-1.5 rounded-lg bg-primary-surface">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
-          <h2 className="text-base font-semibold text-foreground">Meal Genie</h2>
+          <h2 className="text-base font-semibold text-foreground">Genie</h2>
         </div>
         <div className="flex items-center gap-1">
           <AnimatePresence>

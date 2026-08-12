@@ -11,6 +11,12 @@ from typing import Optional
 
 # Monthly caps per UserUsage field, per subscription tier.
 # A tier/field combination with no entry is uncapped.
+#
+# Tier philosophy (#161/#164): pro caps exist only to prevent abuse — a regular
+# user should never feel them. Free caps are a taste-test: enough to see each
+# AI feature work, not enough to rely on it. `ai_suggestions_requested` is
+# shared by four features (meal suggestions, nutrition estimation, recipe
+# generation, cooking tips), so its free cap is a bit above single digits.
 TIER_USAGE_LIMITS: dict[str, dict[str, int]] = {
     "pro": {
         "ai_images_generated": 150,
@@ -19,10 +25,10 @@ TIER_USAGE_LIMITS: dict[str, dict[str, int]] = {
         "recipes_imported": 100,
     },
     "free": {
-        "ai_images_generated": 0,
-        "ai_suggestions_requested": 0,
-        "ai_assistant_messages": 0,
-        "recipes_imported": 0,
+        "ai_images_generated": 3,
+        "ai_suggestions_requested": 10,
+        "ai_assistant_messages": 10,
+        "recipes_imported": 5,
     },
 }
 

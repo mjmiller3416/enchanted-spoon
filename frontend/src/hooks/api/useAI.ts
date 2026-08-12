@@ -81,7 +81,7 @@ export function useGenerateBanner() {
 }
 
 /**
- * Send a message to Meal Genie AI assistant.
+ * Send a message to the Genie AI assistant.
  * Supports conversation history for context.
  * May return chat response, recipe suggestions, or a generated recipe.
  */
@@ -103,7 +103,7 @@ export function useAssistantChat() {
 }
 
 /**
- * Ask Meal Genie a question.
+ * Ask the Genie a question.
  * Alias for useAssistantChat - uses the same endpoint.
  * Supports conversation history for context.
  */

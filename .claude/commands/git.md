@@ -23,6 +23,8 @@ $ARGUMENTS
 | `sync` | `workflows/sync.md` | Rebase current branch onto latest staging |
 | `merge` | `workflows/merge.md` | Squash merge current branch into staging |
 | `deploy` | `workflows/deploy.md` | Create PR from staging -> main (production) |
+| `backport` | `workflows/backport.md` | Sync hotfixes from main back to staging |
+| `cleanup` | `workflows/cleanup.md` | Remove merged/stale branches and close resolved issues |
 | `pr [base-branch]` | `workflows/pr.md` | Push branch and create pull request |
 | _(no args)_ | `workflows/status.md` | Show status and suggest next action |
 

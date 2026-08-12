@@ -48,10 +48,13 @@ export const categoryQueryKeys = {
 export const adminQueryKeys = {
   all: ["admin"] as const,
   users: () => [...adminQueryKeys.all, "users"] as const,
+  usage: (month?: string) =>
+    [...adminQueryKeys.all, "usage", month ?? "current"] as const,
 };
 
 export const currentUserQueryKeys = {
   all: ["currentUser"] as const,
+  usage: () => [...currentUserQueryKeys.all, "usage"] as const,
 };
 
 // Re-export shopping keys for consistency

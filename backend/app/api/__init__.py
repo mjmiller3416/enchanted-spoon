@@ -1,4 +1,4 @@
-"""API routers for the Meal Genie application."""
+"""API routers for the Enchanted Spoon application."""
 
 from .recipes import router as recipes_router
 from .planner import router as planner_router

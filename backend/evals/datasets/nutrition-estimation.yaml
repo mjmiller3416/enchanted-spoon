@@ -1,0 +1,55 @@
+# Nutrition-estimation golden set — STRUCTURED tier.
+# `ingredients_text` mirrors the production format ("- {qty} {unit} {name}",
+# nutrition_estimation.py:102-112). Nutrition is inherently an estimate, so the
+# accuracy check is a GROSS-ERROR gate: per-serving calories must land within
+# `calorie_tolerance_pct` of a hand-set reference. The stronger, exact signals are
+# schema validity + macro↔calorie reconciliation (assertions/nutritionSchema.js),
+# which apply to every row regardless of the reference.
+
+- description: "grilled chicken breast"
+  vars:
+    recipe_name: "Grilled Chicken Breast"
+    servings: 4
+    ingredients_text: "- 4.0 whole chicken breast\n- 2.0 tbs olive oil\n- 1.0 tsp salt\n- 0.5 tsp black pepper"
+    expected_calories: 365
+    calorie_tolerance_pct: 50
+
+- description: "spaghetti with marinara"
+  vars:
+    recipe_name: "Spaghetti with Marinara"
+    servings: 4
+    ingredients_text: "- 1.0 lbs spaghetti\n- 2.0 cup marinara sauce\n- 2.0 tbs olive oil\n- 0.25 cup parmesan cheese"
+    expected_calories: 540
+    calorie_tolerance_pct: 50
+
+- description: "caesar salad"
+  vars:
+    recipe_name: "Caesar Salad"
+    servings: 2
+    ingredients_text: "- 1.0 whole romaine lettuce\n- 2.0 tbs caesar dressing\n- 0.25 cup parmesan cheese\n- 1.0 cup croutons"
+    expected_calories: 220
+    calorie_tolerance_pct: 55
+
+- description: "beef stew"
+  vars:
+    recipe_name: "Beef Stew"
+    servings: 6
+    ingredients_text: "- 2.0 lbs beef chuck\n- 4.0 whole potato\n- 3.0 whole carrot\n- 1.0 whole onion\n- 4.0 cup beef broth"
+    expected_calories: 420
+    calorie_tolerance_pct: 50
+
+- description: "vegetable stir-fry"
+  vars:
+    recipe_name: "Vegetable Stir-Fry"
+    servings: 4
+    ingredients_text: "- 2.0 cup broccoli\n- 1.0 whole bell pepper\n- 1.0 cup snap peas\n- 2.0 tbs soy sauce\n- 2.0 tbs vegetable oil"
+    expected_calories: 165
+    calorie_tolerance_pct: 60
+
+- description: "chocolate chip cookies (per cookie)"
+  vars:
+    recipe_name: "Chocolate Chip Cookies"
+    servings: 24
+    ingredients_text: "- 2.25 cup all-purpose flour\n- 2.0 stick butter\n- 0.75 cup granulated sugar\n- 0.75 cup brown sugar\n- 2.0 whole egg\n- 2.0 cup chocolate chips"
+    expected_calories: 185
+    calorie_tolerance_pct: 55

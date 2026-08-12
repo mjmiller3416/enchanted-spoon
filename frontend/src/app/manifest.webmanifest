@@ -1,6 +1,6 @@
 {
-  "name": "Meal Genie",
-  "short_name": "Meal Genie",
+  "name": "Enchanted Spoon",
+  "short_name": "Enchanted Spoon",
   "description": "Save recipes, plan your week, and get an auto-built shopping list.",
   "start_url": "/",
   "display": "standalone",

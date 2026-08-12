@@ -7,10 +7,11 @@ for user management.
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from ..models.user import User
+from ..models.user_usage import UserUsage
 
 
 class AdminRepo:
@@ -38,6 +39,28 @@ class AdminRepo:
         """Get a user by internal ID."""
         stmt = select(User).where(User.id == user_id)
         return self.session.scalars(stmt).first()
+
+    def list_usage_for_month(
+        self, month: str
+    ) -> List[Tuple[User, Optional[UserUsage]]]:
+        """List every user with their usage row for ``month`` (if any).
+
+        LEFT JOIN users -> user_usage on (user_id, month) so that users with
+        no usage row for the requested month still appear (paired with None).
+        Ordered by user id.
+        """
+        stmt = (
+            select(User, UserUsage)
+            .outerjoin(
+                UserUsage,
+                and_(
+                    UserUsage.user_id == User.id,
+                    UserUsage.month == month,
+                ),
+            )
+            .order_by(User.id)
+        )
+        return [(row[0], row[1]) for row in self.session.execute(stmt).all()]
 
     def update_user_pro_grant(
         self,

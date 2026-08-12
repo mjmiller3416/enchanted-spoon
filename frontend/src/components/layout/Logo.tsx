@@ -1,17 +1,33 @@
-// components/Logo.tsx
+// components/layout/Logo.tsx
 interface LogoProps {
   className?: string;
 }
 
+/**
+ * Enchanted Spoon brand mark — the spoon-and-sparkle icon.
+ *
+ * Renders the shared `/logo.svg` so the in-app logo always tracks the
+ * source brand asset (edit the SVG and every placement updates). The mark uses
+ * a fixed multi-color brand palette that reads on both light and dark themes,
+ * so it intentionally does not tint with the surrounding text color.
+ *
+ * The artwork is taller than it is wide, so size it by height and let the width
+ * follow (e.g. `h-8 w-auto`). Avoid forcing a square box (`w-8 h-8`), which an
+ * <img> would stretch.
+ *
+ * TODO(rebrand): the raster brand assets are still the legacy whisk art and
+ * need regenerating from this spoon mark — favicon (`src/app/favicon.ico`),
+ * PWA/app icons (`src/app/icon.png`, `src/app/apple-icon.png`), and the social
+ * preview (`src/app/opengraph-image.png`).
+ */
 export function Logo({ className }: LogoProps) {
   return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      viewBox="0 0 24 24" 
-      fill="currentColor"
+    // eslint-disable-next-line @next/next/no-img-element -- static brand vector from /public; next/image adds no value for an inline SVG mark
+    <img
+      src="/logo.svg"
+      alt=""
+      aria-hidden="true"
       className={className}
-    >
-      <path d="m24,1v6c0,2.414-1.721,4.434-4,4.899v11.101c0,.552-.448,1-1,1s-1-.448-1-1v-11.101c-2.279-.465-4-2.484-4-4.899V1c0-.552.448-1,1-1s1,.448,1,1v6c0,1.302.839,2.402,2,2.816V1c0-.552.448-1,1-1s1,.448,1,1v8.816c1.161-.414,2-1.514,2-2.816V1c0-.552.448-1,1-1s1,.448,1,1Zm-8,17.918c-1.178.684-2.542,1.082-4,1.082-4.411,0-8-3.589-8-8S7.589,4,12,4V1c0-.349.071-.679.181-.991-.061,0-.12-.009-.181-.009C5.373,0,0,5.373,0,12s5.373,12,12,12c1.416,0,2.768-.258,4.029-.708-.01-.097-.029-.192-.029-.292v-4.082Zm-10-6.918c0,3.309,2.691,6,6,6,1.538,0,2.937-.586,4-1.54v-3.145c-2.361-1.126-4-3.53-4-6.315v-1c-3.309,0-6,2.691-6,6Z"/>
-    </svg>
+    />
   );
 }

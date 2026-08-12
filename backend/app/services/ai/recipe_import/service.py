@@ -14,7 +14,7 @@ import json
 import logging
 import re
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -44,6 +44,9 @@ from .config import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Cap manual redirect following so a page can't loop us indefinitely.
+MAX_REDIRECTS = 5
 
 
 # ── Domain Exceptions ────────────────────────────────────────────────────────
@@ -174,15 +177,40 @@ class RecipeImportService:
         return url
 
     @staticmethod
+    async def _fetch_following_validated_redirects(
+        client: httpx.AsyncClient, url: str, headers: Optional[dict] = None
+    ) -> httpx.Response:
+        """GET ``url``, following redirects manually so every hop is SSRF-checked.
+
+        The httpx clients are created with ``follow_redirects=False`` so a
+        scraped page cannot bounce the request to a private/loopback address via
+        a 3xx ``Location`` header. Each redirect target is re-validated through
+        ``_validate_url`` before it is fetched.
+        """
+        current = url  # the caller has already validated the initial URL
+        for _ in range(MAX_REDIRECTS + 1):
+            response = await client.get(current, headers=headers or {})
+            if response.is_redirect:
+                location = response.headers.get("location")
+                if not location:
+                    return response
+                current = RecipeImportService._validate_url(urljoin(current, location))
+                continue
+            return response
+        raise RecipeImportFetchError("That URL redirected too many times.")
+
+    @staticmethod
     async def _fetch_html(url: str) -> str:
         """Fetch the page HTML with browser-like headers."""
         try:
             async with httpx.AsyncClient(
                 headers=FETCH_HEADERS,
-                follow_redirects=True,
+                follow_redirects=False,
                 timeout=FETCH_TIMEOUT_SECONDS,
             ) as client:
-                response = await client.get(url)
+                response = await RecipeImportService._fetch_following_validated_redirects(
+                    client, url
+                )
         except httpx.TimeoutException as e:
             raise RecipeImportFetchError(
                 "The website took too long to respond. Please try again."
@@ -431,12 +459,15 @@ class RecipeImportService:
         or upload their own in the wizard.
         """
         try:
+            validated_url = RecipeImportService._validate_url(image_url)
             async with httpx.AsyncClient(
                 headers={**FETCH_HEADERS, "Referer": page_url},
-                follow_redirects=True,
+                follow_redirects=False,
                 timeout=FETCH_TIMEOUT_SECONDS,
             ) as client:
-                response = await client.get(image_url)
+                response = await RecipeImportService._fetch_following_validated_redirects(
+                    client, validated_url
+                )
 
             if response.status_code != 200:
                 logger.warning(

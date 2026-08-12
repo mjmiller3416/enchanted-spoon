@@ -6,7 +6,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-**Meal Genie** is a full-stack recipe management and meal planning application with AI-powered features. It consists of:
+**Enchanted Spoon** is a full-stack recipe management and meal planning application with AI-powered features. It consists of:
 
 - **Frontend**: Next.js 16 + React 19 with TypeScript, Tailwind CSS v4, shadcn/ui (New York style)
 - **Backend**: FastAPI + SQLAlchemy 2.0 with Pydantic v2, SQLite (dev) / PostgreSQL (prod)
@@ -98,7 +98,7 @@ pytest tests/test_file.py -v
 - `AUTH_DISABLED` - Bypass JWT for local dev (`true`/`false`)
 - `DEV_USER_ID` - User ID when auth disabled (default: 1)
 - `CLERK_PUBLISHABLE_KEY` - Used to derive JWKS URL
-- `GEMINI_ASSISTANT_API_KEY` - For Meal Genie chat
+- `GEMINI_ASSISTANT_API_KEY` - For Genie chat
 - `GEMINI_TIP_API_KEY` - For cooking tips
 - `GEMINI_IMAGE_API_KEY` - For image generation
 - `GEMINI_RECIPE_GENERATION_API_KEY` - For AI recipe generation

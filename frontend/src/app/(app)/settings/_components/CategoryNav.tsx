@@ -6,6 +6,7 @@ import {
   Palette,
   ChefHat,
   ShoppingCart,
+  CreditCard,
   Database,
   MessageSquare,
   Sparkles,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 export type SettingsCategory =
   | "profile"
+  | "billing"
   | "appearance"
   | "recipePreferences"
   | "shoppingList"
@@ -43,6 +45,12 @@ export const CATEGORIES: CategoryConfig[] = [
     label: "Account & Profile",
     icon: User,
     description: "Manage your personal information",
+  },
+  {
+    id: "billing",
+    label: "Plan & Billing",
+    icon: CreditCard,
+    description: "Subscription and AI usage",
   },
   {
     id: "appearance",

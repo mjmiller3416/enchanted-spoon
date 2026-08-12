@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
+import { appConfig } from "@/lib/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,13 +25,13 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
-    default: "Meal Genie — Recipes, meal planning, and smart shopping lists",
-    template: "%s · Meal Genie",
+    default: `${appConfig.appName} — Recipes, meal planning, and smart shopping lists`,
+    template: `%s · ${appConfig.appName}`,
   },
   description:
     "Save recipes, plan your week, and get an auto-built shopping list. AI-powered recipe import and generation.",
   openGraph: {
-    siteName: "Meal Genie",
+    siteName: appConfig.appName,
     type: "website",
     url: "/",
   },
@@ -39,8 +40,9 @@ export const metadata: Metadata = {
 
 // Runs synchronously before any content paints so a stored light preference
 // never flashes the default dark theme. Reads the same key useSettings writes
-// ("meal-genie-theme", JSON-encoded), falls back to the legacy "theme" key,
-// then to the OS preference. Keep in sync with hooks/ui/useTheme.ts.
+// ("meal-genie-theme", JSON-encoded), falls back to the legacy "theme" key.
+// An explicit "system" preference follows the OS; with no stored preference at
+// all we default to dark. Keep in sync with hooks/ui/useTheme.ts.
 const themeInitScript = `(function () {
   try {
     var pref = null;
@@ -51,12 +53,16 @@ const themeInitScript = `(function () {
     if (pref !== "light" && pref !== "dark" && pref !== "system") {
       pref = localStorage.getItem("theme");
     }
-    var resolved =
-      pref === "light" || pref === "dark"
-        ? pref
-        : window.matchMedia("(prefers-color-scheme: light)").matches
-          ? "light"
-          : "dark";
+    var resolved;
+    if (pref === "light" || pref === "dark") {
+      resolved = pref;
+    } else if (pref === "system") {
+      resolved = window.matchMedia("(prefers-color-scheme: light)").matches
+        ? "light"
+        : "dark";
+    } else {
+      resolved = "dark";
+    }
     document.documentElement.classList.toggle("light", resolved === "light");
   } catch (e) {}
 })();`;

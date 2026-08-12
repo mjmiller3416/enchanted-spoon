@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "Meal suggestions — OPEN-ENDED tier (one dish-specific 'upgrade idea')"
+
+# Production baseline: gemini-3.5-flash, temperature 0.8, max_output_tokens 150,
+# thinking disabled, 3-message chat (meal_suggestions.py:18-20,76-88). See
+# cooking-tips.yaml header for the per-model param rationale + the 3.6 swap note.
+providers:
+  - id: google:gemini-3.5-flash
+    label: "gemini-3.5-flash"
+    config:
+      generationConfig:
+        temperature: 0.8
+        maxOutputTokens: 150
+        thinkingConfig:
+          thinkingBudget: 0
+  - id: openai:gpt-5.6-terra
+    label: "gpt-5.6-terra"
+    config:
+      max_completion_tokens: 150
+      reasoning_effort: none
+  - id: anthropic:messages:claude-sonnet-5
+    label: "claude-sonnet-5"
+    config:
+      max_tokens: 150
+      thinking:
+        type: disabled
+
+prompts:
+  - file://../prompts/meal-suggestion.json
+
+tests: file://../datasets/meal-suggestions.yaml
+
+defaultTest:
+  options:
+    provider: anthropic:messages:claude-sonnet-4-6
+  assert:
+    - type: javascript
+      value: "output.trim().length > 0 && !output.trim().startsWith('{') && !/^tip:/i.test(output.trim())"
+      metric: format_ok
+    - type: llm-rubric
+      metric: suggestion_quality
+      value: >
+        Score this dish "upgrade idea". A great one is: (1) specific to THIS dish —
+        it would NOT apply to 10+ unrelated dishes; (2) an actual enhancement (sauce,
+        topping, mix-in, seasoning twist, texture boost, better assembly, side
+        pairing, or restaurant-y finish), not a basic cooking lesson; (3) includes at
+        least one concrete detail (ingredient, amount, timing, or method);
+        (4) 1-2 sentences, home-kitchen friendly, no specialty equipment; (5) avoids
+        generic food-safety or vague technique filler. Score high only if it is
+        clearly tailored to the named dish.
+  # NOTE: `select-best` removed (promptfoo select-best + Anthropic judge 400s). The
+  # per-provider `suggestion_quality` rubric score ranks the candidates.

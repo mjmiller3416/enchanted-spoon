@@ -220,32 +220,32 @@ def require_pro(
 def require_within_usage_limit(field: str) -> Callable[..., User]:
     """
     Dependency factory that enforces a monthly usage cap for a Gemini-backed
-    AI feature, on top of the binary pro-access check.
+    AI feature, resolved from the user's subscription tier.
 
-    Builds on `require_pro`, then checks the user's monthly `UserUsage`
-    counter for `field` against their subscription tier's cap. Admins are
-    exempt. Tier resolution (not just a flat "pro" cap) means a future
-    metered free tier can reuse this unchanged by adding a "free" tier
-    entry in `app/core/usage_limits.py`.
+    Checks the user's monthly `UserUsage` counter for `field` against their
+    tier's cap in `app/core/usage_limits.py`. Admins are exempt. Free users
+    are metered (a small taste-test allowance), not blocked outright — the
+    binary `require_pro` gate was deliberately dropped here when the metered
+    free tier landed (#164), so a capped free user gets a structured 429 the
+    frontend can turn into an upgrade prompt.
 
     Usage:
         @router.post("/ai/generate-image")
         def generate_image(
             current_user: User = Depends(require_within_usage_limit("ai_images_generated")),
         ):
-            # Only pro users under their monthly cap can access this
+            # Any authenticated user under their tier's monthly cap
             ...
 
     Returns:
-        A dependency callable resolving to the authenticated pro User.
+        A dependency callable resolving to the authenticated User.
 
     Raises:
-        HTTPException 403: User doesn't have pro access.
-        HTTPException 429: User has reached their monthly cap for `field`.
+        HTTPException 429: User has reached their tier's monthly cap for `field`.
     """
 
     def _check_usage_limit(
-        user: User = Depends(require_pro),
+        user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
     ) -> User:
         if user.is_admin:

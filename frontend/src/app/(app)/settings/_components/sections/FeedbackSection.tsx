@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { useFeedbackForm, FEEDBACK_CATEGORIES } from "@/hooks/forms/useFeedbackForm";
 import { SectionHeader } from "../SectionHeader";
+import { appConfig } from "@/lib/config";
 
 export function FeedbackSection() {
   const {
@@ -34,7 +35,7 @@ export function FeedbackSection() {
         <SectionHeader
           icon={MessageSquare}
           title="Send Feedback"
-          description="Help us improve Meal Genie by sharing your thoughts"
+          description={`Help us improve ${appConfig.appName} by sharing your thoughts`}
         />
 
         <div className="space-y-6">
@@ -121,7 +122,7 @@ export function FeedbackSection() {
           <div className="bg-elevated rounded-xl p-4 border border-border">
             <p className="text-sm text-muted-foreground">
               Your feedback helps us prioritize improvements. Thank you
-              for helping make Meal Genie better!
+              for helping make {appConfig.appName} better!
             </p>
           </div>
         </div>

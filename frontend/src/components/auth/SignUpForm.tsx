@@ -21,6 +21,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Logo } from "@/components/layout/Logo";
+import { appConfig } from "@/lib/config";
 
 type SignUpStep = "details" | "verification";
 
@@ -156,14 +157,14 @@ export function SignUpForm() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center space-y-4">
         <div className="flex justify-center">
-          <Logo className="h-12 w-12 text-primary" />
+          <Logo className="h-12 w-auto" />
         </div>
         <div className="space-y-2">
           <CardTitle className="text-2xl">
             {step === "details" ? "Create your account" : "Verify your email"}
           </CardTitle>
           <CardDescription>
-            {step === "details" && "Welcome to Meal Genie! Let's get started"}
+            {step === "details" && `Welcome to ${appConfig.appName}! Let's get started`}
             {step === "verification" && `Enter the code sent to ${email}`}
           </CardDescription>
         </div>

@@ -1,0 +1,23 @@
+{
+  "name": "enchanted-spoon-ai-evals",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phase 0 provider evaluation harness for Enchanted Spoon's AI services (promptfoo). Measures Gemini vs OpenAI vs Claude per service before any gateway refactor.",
+  "type": "module",
+  "scripts": {
+    "tips": "promptfoo eval -c configs/cooking-tips.yaml -o output/cooking-tips.json",
+    "recipe-gen": "promptfoo eval -c configs/recipe-generation.yaml -o output/recipe-generation.json",
+    "import": "promptfoo eval -c configs/recipe-import.yaml -o output/recipe-import.json",
+    "nutrition": "promptfoo eval -c configs/nutrition-estimation.yaml -o output/nutrition-estimation.json",
+    "meal": "promptfoo eval -c configs/meal-suggestions.yaml -o output/meal-suggestions.json",
+    "genie": "promptfoo eval -c configs/genie-chat.yaml -o output/genie-chat.json",
+    "genie-transcript": "node scorecard/genie-transcript.mjs && echo Wrote scorecard/genie-transcript.md",
+    "all": "npm run tips && npm run recipe-gen && npm run import && npm run nutrition && npm run meal",
+    "view": "promptfoo view",
+    "validate": "promptfoo validate config -c configs/cooking-tips.yaml && promptfoo validate config -c configs/meal-suggestions.yaml && promptfoo validate config -c configs/recipe-generation.yaml && promptfoo validate config -c configs/recipe-import.yaml && promptfoo validate config -c configs/nutrition-estimation.yaml",
+    "scorecard": "node scorecard/generate.mjs output && echo Wrote scorecard/scorecard.md"
+  },
+  "devDependencies": {
+    "promptfoo": "0.122.0"
+  }
+}

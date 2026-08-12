@@ -38,8 +38,8 @@ const FEATURES: Feature[] = [
   },
   {
     icon: Sparkles,
-    title: "Meal Genie assistant",
-    body: "Ask for anything — “something cozy, no oven, 30 minutes” — and Meal Genie drafts the recipe.",
+    title: "Genie assistant",
+    body: "Ask for anything — “something cozy, no oven, 30 minutes” — and the Genie drafts the recipe.",
   },
   {
     icon: Apple,

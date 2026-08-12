@@ -13,12 +13,17 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from typing import Optional
+
 from ..dtos.admin_dtos import (
     AdminGrantProDTO,
     AdminQueryResponseDTO,
+    AdminUsageResponseDTO,
     AdminUserListDTO,
     AdminUserListResponseDTO,
+    AdminUserUsageDTO,
 )
+from ..models.user_usage import UserUsage
 from ..repositories.admin_repo import AdminRepo
 
 
@@ -82,6 +87,23 @@ class AdminService:
         return AdminUserListResponseDTO(
             items=[AdminUserListDTO.from_model(u) for u in users],
             total=total,
+        )
+
+    def get_usage_by_user(
+        self, month: Optional[str] = None
+    ) -> AdminUsageResponseDTO:
+        """Per-user AI feature usage for a month (defaults to current UTC month).
+
+        Every user appears sorted by id, even with no usage row for the month
+        (counters all 0). This is read-only, so no commit is performed.
+        """
+        resolved_month = month or UserUsage.get_current_month()
+        rows = self.repo.list_usage_for_month(resolved_month)
+        return AdminUsageResponseDTO(
+            month=resolved_month,
+            users=[
+                AdminUserUsageDTO.from_models(user, usage) for user, usage in rows
+            ],
         )
 
     def grant_pro(self, user_id: int, dto: AdminGrantProDTO) -> AdminUserListDTO:

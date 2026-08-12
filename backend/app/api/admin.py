@@ -4,6 +4,8 @@ Admin panel API routes for user management.
 All routes require admin access.
 """
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,7 @@ from app.dtos.admin_dtos import (
     AdminQueryRequestDTO,
     AdminQueryResponseDTO,
     AdminToggleAdminDTO,
+    AdminUsageResponseDTO,
     AdminUserListDTO,
     AdminUserListResponseDTO,
 )
@@ -44,6 +47,24 @@ def list_users(
     """List all users with pagination."""
     service = AdminService(session, current_admin.id)
     return service.list_users(skip=skip, limit=limit)
+
+
+# ── Usage Analytics ──────────────────────────────────────────────────────────
+
+
+@router.get("/usage", response_model=AdminUsageResponseDTO)
+def get_usage(
+    month: Optional[str] = Query(
+        None,
+        pattern=r"^\d{4}-\d{2}$",
+        description="Month in YYYY-MM format. Defaults to the current UTC month.",
+    ),
+    session: Session = Depends(get_session),
+    current_admin: User = Depends(require_admin),
+) -> AdminUsageResponseDTO:
+    """Per-user AI feature usage for a month (defaults to the current month)."""
+    service = AdminService(session, current_admin.id)
+    return service.get_usage_by_user(month=month)
 
 
 @router.patch("/users/{user_id}/pro", response_model=AdminUserListDTO)

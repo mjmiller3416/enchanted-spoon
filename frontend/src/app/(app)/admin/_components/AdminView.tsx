@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, Database } from "lucide-react";
+import { Shield, Database, Activity } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -9,9 +9,10 @@ import { SidebarPageSkeleton } from "@/components/layout/SidebarPageSkeleton";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/api";
 import { AdminUsersSection } from "./AdminUsersSection";
+import { AdminUsageSection } from "./AdminUsageSection";
 import { AdminDatabaseSection } from "./AdminDatabaseSection";
 
-type AdminTab = "users" | "database";
+type AdminTab = "users" | "usage" | "database";
 
 interface TabConfig {
   id: AdminTab;
@@ -26,6 +27,12 @@ const TABS: TabConfig[] = [
     label: "User Management",
     icon: Shield,
     description: "Manage users and access levels",
+  },
+  {
+    id: "usage",
+    label: "AI Usage",
+    icon: Activity,
+    description: "AI usage and limits by user",
   },
   {
     id: "database",
@@ -63,6 +70,8 @@ export function AdminView() {
     switch (activeTab) {
       case "users":
         return <AdminUsersSection />;
+      case "usage":
+        return <AdminUsageSection />;
       case "database":
         return <AdminDatabaseSection />;
       default:

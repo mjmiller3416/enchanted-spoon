@@ -368,7 +368,7 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
           className="flex items-center gap-2 cursor-pointer"
         >
           <Sparkles className="h-4 w-4" />
-          Ask Meal Genie
+          Ask the Genie
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -500,7 +500,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
       >
         {/* Left section: Logo + App Name + Hamburger */}
         <div className="flex items-center gap-3 mr-6">
-          <Logo className="w-8 h-8 text-primary flex-shrink-0" />
+          <Logo className="h-8 w-auto flex-shrink-0" />
           <span className="text-lg font-semibold text-foreground whitespace-nowrap">
             {appConfig.appName}
           </span>
@@ -552,19 +552,19 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
 
         {/* Right section: Assistant, Theme toggle, Changelog, Avatar */}
         <div className="flex items-center gap-2.5 border-l border-border pl-3">
-          {/* Meal Genie assistant trigger */}
+          {/* Genie assistant trigger */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Open Meal Genie"
+                aria-label="Open the Genie"
                 onClick={onOpenAssistant}
               >
                 <Sparkles className="size-5" strokeWidth={1.5} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Meal Genie</TooltipContent>
+            <TooltipContent>Genie</TooltipContent>
           </Tooltip>
 
           {/* Theme toggle — single icon */}
@@ -621,7 +621,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
         <SheetContent side="left" className="w-72 p-0">
           <SheetHeader className="px-4 pt-6 pb-2">
             <SheetTitle className="flex items-center gap-3">
-              <Logo className="w-8 h-8 text-primary" />
+              <Logo className="h-8 w-auto" />
               {appConfig.appName}
             </SheetTitle>
           </SheetHeader>

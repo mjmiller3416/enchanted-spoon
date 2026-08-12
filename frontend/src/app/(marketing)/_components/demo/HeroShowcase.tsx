@@ -68,7 +68,7 @@ export function HeroShowcase() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 text-sm font-medium text-primary">
             <Sparkles className="size-4" strokeWidth={1.5} />
-            Ask Meal Genie
+            Ask the Genie
           </div>
           <div className="flex min-h-20 items-center gap-3 rounded-xl border border-border bg-card p-4 text-left shadow-raised">
             <p className="flex-1 text-base text-foreground">

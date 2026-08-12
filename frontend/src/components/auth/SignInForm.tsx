@@ -21,6 +21,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Logo } from "@/components/layout/Logo";
+import { appConfig } from "@/lib/config";
 
 type SignInStep = "email" | "password" | "verification";
 
@@ -171,10 +172,10 @@ export function SignInForm() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center space-y-4">
         <div className="flex justify-center">
-          <Logo className="h-12 w-12 text-primary" />
+          <Logo className="h-12 w-auto" />
         </div>
         <div className="space-y-2">
-          <CardTitle className="text-2xl">Sign in to Meal Genie</CardTitle>
+          <CardTitle className="text-2xl">Sign in to {appConfig.appName}</CardTitle>
           <CardDescription>
             {step === "email" && "Welcome back! Please sign in to continue"}
             {step === "password" && `Enter your password for ${email}`}

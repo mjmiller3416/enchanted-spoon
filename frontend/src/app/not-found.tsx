@@ -5,7 +5,7 @@ import { Logo } from "@/components/layout/Logo";
 export default function NotFound() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-6 bg-background p-4 text-center">
-      <Logo className="h-12 w-12 text-primary" />
+      <Logo className="h-12 w-auto" />
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Page not found

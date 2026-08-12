@@ -51,7 +51,7 @@ export interface MealSuggestionsResponseDTO {
 }
 
 // ============================================================================
-// Meal Genie Types
+// Genie Types
 // ============================================================================
 
 export interface AssistantMessage {

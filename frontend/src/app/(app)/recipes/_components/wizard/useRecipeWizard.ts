@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 
 import { recipeApi, ingredientApi, uploadApi, recipeGenerationApi, recipeImportApi, ApiError } from "@/lib/api";
+import { maybeHandleAiGateError } from "@/lib/paywall";
 import { recipeQueryKeys } from "@/hooks/api/queryKeys";
 import { base64ToFile } from "@/lib/utils";
 import type {
@@ -49,7 +50,7 @@ interface UseRecipeWizardOptions {
   mode?: "create" | "edit";
   /** Recipe to load when mode is "edit". */
   recipeId?: number | null;
-  /** Generated recipe used to pre-fill a create-mode wizard (e.g. from Meal Genie). */
+  /** Generated recipe used to pre-fill a create-mode wizard (e.g. from the Genie). */
   initialGenerated?: RecipeGenerationResponseDTO | null;
 }
 
@@ -548,7 +549,7 @@ export function useRecipeWizard({
   }, [isEditMode, isInitialized, recipeId, getToken, populateFromRecipe]);
 
   // ---------------------------------------------------------------------------
-  // Create mode: seed from a pre-generated recipe (e.g. handed off by Meal Genie)
+  // Create mode: seed from a pre-generated recipe (e.g. handed off by the Genie)
   // ---------------------------------------------------------------------------
   const seededRef = useRef(false);
   useEffect(() => {
@@ -599,7 +600,13 @@ export function useRecipeWizard({
       toast.success(`"${response.recipe.recipe_name}" generated — review and edit below.`);
     } catch (error) {
       console.error("AI generation failed:", error);
-      setAiError("Something went wrong. Please try again.");
+      // Direct API call (not React Query) — route AI access gates to the
+      // paywall dialog ourselves, keeping the inline message accurate.
+      if (maybeHandleAiGateError(error) && error instanceof ApiError) {
+        setAiError(error.message);
+      } else {
+        setAiError("Something went wrong. Please try again.");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -636,6 +643,9 @@ export function useRecipeWizard({
       toast.success(`"${response.recipe.recipe_name}" imported — review and edit below.`);
     } catch (error) {
       console.error("Recipe import failed:", error);
+      // Direct API call (not React Query) — route AI access gates to the
+      // paywall dialog ourselves; the inline message stays as backup context.
+      maybeHandleAiGateError(error);
       if (error instanceof ApiError) {
         setImportError(error.message || "Failed to import recipe. Please try again.");
       } else {

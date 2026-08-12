@@ -49,7 +49,7 @@ export default function SSOCallbackPage() {
   return (
     <Card className="w-full max-w-md">
       <CardContent className="flex flex-col items-center justify-center py-12 space-y-4">
-        <Logo className="h-12 w-12 text-primary" />
+        <Logo className="h-12 w-auto" />
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">
           Completing sign in...

@@ -1,4 +1,4 @@
-# design-sync notes — Meal Genie (frontend/)
+# design-sync notes — Enchanted Spoon (frontend/)
 
 ## Repo shape
 - This is an APP repo, not a packaged library: no dist/, no shipped .d.ts. The sync bundles a

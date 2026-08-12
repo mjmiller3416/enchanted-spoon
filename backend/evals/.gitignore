@@ -1,0 +1,14 @@
+# Node
+node_modules/
+package-lock.json
+
+# promptfoo run artifacts (the DB cache, HTML output, raw JSON results)
+.promptfoo/
+output/
+*.log
+
+# The committed scorecard is scorecard/scorecard.md — raw per-run JSON is not tracked.
+
+# Secrets: keys live in the repo-root backend/.env, never here.
+.env
+.env.local

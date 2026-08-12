@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "Genie chat — CONVERSATIONAL bake-off (voice/personality/helpfulness on real user questions)"
+
+# This is NOT one of the 5 single-shot services. It runs Genie's REAL system prompt
+# (prompts/genie-chat.js → assistant-system.txt + mock saved-recipes) against realistic
+# user questions and compares the conversational OUTPUT the user reads. Tool-free by
+# design (the tool-calling loop is Phase 4). Cost is secondary here — a pricier model
+# is worth it if the reply is better — so the matrix includes a flagship (Opus 4.8).
+#
+# All four run NON-thinking (matches production Genie = gemini-3.5-flash, thinking off,
+# temp 0.8) so latency/cost reflect the live single-shot chat experience. Flip thinking
+# on per provider to test whether reasoning improves the reply.
+#
+# ⚠️ "Feels like a real person" is subjective — the LLM rubric below is DIRECTIONAL.
+# The real arbiter is reading the side-by-side replies: `npm run genie-transcript`
+# (writes scorecard/genie-transcript.md) or `npm run view`.
+providers:
+  - id: google:gemini-3.5-flash          # current production Genie model
+    label: "gemini-3.5-flash (prod)"
+    config:
+      generationConfig:
+        temperature: 0.8                  # production assistant temperature
+        maxOutputTokens: 1024
+        thinkingConfig:
+          thinkingBudget: 0
+  - id: openai:gpt-5.6-terra
+    label: "gpt-5.6-terra"
+    config:
+      max_completion_tokens: 1024
+      reasoning_effort: none
+  - id: anthropic:messages:claude-sonnet-5
+    label: "claude-sonnet-5"
+    config:
+      max_tokens: 1024
+      thinking:
+        type: disabled
+  - id: anthropic:messages:claude-opus-4-8
+    label: "claude-opus-4-8 (flagship)"
+    config:
+      max_tokens: 1024
+      thinking:
+        type: disabled
+
+prompts:
+  - file://../prompts/genie-chat.js
+
+tests: file://../datasets/genie-chat.yaml
+
+defaultTest:
+  options:
+    # Judge is GPT-5.6 (a NON-Claude family) on purpose: two of the four candidates
+    # are Claude, so a Claude judge would carry the strongest self-preference bias.
+    # Cross-check by swapping to google:gemini-3.5-flash and re-running. Human read wins.
+    provider:
+      id: openai:gpt-5.6-terra
+      config:
+        reasoning_effort: none
+        max_completion_tokens: 2048
+  assert:
+    - type: javascript
+      value: "output.trim().length > 0 && !output.trim().startsWith('{')"
+      metric: format_ok
+    - type: llm-rubric
+      metric: genie_voice
+      value: >
+        You are judging a reply from "Genie", an in-app cooking assistant whose persona
+        is a warm, enthusiastic "kitchen bestie who happens to be a great cook" —
+        texting-your-best-friend energy, NOT a corporate support agent. Score the reply
+        0–1 on how well it delivers that experience:
+        (1) PERSONALITY & WARMTH — natural, warm, a little playful; uses light interjections
+        and 2–4 emojis placed naturally (not as bullet decoration); never corporate
+        ("I'd be happy to assist you") and never robotic.
+        (2) IMMEDIATELY HELPFUL — leads with real value (actual suggestions/answer) on the
+        first message rather than interrogating the user with questions.
+        (3) SPECIFIC & ACTIONABLE — concrete dishes/steps/details, not vague advice.
+        (4) ON-FORMAT — for idea requests, ~4–6 brief teaser suggestions with bolded names
+        and a one-line description each, ending by offering to make a full recipe; for
+        cooking questions, a direct answer + one clear next step.
+        (5) RIGHT-SIZED — concise for simple asks, fuller for complex ones; not a wall of text.
+        Give a high score ONLY if it feels like a genuinely warm, competent friend AND is
+        specific and useful. Penalize corporate tone, hedging, over-questioning, generic
+        advice, missing/overused emoji, and wrong format. Reward replies that also build on
+        prior conversation turns when present.

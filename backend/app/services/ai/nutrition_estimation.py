@@ -19,7 +19,10 @@ logger = logging.getLogger(__name__)
 # ── Model settings ───────────────────────────────────────────────────────
 MODEL_NAME = GEMINI_MODEL
 TEMPERATURE = 0.3  # Low temperature for factual accuracy
-MAX_OUTPUT_TOKENS = 1024
+# Recipes with many ingredients (e.g. combo dishes) need more headroom before
+# the model reaches a complete JSON object — too tight a cap silently
+# truncates the response mid-object, which then fails to parse.
+MAX_OUTPUT_TOKENS = 2048
 
 # Environment variable for API key
 API_KEY_ENV_VAR = "GEMINI_NUTRITION_API_KEY"
@@ -128,9 +131,17 @@ class NutritionEstimationService:
 
             raw_text = extract_text_from_response(response)
             if not raw_text:
-                return NutritionEstimationResponseDTO(
-                    success=False, error="No response from AI model"
+                finish_reason = None
+                if response and response.candidates:
+                    finish_reason = getattr(response.candidates[0], "finish_reason", None)
+                logger.error(
+                    f"[Nutrition] Empty response for '{request.recipe_name}' "
+                    f"(finish_reason={finish_reason})"
                 )
+                error = "No response from AI model"
+                if finish_reason and str(finish_reason) not in ("STOP", "1"):
+                    error = f"No response from AI model (finish_reason={finish_reason})"
+                return NutritionEstimationResponseDTO(success=False, error=error)
 
             logger.debug(f"[Nutrition] Raw response: {raw_text[:500]}")
             data = _extract_json(raw_text)
@@ -148,7 +159,10 @@ class NutritionEstimationService:
             )
 
         except json.JSONDecodeError as e:
-            logger.error(f"[Nutrition] JSON parse error: {e}")
+            logger.error(
+                f"[Nutrition] JSON parse error for '{request.recipe_name}': {e} "
+                f"(raw_text={raw_text[:500]!r})"
+            )
             return NutritionEstimationResponseDTO(
                 success=False, error="Failed to parse nutrition data from AI response"
             )

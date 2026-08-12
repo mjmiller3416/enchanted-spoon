@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ interface MealGridCardProps {
   isAnyDragging?: boolean;
   onClick?: () => void;
   onCycleShoppingMode?: () => void;
+  isShoppingModePending?: boolean;
   className?: string;
 }
 
@@ -77,6 +79,7 @@ export function MealGridCard({
   isAnyDragging = false,
   onClick,
   onCycleShoppingMode,
+  isShoppingModePending = false,
   className,
 }: MealGridCardProps) {
   const {
@@ -101,6 +104,14 @@ export function MealGridCard({
 
   const shoppingMode = item.shoppingMode ?? "all";
 
+  // The shopping-mode tooltip is controlled (open = hovering || focused) so it
+  // survives the click that cycles the mode. An uncontrolled Radix tooltip
+  // closes on pointer-down, so after toggling you'd have to move the cursor off
+  // and back to see the new text — the bug reported in #172. Keeping it open
+  // lets the reactive tooltip text update the instant shoppingMode changes.
+  const [tooltipHovering, setTooltipHovering] = useState(false);
+  const [tooltipFocused, setTooltipFocused] = useState(false);
+
   // Keyboard: Enter opens the meal; Space (via the sensor's keyboardCodes)
   // lifts it for reordering. While a keyboard drag is active the sensor owns
   // all key handling at the document level, so we stay out of the way.
@@ -123,8 +134,9 @@ export function MealGridCard({
       className={cn(
         // Base styles
         // touch-pan-y (not touch-none) so native vertical scroll still works when a
-        // swipe starts over a card — PointerSensor's 250ms delay + 5px tolerance
-        // (see MealGrid.tsx) is enough to distinguish an intentional drag from a scroll.
+        // swipe starts over a card — the TouchSensor's press-and-hold delay (see
+        // MealGrid.tsx) distinguishes an intentional drag from a scroll, while the
+        // MouseSensor uses a small distance threshold so desktop drags start instantly.
         "group cursor-pointer overflow-hidden touch-pan-y",
         "pb-0 pt-0 gap-0",
         // Liftable hover effect (disabled while dragging to prevent transform conflicts)
@@ -157,17 +169,37 @@ export function MealGridCard({
         {/* Status Icons - Top Right */}
         <div className="absolute top-2 right-2 flex gap-1">
           {/* Shopping Cart Toggle with Tooltip */}
-          <Tooltip>
+          <Tooltip open={tooltipHovering || tooltipFocused}>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 shape="pill"
+                aria-busy={isShoppingModePending}
+                onPointerEnter={() => setTooltipHovering(true)}
+                onPointerLeave={() => {
+                  // Clear focus too: a mouse click also focuses the button, and
+                  // without this the tooltip would stay stuck open (and stack on
+                  // top of the next card's tooltip) after the pointer moves away.
+                  // Keyboard focus never fires pointerleave, so tabbing to the
+                  // toggle still shows the tooltip until blur.
+                  setTooltipHovering(false);
+                  setTooltipFocused(false);
+                }}
+                onFocus={() => setTooltipFocused(true)}
+                onBlur={() => setTooltipFocused(false)}
                 onClick={(e) => {
                   e.stopPropagation();
+                  // Guard rapid re-clicks while the mode change is in flight —
+                  // the button stays enabled (so hover/tooltip keep working),
+                  // and the parent also ignores overlapping requests (#173).
+                  if (isShoppingModePending) return;
                   onCycleShoppingMode?.();
                 }}
-                className="relative size-6 bg-overlay-strong"
+                className={cn(
+                  "relative size-6 bg-overlay-strong",
+                  isShoppingModePending && "opacity-60"
+                )}
                 aria-label={getShoppingModeAriaLabel(shoppingMode)}
               >
                 <ShoppingCart

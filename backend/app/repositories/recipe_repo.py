@@ -22,6 +22,10 @@ from ..models.recipe_history import RecipeHistory
 from ..models.recipe_ingredient import RecipeIngredient
 from ..repositories.ingredient_repo import IngredientRepo
 
+# Safety backstop: when a caller omits ``limit``, cap the result set instead of
+# returning the user's entire table as data volumes grow.
+MAX_LIST_ROWS = 1000
+
 
 # ── Recipe Repository ───────────────────────────────────────────────────────────────────────────────────────
 class RecipeRepo:
@@ -420,12 +424,12 @@ class RecipeRepo:
                 else:
                     stmt = stmt.order_by(sort_column.asc())
 
-        # Apply pagination
+        # Apply pagination. Cap results when no explicit limit is given so an
+        # omitted limit can't return the user's entire table.
         if filter_dto.offset:
             stmt = stmt.offset(filter_dto.offset)
 
-        if filter_dto.limit:
-            stmt = stmt.limit(filter_dto.limit)
+        stmt = stmt.limit(filter_dto.limit or MAX_LIST_ROWS)
 
         # Execute the query and return the results
         result = self.session.scalars(stmt).unique().all()
