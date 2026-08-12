@@ -182,8 +182,12 @@ Everything the user or market sees. One PR, verify against the running app, depl
 ### 8. Verification (Phase 1 done-check)
 - [x] `grep -ri "whiskful"` returns only intentional records (`docs/plans/**` + a deliberate
       `Logo.tsx` TODO comment).
-- [ ] **REMAINING:** Run the app (see `.claude/skills/verify`): tab title, sidebar/nav wordmark,
-      sign-in/up, settings, paywall, marketing pages, PWA manifest name all read "Enchanted Spoon".
+- [x] Ran the app (2026-08-12): dashboard nav wordmark + new spoon logo render; tab titles
+      (`Home · Enchanted Spoon`, `Settings · Enchanted Spoon`, `Pricing · Enchanted Spoon`,
+      `Sign in/up · Enchanted Spoon`); settings version line `Enchanted Spoon v0.1.0`; landing/
+      pricing/sign-in/sign-up + `manifest.webmanifest` all read "Enchanted Spoon" with **zero
+      "Whiskful"**; regenerated `favicon.ico`/`icon.png`/`apple-icon.png`/`opengraph-image.png`
+      all serve HTTP 200.
 - [x] `npm run lint` + `npx tsc` clean (no new problems from the rename). ⚠️ backend `pytest`
       **not run** — changes are docstrings/strings that can't affect outcomes, and the suite has a
       known pre-broken baseline; `py_compile` of all touched files passed.
