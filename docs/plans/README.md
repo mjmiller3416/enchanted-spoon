@@ -9,6 +9,7 @@ worth more after the fact than the checklist itself.
 
 | Doc | Status |
 |-----|--------|
+| [enchanted-spoon-rename.md](enchanted-spoon-rename.md) | Open — final app rename (Whiskful → Enchanted Spoon), 3 phases + legal gate, August 2026 |
 | [public-release-roadmap.md](public-release-roadmap.md) | Open — full pre-launch audit + phased plan, August 2026 |
 | [ai-gateway-and-eval.md](ai-gateway-and-eval.md) | Open — provider abstraction + eval harness, 6 phases (Phase 0 is a go/no-go gate), August 2026 |
 | [error-reporting.md](error-reporting.md) | Partially shipped — see status note at top of the doc; referenced from the roadmap's Phase 3 |
