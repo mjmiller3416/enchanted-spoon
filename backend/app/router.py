@@ -13,6 +13,7 @@ from app.api import (
     dashboard,
     data_management,
     feedback,
+    hearth,
     ingredient_categories,
     ingredient_units,
     ingredients,
@@ -61,6 +62,9 @@ api_router.include_router(billing.router, prefix="/api/billing", tags=["billing"
 
 # ── Admin routes ─────────────────────────────────────────────────────────
 api_router.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+
+# ── Integration routes (X-API-Key, scoped to INTEGRATION_USER_ID) ───────
+api_router.include_router(hearth.router, prefix="/api/hearth", tags=["hearth", "integration"])
 
 # ── Webhooks (unauthenticated, verified via provider signature) ─────────
 api_router.include_router(stripe_webhooks.router, prefix="/api/webhooks/stripe", tags=["webhooks"])
