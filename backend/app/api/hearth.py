@@ -1,25 +1,28 @@
 """app/api/hearth.py
 
-Read-only meal endpoints for the Hearth wall-display integration.
+Meal endpoints for the Hearth wall-display integration.
 
 Hearth is a trusted first-party household display. It authenticates with the
 shared X-API-Key secret (``get_integration_user``) rather than a Clerk user
-token, so every read here is scoped to the single ``INTEGRATION_USER_ID``
-account — the same account the Tada shopping-list ingest writes to. This router
-is READ-ONLY: it exposes the meal plan and meal cards the household already
-sees in the Meal Planner; planning stays in the app (Hearth spec D6, §5.4).
+token, so every call here is scoped to the single ``INTEGRATION_USER_ID``
+account — the same account the Tada shopping-list ingest writes to.
 
-Endpoints just project what the existing planner/meal/recipe services return
-(see ``hearth_dtos`` mappers) — no new data-access logic, no writes.
+The router is read-only but for ONE write: marking a plan entry cooked
+(``POST /meals/complete``), so the wall can clear a meal off its display. That
+mirrors the Meal Planner's own "complete" action; everything else — planning,
+and un-completing (restoring) a mistaken completion — stays in the app (Hearth
+spec D6, §5.4). Endpoints just project/drive what the existing planner/meal/
+recipe services already do (see ``hearth_dtos`` mappers) — no new data access.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_integration_user
 from app.core.rate_limit import limiter
 from app.database.db import get_session
 from app.dtos.hearth_dtos import (
+    HearthCompleteMealDTO,
     HearthMealCardDTO,
     HearthMealPlanDTO,
     hearth_recipe_from_response,
@@ -85,3 +88,27 @@ def get_meal_card(
         meal_name=meal.meal_name,
         recipes=recipes,
     )
+
+
+@router.post("/meals/complete", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("60/minute")
+def complete_meal(
+    request: Request,
+    payload: HearthCompleteMealDTO,
+    session: Session = Depends(get_session),
+    target_user: User = Depends(get_integration_user),
+):
+    """Mark one plan entry cooked, so the wall drops it from its display.
+
+    The one write Hearth makes (spec D6). Targets ``entry_id`` — the plan entry,
+    not the meal — and drives the same ``PlannerService.mark_completed`` the Meal
+    Planner uses, so it records cooking history and re-syncs the shopping list
+    just like completing in the app. ``204`` on success; ``404`` when the entry
+    isn't on the integration account (a meal removed from the plan since Hearth's
+    last poll — a normal race, which Hearth retries quietly). Read-only otherwise;
+    un-completing stays in the app.
+    """
+    entry = PlannerService(session, target_user.id).mark_completed(payload.entry_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Planner entry not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
