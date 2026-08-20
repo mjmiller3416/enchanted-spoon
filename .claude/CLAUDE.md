@@ -98,8 +98,8 @@ pytest tests/test_file.py -v
 - `AUTH_DISABLED` - Bypass JWT for local dev (`true`/`false`)
 - `DEV_USER_ID` - User ID when auth disabled (default: 1)
 - `CLERK_PUBLISHABLE_KEY` - Used to derive JWKS URL
-- `INTEGRATION_API_KEY` - Shared secret for trusted first-party app pushes (X-API-Key header on `/api/shopping/external/*`)
-- `INTEGRATION_USER_ID` - User account that integration pushes are written to
+- `INTEGRATION_API_KEY` - Shared secret for trusted first-party apps (X-API-Key header on `/api/shopping/external/*` and `/api/hearth/*`)
+- `INTEGRATION_USER_ID` - User account all integration traffic reads from and writes to
 - `GEMINI_ASSISTANT_API_KEY` - For Genie chat
 - `GEMINI_TIP_API_KEY` - For cooking tips
 - `GEMINI_IMAGE_API_KEY` - For image generation
@@ -131,8 +131,21 @@ Models (app/models/)    # SQLAlchemy ORM
 - **Core** (`app/core/`): Auth configuration (Clerk JWKS settings)
 - **Utils** (`app/utils/`): Unit conversion and dimension detection
 - **Database** (`app/database/`): Connection setup and Alembic migrations (32+ migration files)
-- **Router** (`app/router.py`): Centralized route registration (28 routers across 14 tags)
+- **Router** (`app/router.py`): Centralized route registration (27 routers across 29 tags)
 - **Services** use two patterns: flat files for simple services, modular packages (Core + Mixins) for complex ones (`meal/`, `planner/`, `shopping/`, `data_management/`)
+
+#### First-party integrations (X-API-Key, not Clerk)
+
+Trusted household apps authenticate with the shared `INTEGRATION_API_KEY` via `get_integration_user`, so every call is scoped to the single `INTEGRATION_USER_ID` account rather than the calling user. These are the only non-Clerk, non-webhook surfaces:
+
+| Prefix | Consumer | Access |
+|--------|----------|--------|
+| `/api/shopping/external/*` | Tada (cleaning/chores app) | Shopping-list ingest (write) |
+| `/api/hearth/*` | Hearth (family wall display) | Meal plan + meal cards (read); `POST /meals/complete` marks a plan entry cooked (the only write) |
+
+`app/api/hearth.py` projects existing planner/meal/recipe services through `app/dtos/hearth_dtos.py` mappers — no new data-access logic. Hearth deliberately cannot plan or un-complete; both stay in the app.
+
+> **Note:** Hearth's own repo is a separate workspace. Claude sessions there routinely edit this repo's backend directly, which means *this* repo's hooks and rules do not load for them — re-check branch strategy, commit trailers, and doc updates on anything that lands that way.
 
 ### Frontend Structure
 
