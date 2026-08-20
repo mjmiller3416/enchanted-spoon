@@ -104,6 +104,21 @@ class HearthMealPlanDTO(BaseModel):
     meals: List[HearthPlannedMealDTO] = Field(default_factory=list)
 
 
+# ── Write shapes ────────────────────────────────────────────────────────────
+class HearthCompleteMealDTO(BaseModel):
+    """Request body for ``POST /meals/complete`` — the one write Hearth makes.
+
+    Targets a plan ENTRY (``entry_id`` from a plan row), not a meal: the same
+    dish can sit in the queue more than once, and completion is a property of
+    the entry. Marking it cooked is how the wall clears a meal off its display;
+    un-completing (restoring) stays in the app. Hearth serializes the id as a
+    string, which Pydantic coerces to int."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    entry_id: int
+
+
 # ── Pure mappers (internal DTO → contract DTO) ──────────────────────────────
 def _card_image(card: Optional[RecipeCardDTO]) -> Optional[str]:
     if card is None:
@@ -171,6 +186,7 @@ __all__ = [
     "HearthMealCardDTO",
     "HearthPlannedMealDTO",
     "HearthMealPlanDTO",
+    "HearthCompleteMealDTO",
     "planned_meal_from_entry",
     "hearth_recipe_from_response",
 ]

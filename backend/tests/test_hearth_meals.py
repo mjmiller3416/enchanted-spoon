@@ -10,9 +10,11 @@ endpoints is the shared ``get_integration_user`` dependency, already covered by
 from datetime import date
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.dtos.hearth_dtos import (
+    HearthCompleteMealDTO,
     HearthMealPlanDTO,
     _steps_from_directions,
     hearth_recipe_from_response,
@@ -240,3 +242,62 @@ class TestMealCardPipeline:
         self, db_session: Session, test_user: User
     ):
         assert MealService(db_session, test_user.id).get_meal(999999) is None
+
+
+# ---------------------------------------------------------------------------
+# Write pipeline: mark cooked (what POST /api/hearth/meals/complete runs)
+# ---------------------------------------------------------------------------
+
+class TestHearthCompleteMealDTO:
+    """The request body for POST /meals/complete. Hearth serializes ids as
+    strings, so the DTO must accept a numeric string and coerce it to int."""
+
+    def test_accepts_int(self):
+        assert HearthCompleteMealDTO(entry_id=5).entry_id == 5
+
+    def test_coerces_numeric_string(self):
+        # Hearth sends {"entry_id": "5"} — the id it read back as a string.
+        assert HearthCompleteMealDTO(entry_id="5").entry_id == 5
+
+    def test_rejects_non_numeric(self):
+        with pytest.raises(ValidationError):
+            HearthCompleteMealDTO(entry_id="not-a-number")
+
+
+class TestMealCompletionPipeline:
+    """The one write the Hearth router makes. The endpoint is thin over
+    ``PlannerService.mark_completed`` (auth covered by
+    ``test_shopping_external_ingest``); these exercise that service pipeline and
+    the not-found / cross-user outcomes the endpoint turns into 404s."""
+
+    def test_mark_completed_sets_flag_and_clears_from_plan_row(
+        self, db_session: Session, test_user: User, sample_planner_entry
+    ):
+        service = PlannerService(db_session, test_user.id)
+        assert sample_planner_entry.is_completed is False
+
+        result = service.mark_completed(sample_planner_entry.id)
+        assert result is not None
+        assert result.is_completed is True
+
+        # The plan the wall re-polls now reports the entry completed, so the
+        # view filters it off the display.
+        entries = service.get_all_entries()
+        row = next(planned_meal_from_entry(e) for e in entries if e.id == sample_planner_entry.id)
+        assert row.is_completed is True
+
+    def test_unknown_entry_returns_none(
+        self, db_session: Session, test_user: User
+    ):
+        # The endpoint maps this None to a 404 (a meal gone since the last poll).
+        assert PlannerService(db_session, test_user.id).mark_completed(999999) is None
+
+    def test_completion_is_scoped_to_integration_user(
+        self, db_session: Session, second_user: User, sample_planner_entry
+    ):
+        # A different account cannot complete the integration user's entry, and
+        # the entry stays incomplete.
+        assert PlannerService(db_session, second_user.id).mark_completed(
+            sample_planner_entry.id
+        ) is None
+        assert sample_planner_entry.is_completed is False
