@@ -4,6 +4,32 @@
 
 Creates a PR from staging -> main to deploy to production. This is the **only place PRs are used** in the solo workflow.
 
+## 🚨 NEVER click "Delete branch" after merging a deploy PR
+
+The deploy PR is `staging -> main`, which makes **`staging` the PR's head branch**. GitHub's
+post-merge "Delete branch" button deletes the *head* branch -- so clicking it deletes your
+permanent integration branch, not a spent feature branch. The button means "tidy up" everywhere
+else in the workflow and "destroy infrastructure" here.
+
+This has happened: PR #185 was merged 2026-08-17 19:20:10 EDT and `refs/heads/staging` was deleted
+6 seconds later. It stayed gone for two days.
+
+**Guard rail:** repository ruleset `protect-staging-from-deletion` now blocks deletion of
+`refs/heads/staging` (no bypass actors, so it applies to the repo owner too). The button should be
+rejected if clicked. Do not disable the ruleset to "clean up" -- there is nothing to clean up.
+
+**Symptom if `staging` is ever missing again:**
+```
+fatal: couldn't find remote ref staging
+```
+A stale local `origin/staging` will still resolve, because a plain `git fetch` does not prune --
+so pre-flight checks look healthy and will mislead you. Confirm with `git ls-remote origin staging`
+(authoritative) rather than `git log origin/staging` (cached), and check
+`gh api repos/<owner>/<repo>/events` for a `DeleteEvent` to see when it happened.
+
+**Recovery:** re-push `staging` from any local clone that still has it. No commits are lost -- a
+merged branch's commits stay reachable from `main`, so deletion removes a pointer, not history.
+
 ## Why PR for Deploy?
 
 Even solo, a PR for production deploys gives you:
@@ -169,7 +195,8 @@ Even solo, a PR for production deploys gives you:
    Next steps:
    1. Review the changes in GitHub
    2. Merge the PR when ready
-   3. Railway will auto-deploy to production
+   3. DO NOT click "Delete branch" on the merged PR -- that deletes `staging`
+   4. Railway will auto-deploy to production
    ```
 
 ## Rolling Back a Deploy
