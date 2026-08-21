@@ -122,7 +122,7 @@ class TestPlannerServiceAddEntry:
         self, _mock_sync, db_session, test_user, sample_recipe
     ):
         """Adding a meal when the planner is at capacity raises PlannerFullError."""
-        # Fill the planner with 15 entries
+        # Fill the planner to capacity with incomplete entries
         for i in range(MAX_PLANNER_ENTRIES):
             meal = Meal(
                 meal_name=f"Filler Meal {i}",
@@ -156,6 +156,47 @@ class TestPlannerServiceAddEntry:
 
         with pytest.raises(PlannerFullError, match="maximum capacity"):
             service.add_meal_to_planner(extra_meal.id)
+
+    def test_add_meal_completed_entries_free_capacity(
+        self, _mock_sync, db_session, test_user, sample_recipe
+    ):
+        """Completed entries don't count toward the cap, so adding succeeds."""
+        # Fill the planner to capacity, but mark one entry completed
+        for i in range(MAX_PLANNER_ENTRIES):
+            meal = Meal(
+                meal_name=f"Filler Meal {i}",
+                main_recipe_id=sample_recipe.id,
+                user_id=test_user.id,
+                is_saved=True,
+            )
+            db_session.add(meal)
+            db_session.flush()
+
+            entry = PlannerEntry(
+                meal_id=meal.id,
+                user_id=test_user.id,
+                position=i,
+                is_completed=(i == 0),
+            )
+            db_session.add(entry)
+
+        db_session.flush()
+
+        extra_meal = Meal(
+            meal_name="Fits Thanks To Completed Slot",
+            main_recipe_id=sample_recipe.id,
+            user_id=test_user.id,
+            is_saved=True,
+        )
+        db_session.add(extra_meal)
+        db_session.flush()
+
+        service = PlannerService(db_session, test_user.id)
+
+        result = service.add_meal_to_planner(extra_meal.id)
+
+        assert isinstance(result, PlannerEntryResponseDTO)
+        assert result.meal_id == extra_meal.id
 
 
 # ---------------------------------------------------------------------------
