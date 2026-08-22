@@ -177,7 +177,7 @@ export const AssistantApi = {
     token?: string | null
   ): Promise<AssistantResponseDTO> =>
     fetchApi<AssistantResponseDTO>(
-      "/api/ai/meal-genie/chat",
+      "/api/ai/assistant/chat",
       {
         method: "POST",
         body: JSON.stringify({
@@ -202,7 +202,7 @@ export const AssistantApi = {
     token?: string | null
   ): Promise<AssistantResponseDTO> =>
     fetchApi<AssistantResponseDTO>(
-      "/api/ai/meal-genie/chat",
+      "/api/ai/assistant/chat",
       {
         method: "POST",
         body: JSON.stringify({
