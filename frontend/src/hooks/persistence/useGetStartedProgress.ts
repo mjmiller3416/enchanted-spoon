@@ -2,7 +2,9 @@
 
 import { useLocalStorageState } from "./useLocalStorageState";
 
-const STORAGE_KEY = "meal-genie-get-started-complete";
+const STORAGE_KEY = "enchanted-spoon-get-started-complete";
+// Pre-rename key, migrated on first load — drop after 1-2 releases
+const LEGACY_STORAGE_KEY = "meal-genie-get-started-complete";
 
 /**
  * Persisted flag for the Home first-run experience.
@@ -20,7 +22,8 @@ export function useGetStartedComplete(): [
 ] {
   const [isComplete, setIsComplete, isLoaded] = useLocalStorageState<boolean>(
     STORAGE_KEY,
-    false
+    false,
+    { legacyKey: LEGACY_STORAGE_KEY }
   );
 
   return [isComplete, setIsComplete, isLoaded];
