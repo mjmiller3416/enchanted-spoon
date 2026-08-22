@@ -63,7 +63,7 @@ export function BackupRestore() {
       const blob = new Blob([JSON.stringify(backup, null, 2)], {
         type: "application/json",
       });
-      downloadBlob(blob, `meal-genie-backup-${new Date().toISOString().split("T")[0]}.json`);
+      downloadBlob(blob, `enchanted-spoon-backup-${new Date().toISOString().split("T")[0]}.json`);
 
       toast.success("Full backup created successfully");
     } catch (error) {
