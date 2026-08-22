@@ -1,9 +1,10 @@
 # Enchanted Spoon Rename Plan
 
-> **Status:** Phases 0 & 1 COMPLETE (2026-08-11, branch `staging`, commits `fae4e44` +
-> `a16ad69`); Phases 2 & 3 remain. This is the **final** name change. Do the legal/priority
-> step (Phase 0) *before* investing in the code rename. Ship Phase 1 (user-visible) first;
-> Phase 2 (invisible internal IDs) and Phase 3 (external systems) follow deliberately.
+> **Status (2026-08-22):** Phases 0 & 1 COMPLETE (2026-08-11/12, commits `fae4e44` +
+> `a16ad69`). Phase 3 COMPLETE except two user-dashboard items: the Stripe product rename and
+> social-handle branding; the GitHub repo was renamed `recipe-app` → `enchanted-spoon` on
+> 2026-08-22. Phase 2 (invisible internal IDs) is NOT STARTED and is the remaining code work.
+> This is the **final** name change.
 >
 > **Author's note (2026-08-11):** Drafted ahead of execution so it's ready when you are.
 
@@ -255,13 +256,17 @@ at `enchantedspoon.app` serving Enchanted Spoon (title/OG/site_name verified, ba
 - [ ] **Stripe** — rename product → "Enchanted Spoon Pro" (Product name field, not the Price);
       refresh Checkout branding. **`STRIPE_PRICE_ID_PRO` unchanged** (renaming a product doesn't
       change price IDs). *(user dashboard — pending)*
-- [ ] **Support email** — `info@enchantedspoon.app` live and monitored; update anywhere the
-      support address is referenced (config.ts done in Phase 1; check backend/GitHub-issue paths).
+- [x] **Support email** — `info@enchantedspoon.app` live and monitored (mailbox provisioned in
+      Phase 0); verified 2026-08-22: zero old-address references anywhere in code — config.ts
+      done in Phase 1, backend/GitHub-issue paths grep-clean.
 - [ ] **Social handles** — claim/brand (from Phase 0).
 - [x] **GitHub repo** — renamed `recipe-app` → `enchanted-spoon` (2026-08-22, user reversed the
       earlier "skip" decision). GitHub redirects the old name; Railway's GitHub App auto-updated
       both service sources. `GITHUB_REPO` env updated on Railway backend + local `backend/.env`.
       ⚠️ Never create a new repo named `recipe-app` — it would break the redirects.
+      Same day (commit `03a08b67`): npm package name + design-sync `pkg` + preview imports also
+      renamed `recipe-app` → `enchanted-spoon`; the `window.MealGenie` global (Phase 2 row 10)
+      deliberately left for that phase's decision.
 - [x] **OG / preview images & favicon** — new-mark assets from Phase 1 §4 deployed; `og:image`
       resolves to `https://enchantedspoon.app/opengraph-image.png`.
 
