@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { dataManagementApi } from "@/lib/api";
 import { getErrorMessage, downloadBlob } from "@/lib/utils";
-import { useSettings } from "@/hooks/persistence/useSettings";
+import { useSettings, SETTINGS_STORAGE_KEY } from "@/hooks/persistence/useSettings";
 import type { RestorePreview, RestoreResult } from "@/types/common";
 
 export function BackupRestore() {
@@ -114,7 +114,7 @@ export function BackupRestore() {
       const result = await dataManagementApi.executeRestore(restoreFile, true, token);
 
       if (result.settings) {
-        localStorage.setItem("meal-genie-settings", JSON.stringify(result.settings));
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(result.settings));
         window.dispatchEvent(new CustomEvent("settings-updated", { detail: result.settings }));
       }
 

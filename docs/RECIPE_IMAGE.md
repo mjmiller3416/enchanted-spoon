@@ -118,7 +118,7 @@ list drifts — components here get renamed/deleted more often than this doc get
 
 **Upload UI:** `ImageUploadCard` (`app/(app)/recipes/_components/shared/ImageUploadCard.tsx`) —
 handles both file upload and "Generate with AI" in the recipe add/edit form. User's custom
-AI prompt override is stored in `localStorage` (`meal-genie-settings`, via `useSettings`) and
+AI prompt override is stored in `localStorage` (`enchanted-spoon-settings`, via `useSettings`) and
 must contain a `{recipe_name}` placeholder.
 
 ---
