@@ -5,7 +5,7 @@ import {
   MultiSelectItem,
   MultiSelectTrigger,
   MultiSelectValue,
-} from "recipe-app";
+} from "enchanted-spoon";
 import { useEffect, useRef, type ReactNode } from "react";
 
 // MultiSelect owns its open state internally (no open/defaultOpen prop), so

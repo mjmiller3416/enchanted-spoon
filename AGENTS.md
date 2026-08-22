@@ -286,7 +286,9 @@ For detailed troubleshooting and configuration, see [.Codex/HOOKS.md](.Codex/HOO
 
 ### Specialized Agents
 
-- `recipe-app-explorer` - Search agent optimized for this codebase (knows domain models, architecture patterns, common files)
+- `frontend-designer` - React/Next.js component and layout work, design system compliance
+- `backend-architect` - FastAPI layered architecture (DTOs → Services → Repositories → Models)
+- `auditor` - Single-file compliance audit against criteria checklists (invoked by `/audit`)
 
 ### Commands
 

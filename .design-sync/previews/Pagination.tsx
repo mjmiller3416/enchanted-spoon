@@ -6,7 +6,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "recipe-app";
+} from "enchanted-spoon";
 
 const frame = "bg-background text-foreground p-6 rounded-xl w-full";
 

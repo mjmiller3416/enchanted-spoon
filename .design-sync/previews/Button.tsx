@@ -1,4 +1,4 @@
-import { Button } from "recipe-app";
+import { Button } from "enchanted-spoon";
 import { Plus, Trash2, Heart, ChevronRight, Loader2, Search } from "lucide-react";
 
 // Cells render on a white card canvas; wrap in the app's own dark surface.

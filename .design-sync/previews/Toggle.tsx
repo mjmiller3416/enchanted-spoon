@@ -1,4 +1,4 @@
-import { Toggle } from "recipe-app";
+import { Toggle } from "enchanted-spoon";
 import { Heart, Leaf, Flame, WheatOff } from "lucide-react";
 
 const row = "bg-background text-foreground p-6 rounded-xl flex flex-wrap items-center gap-3";

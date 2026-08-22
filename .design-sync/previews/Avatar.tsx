@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback, AvatarImage } from "recipe-app";
+import { Avatar, AvatarFallback, AvatarImage } from "enchanted-spoon";
 
 // Cells render on a white card canvas; wrap in the app's own dark surface.
 const frame = "bg-background text-foreground p-6 rounded-xl flex flex-wrap items-center gap-4";

@@ -1,4 +1,4 @@
-import { StatCard } from "recipe-app";
+import { StatCard } from "enchanted-spoon";
 import { BookOpen, Heart, Flame, CalendarDays, ShoppingBasket, ChefHat } from "lucide-react";
 
 // Dashboard stat tiles — one per chart-color preset, real Enchanted Spoon stats.

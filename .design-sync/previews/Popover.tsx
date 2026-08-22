@@ -5,7 +5,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "recipe-app";
+} from "enchanted-spoon";
 import { NotebookPen, FolderPlus } from "lucide-react";
 
 // PopoverContent portals to body; the trigger sits at the top of a tall dark

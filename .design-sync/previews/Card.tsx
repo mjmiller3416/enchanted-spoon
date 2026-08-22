@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
   Switch,
-} from "recipe-app";
+} from "enchanted-spoon";
 import { Clock, Heart, Users } from "lucide-react";
 
 // Cells render on a white card canvas; wrap in the app's own dark surface.

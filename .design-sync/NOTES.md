@@ -8,7 +8,7 @@
   ConditionalAppLayout, SafeLink, FeedbackDialog, RecentRecipeChip, IngredientAutocomplete,
   QuickAddForm, all assistant/ and auth/ components. Revisit RecipeCard if a router-context shim
   ever becomes viable — it's the app's hallmark visual.
-- `pkg` is "recipe-app" (frontend/package.json name); repo-root package.json is NAMELESS — don't
+- `pkg` is "enchanted-spoon" (frontend/package.json name); repo-root package.json is NAMELESS — don't
   put the barrel outside frontend/ or PKG_DIR resolution walks to the wrong place.
 
 ## Styling pipeline

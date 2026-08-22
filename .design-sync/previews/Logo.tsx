@@ -1,4 +1,4 @@
-import { Logo } from "recipe-app";
+import { Logo } from "enchanted-spoon";
 
 // Icon mark scales via className; TopNav renders it at w-8 h-8 text-primary.
 export const Sizes = () => (

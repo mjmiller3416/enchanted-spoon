@@ -1,4 +1,4 @@
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "recipe-app";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "enchanted-spoon";
 
 // Cells render on a white card canvas; wrap in the app's own dark surface.
 const frame = "bg-background text-foreground p-6 rounded-xl";

@@ -8,7 +8,7 @@ import {
   DialogTitle,
   Input,
   Label,
-} from "recipe-app";
+} from "enchanted-spoon";
 
 // Open dialogs render in a portal over the page — card runs in "single" mode
 // (cfg.overrides.Dialog) so the open state is captured inside the viewport.

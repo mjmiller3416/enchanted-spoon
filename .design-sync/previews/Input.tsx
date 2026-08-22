@@ -1,4 +1,4 @@
-import { Input, Label } from "recipe-app";
+import { Input, Label } from "enchanted-spoon";
 import { Search, Clock } from "lucide-react";
 
 const stack = "bg-background text-foreground p-6 rounded-xl flex flex-col gap-4 max-w-md";

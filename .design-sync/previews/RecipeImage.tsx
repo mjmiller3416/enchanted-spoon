@@ -1,4 +1,4 @@
-import { RecipeImage } from "recipe-app";
+import { RecipeImage } from "enchanted-spoon";
 
 // Inline SVG data-URI stands in for a Cloudinary photo (remote URLs are
 // CSP-blocked in the preview sandbox).
