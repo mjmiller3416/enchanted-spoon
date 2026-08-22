@@ -270,7 +270,8 @@ class FullBackupDTO(BaseModel):
 
     version: str = "1.0.0"
     created_at: datetime
-    app_name: str = "meal-genie"
+    # Plain str, never validated on restore — older backups tagged "meal-genie" still import
+    app_name: str = "enchanted-spoon"
     settings: Optional[Dict[str, Any]] = None
     data: BackupDataDTO
 
