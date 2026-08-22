@@ -1,9 +1,13 @@
 # Enchanted Spoon Rename Plan
 
-> **Status (2026-08-22):** Phases 0, 1 & 3 COMPLETE. The GitHub repo was renamed `recipe-app`
-> → `enchanted-spoon` and the Stripe product renamed to "Enchanted Spoon Pro" on 2026-08-22.
-> Phase 2 (invisible internal IDs) is NOT STARTED and is the only remaining work. This is the
-> **final** name change.
+> **Status (2026-08-22): ALL PHASES COMPLETE — plan closed.** Phase 2 (invisible internal IDs)
+> executed 2026-08-22 on `staging`, one commit per row: rows 1–8 done, row 9 (Cloudinary) left
+> per D3, row 10 (design-sync global) done. Verified live: all five localStorage keys migrate
+> with values intact (old keys deleted), the theme blocking script honors the old key pre-
+> migration (no flash), and `/api/ai/assistant/*` + the hidden `/api/ai/meal-genie/*` alias
+> both serve. **Two scheduled cleanups remain (1–2 releases out): delete the localStorage
+> shims (`legacyKey` call sites + `migrateLocalStorageKey` uses) and the legacy route alias
+> line in `router.py`.** This is the **final** name change.
 >
 > **Author's note (2026-08-11):** Drafted ahead of execution so it's ready when you are.
 
@@ -196,6 +200,15 @@ Everything the user or market sees. One PR, verify against the running app, depl
 
 ## Phase 2 — Internal identifier migration (`meal-genie-*`) · INVISIBLE · ship after Phase 1
 
+**EXECUTED 2026-08-22 (branch `staging`, one commit per row).** Rows 1–8 done as specced; row 9
+left (D3); row 10 done. Mechanics: a shared `migrateLocalStorageKey` helper + `legacyKey` option
+on `useLocalStorageState` handles rows 1–5 (copy old → new on first read, delete old). Row 7's
+old prefix is registered as a hidden alias (`include_in_schema=False`) for one release. Row 8
+needed no accept-both code — `app_name` is a plain unvalidated `str`, so old backups import
+as-is. Live-verified with seeded old keys in the running app (values carried, old keys removed,
+no theme flash) and 422-probes against both route prefixes. **Follow-up in 1–2 releases: drop
+the localStorage shims and the router alias line.**
+
 None of these are seen by users. Each needs a *deliberate* migration — a blind rename loses user
 data or breaks stored URLs. Sign off per row (**D2**).
 
@@ -223,9 +236,14 @@ Renaming buys nothing visible and risks breaking every stored image URL. Skip un
 run a full, tested asset-migration (the `remediate_*`/`copy_user_recipes` scripts are the pattern).
 
 **DB verification step:**
-- [ ] Confirm no literal `meal-genie` / `whiskful` is *stored in the DB schema* (not just code).
+- [x] Confirm no literal `meal-genie` / `whiskful` is *stored in the DB schema* (not just code).
       Expected: none except values (backup `app_name`, and `meal-genie/` inside stored image URLs
-      — which stay if row 9 = leave). Grep migrations + a quick prod/staging data check.
+      — which stay if row 9 = leave). **Verified 2026-08-22:** alembic migrations grep-clean;
+      full scan of the dev SQLite (`app/database/app_data.db`) found zero schema hits and, in
+      data, only `meal-genie/` inside `recipe.reference_image_path` (158) /
+      `banner_image_path` (33) — exactly the row-9 leave case. Prod shares the same migrations,
+      so its schema is clean by construction; its only expected value hits are the same
+      Cloudinary URLs.
 
 ---
 
