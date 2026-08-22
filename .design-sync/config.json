@@ -2,7 +2,7 @@
   "projectId": "07af3a5d-c0fa-4e49-ae3a-28284fb71548",
   "shape": "package",
   "pkg": "enchanted-spoon",
-  "globalName": "MealGenie",
+  "globalName": "EnchantedSpoon",
   "entry": "frontend/design-sync.entry.tsx",
   "srcDir": "src/components",
   "tsconfig": "tsconfig.json",

@@ -1,6 +1,6 @@
 // Design-sync barrel — the curated component surface synced to claude.ai/design.
 // Referenced by .design-sync/config.json ("entry"); bundled with esbuild into
-// window.MealGenie. Not imported by the app itself.
+// window.EnchantedSpoon. Not imported by the app itself.
 //
 // Deliberately excluded (they require the Next.js runtime and would crash in
 // the design tool): RecipeCard, RecipeBrowserView, TopNav, MobileBottomNav,

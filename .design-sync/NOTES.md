@@ -46,7 +46,8 @@
   package-validate.mjs and package-capture.mjs. playwright npm module lives in .ds-sync
   (installed with PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1).
 - Build-log line `exported PascalCase symbols: 0` is expected (the `export *` barrel isn't
-  statically scannable); the real check is validate's `window.MealGenie: 179 exports`.
+  statically scannable); the real check is validate's `window.EnchantedSpoon: 179 exports`
+  (global renamed from `window.MealGenie` in the Phase 2 rename).
 
 ## Preview-authoring playbook (folded from wave 1)
 - Wrap EVERY cell in `bg-background text-foreground p-6 rounded-xl` — ghost/muted components are
