@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from "recipe-app";
+} from "enchanted-spoon";
 import { CalendarPlus, Copy, MoreHorizontal, Pencil, Trash2, ArrowUpDown } from "lucide-react";
 
 // Open state — DropdownMenuContent renders inline (no portal in this DS),

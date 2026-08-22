@@ -2,6 +2,10 @@
 // CHANGELOG - Edit the markdown below
 // ============================================
 const CHANGELOG_MD = `
+## 2026-08-22 - Bug Fixes
+- Meal Planner now allows up to 20 planned meals, and completed meals waiting to be cleared no longer count against the limit
+- Restored recipe photos that had been displaying the wrong image — all affected photos have been regenerated
+
 ## 2026-08-09 - Improvements
 - Groundwork for Pro subscriptions — Stripe checkout, billing portal, and automatic subscription syncing (upgrade flow UI coming soon)
 - AI requests now retry automatically on temporary failures instead of hanging

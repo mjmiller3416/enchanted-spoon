@@ -1,4 +1,4 @@
-import { QuantityInput } from "recipe-app";
+import { QuantityInput } from "enchanted-spoon";
 
 const noop = () => {};
 

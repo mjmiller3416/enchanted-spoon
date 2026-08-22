@@ -143,7 +143,7 @@ class PlannerServiceCore:
                 incomplete_entries=total_entries - completed,
                 total_recipes=total_recipes,
                 meal_names=meal_names,
-                is_at_capacity=(total_entries >= MAX_PLANNER_ENTRIES),
+                is_at_capacity=((total_entries - completed) >= MAX_PLANNER_ENTRIES),
                 max_capacity=MAX_PLANNER_ENTRIES,
             )
         except SQLAlchemyError as e:

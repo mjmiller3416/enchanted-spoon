@@ -30,7 +30,7 @@ Read `styles.css`'s import closure — `_ds_bundle.css` holds every compiled tok
 
 ## Idiomatic example
 ```tsx
-import { PageHeader, PageHeaderTitle, PageHeaderActions, StatCard, Button } from "recipe-app";
+import { PageHeader, PageHeaderTitle, PageHeaderActions, StatCard, Button } from "enchanted-spoon";
 import { BookOpen, Heart, Plus } from "lucide-react";
 
 export function Dashboard() {

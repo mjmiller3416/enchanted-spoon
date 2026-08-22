@@ -47,7 +47,7 @@ See exceptions.md for the complete exception hierarchy and HTTP status mapping.
 | Meals | `/api/meals` |
 | Planner | `/api/planner` |
 | Shopping | `/api/shopping` |
-| AI | `/api/meal-genie` |
+| AI | `/api/ai/assistant` (+ other `/api/ai/*` feature routes) |
 
 - ❌ Don't create `/api/recipes/search` when `/api/recipes?search=...` works
 - ❌ Don't create `/api/favorites` when `/api/recipes?favorite=true` works

@@ -235,7 +235,7 @@ This project has an extensive design system. **Always follow these rules**:
 - **RecipeHistory** - Cooking history tracking (recipe_id, cooked_at, notes)
 - **RecipeGroup** - Recipe collections/folders
 - **Meal** - Composition of main recipe + up to 3 side recipes (transient meals auto-deleted with planner entries)
-- **PlannerEntry** - Meal in the weekly planner (max 15 entries, soft-delete via `is_cleared` for streak tracking)
+- **PlannerEntry** - Meal in the weekly planner (max 20 incomplete entries, soft-delete via `is_cleared` for streak tracking)
 - **ShoppingItem** - Shopping list item with aggregation_key for diff-based sync
 - **ShoppingItemContribution** - Source tracking (which recipes contribute to each shopping item)
 - **UnitConversionRule** - Conversion rules (from_unit, to_unit, factor)
@@ -255,7 +255,7 @@ This project has an extensive design system. **Always follow these rules**:
 
 | Feature | Limit |
 |---------|-------|
-| Planner entries | 15 max |
+| Planner entries | 20 max (incomplete only — completed meals awaiting clear don't count) |
 | Side recipes per meal | 3 max |
 | Meal tags | 20 max, 50 chars each |
 | Recipe/Ingredient name | 255 chars |

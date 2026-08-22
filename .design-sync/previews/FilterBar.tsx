@@ -1,4 +1,4 @@
-import { FilterBar, FilterPillGroup } from "recipe-app";
+import { FilterBar, FilterPillGroup } from "enchanted-spoon";
 
 const noop = () => {};
 

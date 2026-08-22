@@ -260,21 +260,14 @@ run remains (last item).
       OG tags, backend API title, marketing copy, changelog) was completed 2026-08-10;
       the AI assistant is now "Genie" and the internal `meal-genie-*` identifiers were
       deliberately kept. The remaining launch-gated DNS/env switch is the next item.*
-- [🔶] **Cut the public domain over to `whiskful.app`.** *Deferred until 100%
-      public-launch-ready — staying on the current Railway `*.up.railway.app` URLs for
-      now (decided 2026-08-10). No tokens/secrets change for the rename; the switch is
-      purely DNS + URL/origin values.* At cutover, update these **values** on Railway
-      (var names unchanged): frontend `NEXT_PUBLIC_APP_URL` → `https://whiskful.app`
-      (build-time ARG, so a rebuild is required — drives OG tags / `sitemap.ts` /
-      `robots.ts` / `metadataBase`); backend `CORS_ORIGINS` → `https://whiskful.app`
-      (must exactly match the new frontend origin — credentials mode is on whenever it
-      isn't `*`); backend `FRONTEND_URL` → `https://whiskful.app` (Stripe redirect
-      targets); `NEXT_PUBLIC_API_URL` only if the backend host also moves. Then in
-      external dashboards: add `https://whiskful.app` to Clerk allowed origins + the
-      fallback redirect URLs and rename the Clerk app display name; rename the Stripe
-      product to "Whiskful Pro" and refresh Checkout branding (`STRIPE_PRICE_ID_PRO`
-      unchanged); and point whiskful.app DNS at the Railway frontend (Railway custom
-      domain).
+- [✅] **Cut the public domain over.** *Superseded and executed 2026-08-12 — the app
+      launched at **`https://enchantedspoon.app`**, not `whiskful.app` (the Whiskful name
+      was dropped over a Samsung trademark; see
+      `docs/plans/completed/enchanted-spoon-rename.md`). Every value switch this item
+      described was applied with the new domain: frontend `NEXT_PUBLIC_APP_URL`, backend
+      `CORS_ORIGINS` + `FRONTEND_URL`, Clerk production instance at
+      `clerk.enchantedspoon.app`, Stripe product renamed "Enchanted Spoon Pro"
+      (2026-08-22, `STRIPE_PRICE_ID_PRO` unchanged), DNS custom-bound on Railway.*
 - [🔶] **Turn CI into an actual gate.** New `.github/workflows/ci.yml`: a **backend** job
       (Python 3.11, `pytest`) and a **frontend** job (Node 20, `npm run lint` + `npm run
       build`). `npm run build` is the hard gate. pytest and lint are `continue-on-error`
@@ -346,10 +339,12 @@ Lower urgency than 0–3; batch this whenever there's a slow week.
       backend (category rotation, dedup logic) and defined in the frontend API client,
       but nothing calls it — no hook, no UI. (Not to be confused with `AISuggestions.tsx`,
       which uses a *different* dish-specific tip field from the meal-suggestions service.)
-- [ ] **Resolve the two deferred URL-prefix renames** noted in
-      `backend/app/router.py:64,69` (`/api/ai/meal-genie` → `/api/ai/assistant`,
-      `/api/ai/wizard-generation` → `/api/ai/recipe-generation`) — both are marked as
-      blocked on coordinated frontend changes.
+- [ ] **Resolve the remaining deferred URL-prefix rename**:
+      `/api/ai/wizard-generation` → `/api/ai/recipe-generation` (`router.py` TODO,
+      blocked on a coordinated frontend change). The other one —
+      `/api/ai/meal-genie` → `/api/ai/assistant` — was done 2026-08-22 in the Phase 2
+      rename; the old prefix is aliased for one release, then delete the alias line in
+      `router.py`.
 - [ ] **Harden function-call handling.** `assistant/generators.py:59-60` — if Gemini
       calls a tool name outside the three declared ones, the dispatcher returns a
       response that makes the chat UI show nothing at all (the user's turn silently

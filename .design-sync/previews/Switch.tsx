@@ -1,4 +1,4 @@
-import { Switch, Label } from "recipe-app";
+import { Switch, Label } from "enchanted-spoon";
 
 const stack = "bg-background text-foreground p-6 rounded-xl flex flex-col gap-4 max-w-sm";
 

@@ -1,9 +1,13 @@
 # Enchanted Spoon Rename Plan
 
-> **Status:** Phases 0 & 1 COMPLETE (2026-08-11, branch `staging`, commits `fae4e44` +
-> `a16ad69`); Phases 2 & 3 remain. This is the **final** name change. Do the legal/priority
-> step (Phase 0) *before* investing in the code rename. Ship Phase 1 (user-visible) first;
-> Phase 2 (invisible internal IDs) and Phase 3 (external systems) follow deliberately.
+> **Status (2026-08-22): ALL PHASES COMPLETE — plan closed.** Phase 2 (invisible internal IDs)
+> executed 2026-08-22 on `staging`, one commit per row: rows 1–8 done, row 9 (Cloudinary) left
+> per D3, row 10 (design-sync global) done. Verified live: all five localStorage keys migrate
+> with values intact (old keys deleted), the theme blocking script honors the old key pre-
+> migration (no flash), and `/api/ai/assistant/*` + the hidden `/api/ai/meal-genie/*` alias
+> both serve. **Two scheduled cleanups remain (1–2 releases out): delete the localStorage
+> shims (`legacyKey` call sites + `migrateLocalStorageKey` uses) and the legacy route alias
+> line in `router.py`.** This is the **final** name change.
 >
 > **Author's note (2026-08-11):** Drafted ahead of execution so it's ready when you are.
 
@@ -196,6 +200,15 @@ Everything the user or market sees. One PR, verify against the running app, depl
 
 ## Phase 2 — Internal identifier migration (`meal-genie-*`) · INVISIBLE · ship after Phase 1
 
+**EXECUTED 2026-08-22 (branch `staging`, one commit per row).** Rows 1–8 done as specced; row 9
+left (D3); row 10 done. Mechanics: a shared `migrateLocalStorageKey` helper + `legacyKey` option
+on `useLocalStorageState` handles rows 1–5 (copy old → new on first read, delete old). Row 7's
+old prefix is registered as a hidden alias (`include_in_schema=False`) for one release. Row 8
+needed no accept-both code — `app_name` is a plain unvalidated `str`, so old backups import
+as-is. Live-verified with seeded old keys in the running app (values carried, old keys removed,
+no theme flash) and 422-probes against both route prefixes. **Follow-up in 1–2 releases: drop
+the localStorage shims and the router alias line.**
+
 None of these are seen by users. Each needs a *deliberate* migration — a blind rename loses user
 data or breaks stored URLs. Sign off per row (**D2**).
 
@@ -223,9 +236,14 @@ Renaming buys nothing visible and risks breaking every stored image URL. Skip un
 run a full, tested asset-migration (the `remediate_*`/`copy_user_recipes` scripts are the pattern).
 
 **DB verification step:**
-- [ ] Confirm no literal `meal-genie` / `whiskful` is *stored in the DB schema* (not just code).
+- [x] Confirm no literal `meal-genie` / `whiskful` is *stored in the DB schema* (not just code).
       Expected: none except values (backup `app_name`, and `meal-genie/` inside stored image URLs
-      — which stay if row 9 = leave). Grep migrations + a quick prod/staging data check.
+      — which stay if row 9 = leave). **Verified 2026-08-22:** alembic migrations grep-clean;
+      full scan of the dev SQLite (`app/database/app_data.db`) found zero schema hits and, in
+      data, only `meal-genie/` inside `recipe.reference_image_path` (158) /
+      `banner_image_path` (33) — exactly the row-9 leave case. Prod shares the same migrations,
+      so its schema is clean by construction; its only expected value hits are the same
+      Cloudinary URLs.
 
 ---
 
@@ -252,16 +270,22 @@ at `enchantedspoon.app` serving Enchanted Spoon (title/OG/site_name verified, ba
       added, DNS + GTS TLS cert verified), dev users copied over, `pk_live`/`sk_live` swapped into
       Railway on both services + 4 `NEXT_PUBLIC_CLERK_*` redirect vars set; rebuilt + verified live
       (2026-08-12). *(optional polish left: app display name + email-template branding)*
-- [ ] **Stripe** — rename product → "Enchanted Spoon Pro" (Product name field, not the Price);
-      refresh Checkout branding. **`STRIPE_PRICE_ID_PRO` unchanged** (renaming a product doesn't
-      change price IDs). *(user dashboard — pending)*
-- [ ] **Support email** — `info@enchantedspoon.app` live and monitored; update anywhere the
-      support address is referenced (config.ts done in Phase 1; check backend/GitHub-issue paths).
-- [ ] **Social handles** — claim/brand (from Phase 0).
+- [x] **Stripe** — product renamed → "Enchanted Spoon Pro" + Checkout branding refreshed (user,
+      2026-08-22). **`STRIPE_PRICE_ID_PRO` unchanged** (renaming a product doesn't change price
+      IDs).
+- [x] **Support email** — `info@enchantedspoon.app` live and monitored (mailbox provisioned in
+      Phase 0); verified 2026-08-22: zero old-address references anywhere in code — config.ts
+      done in Phase 1, backend/GitHub-issue paths grep-clean.
+- [x] **Social handles** — N/A (2026-08-22): handles were reserved in Phase 0 but no active
+      social accounts exist for the app yet, so there is nothing to rebrand. Brand from day one
+      whenever accounts go live.
 - [x] **GitHub repo** — renamed `recipe-app` → `enchanted-spoon` (2026-08-22, user reversed the
       earlier "skip" decision). GitHub redirects the old name; Railway's GitHub App auto-updated
       both service sources. `GITHUB_REPO` env updated on Railway backend + local `backend/.env`.
       ⚠️ Never create a new repo named `recipe-app` — it would break the redirects.
+      Same day (commit `03a08b67`): npm package name + design-sync `pkg` + preview imports also
+      renamed `recipe-app` → `enchanted-spoon`; the `window.MealGenie` global (Phase 2 row 10)
+      deliberately left for that phase's decision.
 - [x] **OG / preview images & favicon** — new-mark assets from Phase 1 §4 deployed; `og:image`
       resolves to `https://enchantedspoon.app/opengraph-image.png`.
 

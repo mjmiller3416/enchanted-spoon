@@ -251,7 +251,7 @@ export function MealCreationOverlay({
       const message = err instanceof Error ? err.message : "Failed to save meal";
       if (message.includes("maximum capacity")) {
         toast.error("Meal queue is full", {
-          description: "Remove or clear completed meals to add more.",
+          description: "Remove a planned meal to make room for more.",
         });
       } else {
         toast.error(message);

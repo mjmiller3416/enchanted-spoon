@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useDebouncedCallback } from "use-debounce";
 import { settingsApi } from "@/lib/api";
+import { migrateLocalStorageKey } from "./useLocalStorageState";
 
 // Auto-save debounce delay (ms)
 const AUTO_SAVE_DELAY = 500;
@@ -98,9 +99,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
 // STORAGE KEYS
 // ============================================================================
 
-const SETTINGS_STORAGE_KEY = "meal-genie-settings";
-export const THEME_STORAGE_KEY = "meal-genie-theme"; // Separate key for instant theme load (read by the blocking script in the root layout)
+export const SETTINGS_STORAGE_KEY = "enchanted-spoon-settings";
+export const THEME_STORAGE_KEY = "enchanted-spoon-theme"; // Separate key for instant theme load (read by the blocking script in the root layout — keep that script in sync)
 export const LEGACY_THEME_STORAGE_KEY = "theme"; // Pre-unification key written by the old TopNav toggle
+// Pre-rename (Meal Genie era) keys, migrated on first load — drop the shims after 1-2 releases
+const LEGACY_SETTINGS_STORAGE_KEY = "meal-genie-settings";
+const LEGACY_PREFIXED_THEME_STORAGE_KEY = "meal-genie-theme";
 
 // ============================================================================
 // HOOK
@@ -172,6 +176,10 @@ export function useSettings(): UseSettingsReturn {
   const [settings, setSettings] = useState<AppSettings>(() => {
     // Initialize with theme from localStorage for instant apply (SSR-safe)
     if (typeof window !== "undefined") {
+      // Runs before any read in this hook, so loadFromLocalStorage always
+      // sees the new keys (initializers execute ahead of the load effect)
+      migrateLocalStorageKey(LEGACY_SETTINGS_STORAGE_KEY, SETTINGS_STORAGE_KEY);
+      migrateLocalStorageKey(LEGACY_PREFIXED_THEME_STORAGE_KEY, THEME_STORAGE_KEY);
       try {
         const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
         if (storedTheme) {

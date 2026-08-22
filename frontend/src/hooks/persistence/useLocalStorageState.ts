@@ -7,6 +7,27 @@ interface UseLocalStorageStateOptions<T> {
   maxItems?: number;
   /** Custom deserializer — transform raw parsed JSON into the desired shape */
   deserialize?: (raw: unknown) => T;
+  /** Old key to migrate from on mount (pre-rename shim; see migrateLocalStorageKey) */
+  legacyKey?: string;
+}
+
+/**
+ * One-time key-rename shim: if `legacyKey` holds a value, copy it to `key`
+ * (unless `key` already has one) and delete the legacy entry. Idempotent.
+ * Shim call sites can be dropped 1–2 releases after the rename ships.
+ */
+export function migrateLocalStorageKey(legacyKey: string, key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const legacy = localStorage.getItem(legacyKey);
+    if (legacy === null) return;
+    if (localStorage.getItem(key) === null) {
+      localStorage.setItem(key, legacy);
+    }
+    localStorage.removeItem(legacyKey);
+  } catch {
+    // localStorage unavailable — nothing to migrate
+  }
 }
 
 /**
@@ -23,7 +44,7 @@ export function useLocalStorageState<T>(
   initialValue: T,
   options: UseLocalStorageStateOptions<T> = {}
 ): [T, (value: T | ((prev: T) => T)) => void, boolean] {
-  const { maxItems, deserialize } = options;
+  const { maxItems, deserialize, legacyKey } = options;
   const eventName = `localStorage:${key}`;
 
   const [state, setStateInternal] = useState<T>(initialValue);
@@ -32,6 +53,9 @@ export function useLocalStorageState<T>(
   // Load from localStorage on mount
   useEffect(() => {
     try {
+      if (legacyKey) {
+        migrateLocalStorageKey(legacyKey, key);
+      }
       const stored = localStorage.getItem(key);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -42,7 +66,7 @@ export function useLocalStorageState<T>(
       console.error(`[useLocalStorageState] Failed to load ${key}:`, err);
     }
     setIsLoaded(true);
-  }, [key, deserialize]);
+  }, [key, deserialize, legacyKey]);
 
   // Listen for changes from other tabs (StorageEvent) and same window (CustomEvent)
   useEffect(() => {

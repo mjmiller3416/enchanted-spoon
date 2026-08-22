@@ -1,4 +1,4 @@
-import { NumberStepper } from "recipe-app";
+import { NumberStepper } from "enchanted-spoon";
 
 const grid = "bg-background text-foreground p-6 rounded-xl grid grid-cols-2 gap-4 max-w-md";
 

@@ -20,7 +20,9 @@ export interface RecentRecipe {
 // CONSTANTS
 // ============================================================================
 
-const STORAGE_KEY = "meal-genie-recent-recipes";
+const STORAGE_KEY = "enchanted-spoon-recent-recipes";
+// Pre-rename key, migrated on first load — drop after 1-2 releases
+const LEGACY_STORAGE_KEY = "meal-genie-recent-recipes";
 const MAX_RECENT_RECIPES = 3;
 
 // ============================================================================
@@ -113,7 +115,7 @@ export function useRecentRecipes(): UseRecentRecipesReturn {
   const [recentRecipes, setRecentRecipes, isLoaded] = useLocalStorageState<RecentRecipe[]>(
     STORAGE_KEY,
     [],
-    { deserialize: deserializeRecipes }
+    { deserialize: deserializeRecipes, legacyKey: LEGACY_STORAGE_KEY }
   );
 
   const addToRecent = useCallback(

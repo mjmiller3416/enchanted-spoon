@@ -6,7 +6,7 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "recipe-app";
+} from "enchanted-spoon";
 
 // Open state — SelectContent renders inline (portal off by default in this DS),
 // so the dropdown paints inside the dark frame.

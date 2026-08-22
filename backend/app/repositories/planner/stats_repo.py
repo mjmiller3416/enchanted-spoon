@@ -17,7 +17,7 @@ from ...models.planner_entry import PlannerEntry
 
 
 # ── Constants ───────────────────────────────────────────────────────────────────────────────────────────────
-MAX_PLANNER_ENTRIES = 15
+MAX_PLANNER_ENTRIES = 20
 
 
 # ── Planner Stats Repository ────────────────────────────────────────────────────────────────────────────────
@@ -47,6 +47,27 @@ class PlannerStatsRepo:
             select(func.count())
             .select_from(PlannerEntry)
             .where(PlannerEntry.user_id == user_id)
+            .where(PlannerEntry.is_cleared == False)
+        )
+        return self.session.execute(stmt).scalar() or 0
+
+    def count_incomplete(self, user_id: int) -> int:
+        """
+        Count incomplete planner entries (excludes completed and cleared) for a user.
+        Used for capacity checks — completed entries awaiting "Clear completed"
+        don't consume planner capacity.
+
+        Args:
+            user_id: ID of the user whose incomplete entries to count
+
+        Returns:
+            Count of incomplete, non-cleared entries belonging to the user
+        """
+        stmt = (
+            select(func.count())
+            .select_from(PlannerEntry)
+            .where(PlannerEntry.user_id == user_id)
+            .where(PlannerEntry.is_completed == False)
             .where(PlannerEntry.is_cleared == False)
         )
         return self.session.execute(stmt).scalar() or 0
@@ -139,14 +160,16 @@ class PlannerStatsRepo:
     def is_at_capacity(self, user_id: int) -> bool:
         """
         Check if the planner is at maximum capacity for a user.
+        Only incomplete entries count — completed meals awaiting clear don't
+        consume capacity.
 
         Args:
             user_id: ID of the user whose planner to check
 
         Returns:
-            True if at capacity (15 entries)
+            True if at capacity (MAX_PLANNER_ENTRIES incomplete entries)
         """
-        return self.count(user_id) >= MAX_PLANNER_ENTRIES
+        return self.count_incomplete(user_id) >= MAX_PLANNER_ENTRIES
 
     # ── Batch Update Operations ─────────────────────────────────────────────────────────────────────────────
     def reorder_entries(self, entry_ids: List[int], user_id: int) -> bool:

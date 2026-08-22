@@ -14,7 +14,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from "recipe-app";
+} from "enchanted-spoon";
 import {
   CalendarDays,
   LayoutDashboard,

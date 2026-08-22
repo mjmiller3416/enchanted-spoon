@@ -4,7 +4,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "recipe-app";
+} from "enchanted-spoon";
 import { Heart, Info, X } from "lucide-react";
 
 // Tooltips portal to body and default to side="top" — triggers are centered

@@ -60,7 +60,7 @@ Three entry points, all ultimately calling `app/services/ai/image_generation/ser
 |---|---|---|
 | Standalone generation (recipe add/edit form) | `POST /api/ai/image-generation` | `image_type: "both" \| "reference" \| "banner"`. `"both"` calls `generate_dual_recipe_images()`; single-type calls `generate_recipe_image()` with the matching prompt template + aspect ratio. |
 | Banner from an existing reference image | `POST /api/ai/image-generation/banner` | Takes a base64 reference image, generates a matching banner via `generate_banner_from_reference()` — keeps the same dish/styling instead of re-prompting from scratch. |
-| Assistant recipe drafts | `POST /api/ai/meal-genie/chat` (or the legacy `/generate-recipe` alias) | `AssistantRecipeRequestDTO.generate_image` triggers `generate_dual_recipe_images()` inline during recipe drafting. |
+| Assistant recipe drafts | `POST /api/ai/assistant/chat` (or the legacy `/generate-recipe` alias) | `AssistantRecipeRequestDTO.generate_image` triggers `generate_dual_recipe_images()` inline during recipe drafting. |
 | AI recipe generation wizard (Pro) | `POST /api/ai/wizard-generation` | `RecipeGenerationRequestDTO.generate_image` (singular) — same dual-image call, alongside optional nutrition estimation. |
 
 All four return **base64-encoded PNG data** (`reference_image_data` / `banner_image_data`), not
@@ -118,7 +118,7 @@ list drifts — components here get renamed/deleted more often than this doc get
 
 **Upload UI:** `ImageUploadCard` (`app/(app)/recipes/_components/shared/ImageUploadCard.tsx`) —
 handles both file upload and "Generate with AI" in the recipe add/edit form. User's custom
-AI prompt override is stored in `localStorage` (`meal-genie-settings`, via `useSettings`) and
+AI prompt override is stored in `localStorage` (`enchanted-spoon-settings`, via `useSettings`) and
 must contain a `{recipe_name}` placeholder.
 
 ---
@@ -135,7 +135,7 @@ the other AI feature types: `ImageGenerationRequestDTO`, `ImageGenerationRespons
 
 ## Known gaps
 
-- `app/api/ai/meal-genie/*` and `app/api/ai/wizard-generation` are the live URL prefixes for the
-  assistant and AI recipe-generation wizard respectively — both have a `# TODO: rename` comment
-  in `router.py` pending a frontend change; don't be surprised the paths don't match the feature
-  names.
+- The assistant now lives at `/api/ai/assistant/*` (the pre-rename `/api/ai/meal-genie/*` prefix
+  is aliased for one release, then goes away). `/api/ai/wizard-generation` is still the live
+  prefix for the AI recipe-generation wizard — it has a `# TODO: rename` comment in `router.py`
+  pending a frontend change; don't be surprised that path doesn't match the feature name.

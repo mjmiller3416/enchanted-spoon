@@ -62,6 +62,7 @@ tasks/
 
 # Generated outputs
 audits/
+backend/scripts/regen_review/
 codebase-map.html
 5242880
 .claude/hooks/hooks.log

@@ -51,7 +51,8 @@ class EntryManagementMixin:
             Created planner entry as DTO
 
         Raises:
-            PlannerFullError: If planner is at capacity (15 entries)
+            PlannerFullError: If planner is at capacity (MAX_PLANNER_ENTRIES
+                incomplete entries — completed meals don't count)
             InvalidMealError: If meal ID doesn't exist or isn't owned by user
         """
         try:
@@ -101,7 +102,7 @@ class EntryManagementMixin:
             InvalidMealError: If any meal ID doesn't exist or isn't owned by user
         """
         try:
-            current_count = self.repo.count(self.user_id)
+            current_count = self.repo.count_incomplete(self.user_id)
             if current_count + len(meal_ids) > MAX_PLANNER_ENTRIES:
                 raise PlannerFullError(
                     f"Cannot add {len(meal_ids)} meals: would exceed "

@@ -1,4 +1,4 @@
-import { RecipeBadge, RecipeBadgeGroup } from "recipe-app";
+import { RecipeBadge, RecipeBadgeGroup } from "enchanted-spoon";
 
 // All six badge types, composed with RecipeBadgeGroup the way the recipe
 // detail header does.

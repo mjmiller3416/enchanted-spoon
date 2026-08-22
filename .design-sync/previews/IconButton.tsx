@@ -1,4 +1,4 @@
-import { IconButton } from "recipe-app";
+import { IconButton } from "enchanted-spoon";
 import { Bell, Pencil, Printer, RefreshCw, Share2, Trash2 } from "lucide-react";
 
 const noop = () => {};

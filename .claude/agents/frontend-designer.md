@@ -27,7 +27,7 @@ frontend/src/
 │   ├── common/             # Shared components (FilterBar, StatsCard, FeedbackDialog)
 │   ├── recipe/             # Recipe-specific (RecipeCard, RecipeImage, RecipeBadge)
 │   ├── layout/             # App layout (sidebar, nav, page header, mobile nav)
-│   ├── meal-genie/         # AI chat interface
+│   ├── assistant/          # AI chat interface (Genie)
 │   ├── forms/              # Custom form inputs (QuantityInput, SmartIngredientInput)
 │   ├── settings/           # Settings UI with _components/ sub-components
 │   └── auth/               # Authentication (SignInForm, UserMenu)

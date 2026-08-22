@@ -97,6 +97,10 @@ class PlannerRepo:
         """Count total number of active planner entries."""
         return self.stats_repo.count(user_id)
 
+    def count_incomplete(self, user_id):
+        """Count incomplete planner entries (capacity check)."""
+        return self.stats_repo.count_incomplete(user_id)
+
     def count_completed(self, user_id):
         """Count completed planner entries."""
         return self.stats_repo.count_completed(user_id)

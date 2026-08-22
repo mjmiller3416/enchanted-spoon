@@ -1,4 +1,4 @@
-import { Badge } from "recipe-app";
+import { Badge } from "enchanted-spoon";
 import { Clock, Flame, Leaf, Sparkles } from "lucide-react";
 
 // Cells render on a white card canvas; wrap in the app's own dark surface.

@@ -4,7 +4,7 @@ import {
   PageHeaderActions,
   PageHeaderContent,
   PageHeaderTitle,
-} from "recipe-app";
+} from "enchanted-spoon";
 import { ArrowLeft, Pencil, Plus } from "lucide-react";
 
 // Standard page header: title + primary action, as the Meal Planner page
