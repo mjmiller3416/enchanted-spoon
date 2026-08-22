@@ -40,13 +40,19 @@ export const metadata: Metadata = {
 
 // Runs synchronously before any content paints so a stored light preference
 // never flashes the default dark theme. Reads the same key useSettings writes
-// ("meal-genie-theme", JSON-encoded), falls back to the legacy "theme" key.
-// An explicit "system" preference follows the OS; with no stored preference at
-// all we default to dark. Keep in sync with hooks/ui/useTheme.ts.
+// ("enchanted-spoon-theme", JSON-encoded), falling back to the pre-rename
+// "meal-genie-theme" key (runs before useSettings' migration shim, so it must
+// read the old key itself on a user's first post-rename load), then the legacy
+// bare "theme" key. An explicit "system" preference follows the OS; with no
+// stored preference at all we default to dark. Keep in sync with
+// hooks/ui/useTheme.ts.
 const themeInitScript = `(function () {
   try {
     var pref = null;
-    var raw = localStorage.getItem("meal-genie-theme");
+    var raw = localStorage.getItem("enchanted-spoon-theme");
+    if (!raw) {
+      raw = localStorage.getItem("meal-genie-theme");
+    }
     if (raw) {
       try { pref = JSON.parse(raw); } catch (e) { pref = raw; }
     }
