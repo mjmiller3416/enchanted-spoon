@@ -149,7 +149,7 @@ Output this confirmation:
 ```
 ✅ Created GitHub Issue #XX: [Title]
    Labels: [label1], [label2]
-   URL: https://github.com/mjmiller3416/recipe-app/issues/XX
+   URL: https://github.com/mjmiller3416/enchanted-spoon/issues/XX
 ```
 
 ---
