@@ -1,10 +1,9 @@
 # Enchanted Spoon Rename Plan
 
-> **Status (2026-08-22):** Phases 0 & 1 COMPLETE (2026-08-11/12, commits `fae4e44` +
-> `a16ad69`). Phase 3 COMPLETE except two user-dashboard items: the Stripe product rename and
-> social-handle branding; the GitHub repo was renamed `recipe-app` → `enchanted-spoon` on
-> 2026-08-22. Phase 2 (invisible internal IDs) is NOT STARTED and is the remaining code work.
-> This is the **final** name change.
+> **Status (2026-08-22):** Phases 0, 1 & 3 COMPLETE. The GitHub repo was renamed `recipe-app`
+> → `enchanted-spoon` and the Stripe product renamed to "Enchanted Spoon Pro" on 2026-08-22.
+> Phase 2 (invisible internal IDs) is NOT STARTED and is the only remaining work. This is the
+> **final** name change.
 >
 > **Author's note (2026-08-11):** Drafted ahead of execution so it's ready when you are.
 
@@ -253,13 +252,15 @@ at `enchantedspoon.app` serving Enchanted Spoon (title/OG/site_name verified, ba
       added, DNS + GTS TLS cert verified), dev users copied over, `pk_live`/`sk_live` swapped into
       Railway on both services + 4 `NEXT_PUBLIC_CLERK_*` redirect vars set; rebuilt + verified live
       (2026-08-12). *(optional polish left: app display name + email-template branding)*
-- [ ] **Stripe** — rename product → "Enchanted Spoon Pro" (Product name field, not the Price);
-      refresh Checkout branding. **`STRIPE_PRICE_ID_PRO` unchanged** (renaming a product doesn't
-      change price IDs). *(user dashboard — pending)*
+- [x] **Stripe** — product renamed → "Enchanted Spoon Pro" + Checkout branding refreshed (user,
+      2026-08-22). **`STRIPE_PRICE_ID_PRO` unchanged** (renaming a product doesn't change price
+      IDs).
 - [x] **Support email** — `info@enchantedspoon.app` live and monitored (mailbox provisioned in
       Phase 0); verified 2026-08-22: zero old-address references anywhere in code — config.ts
       done in Phase 1, backend/GitHub-issue paths grep-clean.
-- [ ] **Social handles** — claim/brand (from Phase 0).
+- [x] **Social handles** — N/A (2026-08-22): handles were reserved in Phase 0 but no active
+      social accounts exist for the app yet, so there is nothing to rebrand. Brand from day one
+      whenever accounts go live.
 - [x] **GitHub repo** — renamed `recipe-app` → `enchanted-spoon` (2026-08-22, user reversed the
       earlier "skip" decision). GitHub redirects the old name; Railway's GitHub App auto-updated
       both service sources. `GITHUB_REPO` env updated on Railway backend + local `backend/.env`.
