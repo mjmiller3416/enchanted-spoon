@@ -258,8 +258,10 @@ at `enchantedspoon.app` serving Enchanted Spoon (title/OG/site_name verified, ba
 - [ ] **Support email** — `info@enchantedspoon.app` live and monitored; update anywhere the
       support address is referenced (config.ts done in Phase 1; check backend/GitHub-issue paths).
 - [ ] **Social handles** — claim/brand (from Phase 0).
-- [x] **GitHub repo** — rename **intentionally skipped** per user (`recipe-app` retained);
-      `GITHUB_REPO` env unchanged.
+- [x] **GitHub repo** — renamed `recipe-app` → `enchanted-spoon` (2026-08-22, user reversed the
+      earlier "skip" decision). GitHub redirects the old name; Railway's GitHub App auto-updated
+      both service sources. `GITHUB_REPO` env updated on Railway backend + local `backend/.env`.
+      ⚠️ Never create a new repo named `recipe-app` — it would break the redirects.
 - [x] **OG / preview images & favicon** — new-mark assets from Phase 1 §4 deployed; `og:image`
       resolves to `https://enchantedspoon.app/opengraph-image.png`.
 
