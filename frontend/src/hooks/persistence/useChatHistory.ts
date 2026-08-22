@@ -8,7 +8,9 @@ import { useLocalStorageState } from "./useLocalStorageState";
 // CONSTANTS
 // ============================================================================
 
-const STORAGE_KEY = "meal-genie-chat-history";
+const STORAGE_KEY = "enchanted-spoon-chat-history";
+// Pre-rename key, migrated on first load — drop after 1-2 releases
+const LEGACY_STORAGE_KEY = "meal-genie-chat-history";
 const MAX_MESSAGES = 50;
 
 // ============================================================================
@@ -52,7 +54,7 @@ export function useChatHistory(): UseChatHistoryReturn {
   const [messages, setMessages, isLoaded] = useLocalStorageState<AssistantMessage[]>(
     STORAGE_KEY,
     [],
-    { maxItems: MAX_MESSAGES }
+    { maxItems: MAX_MESSAGES, legacyKey: LEGACY_STORAGE_KEY }
   );
 
   const addMessage = useCallback(
