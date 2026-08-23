@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
 import {
   usePlannerEntries,
+  usePlannerSummary,
   useShoppingList,
   useRemoveEntry,
   useMarkComplete,
@@ -40,6 +42,11 @@ export function MealPlannerView() {
 
   // Fetch planner entries via React Query
   const { data: entries = [], isLoading } = usePlannerEntries();
+
+  // Planner summary supplies the server-owned capacity limit; the live count
+  // comes from the entries cache so it tracks optimistic updates instantly
+  const { data: plannerSummary } = usePlannerSummary();
+  const maxCapacity = plannerSummary?.max_capacity;
 
   // Shopping list badge for the header action (same remaining-count logic as TopNav)
   const { data: shoppingData } = useShoppingList();
@@ -377,6 +384,23 @@ export function MealPlannerView() {
             <h2 className="flex-1 text-lg font-semibold text-foreground">
               This Week&apos;s Menu
             </h2>
+            {!isLoading && maxCapacity !== undefined && (
+              <p
+                className={cn(
+                  "text-sm whitespace-nowrap",
+                  activeEntries.length >= maxCapacity
+                    ? "text-warning"
+                    : "text-muted-foreground"
+                )}
+              >
+                <span className="sm:hidden" aria-hidden="true">
+                  {activeEntries.length}/{maxCapacity}
+                </span>
+                <span className="sr-only sm:not-sr-only">
+                  {activeEntries.length} of {maxCapacity} meals planned
+                </span>
+              </p>
+            )}
             <CompletedDropdown
               items={completedItems}
               onItemClick={handleCompletedItemClick}
