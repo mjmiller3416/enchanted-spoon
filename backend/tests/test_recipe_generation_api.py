@@ -11,7 +11,7 @@ Covers:
 - User category injection
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -133,7 +133,7 @@ class TestRecipeGenerationEndpoint:
         client = TestClient(app)
 
         mock_service = MagicMock()
-        mock_service.generate.return_value = _make_success_response()
+        mock_service.generate = AsyncMock(return_value=_make_success_response())
         mock_get_service.return_value = mock_service
 
         response = client.post(
@@ -161,7 +161,7 @@ class TestRecipeGenerationEndpoint:
         client = TestClient(app)
 
         mock_service = MagicMock()
-        mock_service.generate.return_value = _make_success_response()
+        mock_service.generate = AsyncMock(return_value=_make_success_response())
         mock_get_service.return_value = mock_service
 
         response = client.post(
@@ -191,7 +191,7 @@ class TestRecipeGenerationEndpoint:
         mock_cat_cls.return_value = mock_cat_instance
 
         mock_service = MagicMock()
-        mock_service.generate.return_value = _make_success_response()
+        mock_service.generate = AsyncMock(return_value=_make_success_response())
         mock_get_service.return_value = mock_service
 
         response = client.post(
@@ -222,9 +222,11 @@ class TestRecipeGenerationErrors:
         client = TestClient(app)
 
         mock_service = MagicMock()
-        mock_service.generate.return_value = RecipeGenerationResponseDTO(
-            success=False,
-            error="Model returned empty response",
+        mock_service.generate = AsyncMock(
+            return_value=RecipeGenerationResponseDTO(
+                success=False,
+                error="Model returned empty response",
+            )
         )
         mock_get_service.return_value = mock_service
 
@@ -245,7 +247,9 @@ class TestRecipeGenerationErrors:
         client = TestClient(app)
 
         mock_service = MagicMock()
-        mock_service.generate.side_effect = RecipeGenerationError("API quota exceeded")
+        mock_service.generate = AsyncMock(
+            side_effect=RecipeGenerationError("API quota exceeded")
+        )
         mock_get_service.return_value = mock_service
 
         response = client.post(
@@ -266,7 +270,9 @@ class TestRecipeGenerationErrors:
         client = TestClient(app)
 
         mock_service = MagicMock()
-        mock_service.generate.side_effect = RecipeParseError("Malformed JSON from AI")
+        mock_service.generate = AsyncMock(
+            side_effect=RecipeParseError("Malformed JSON from AI")
+        )
         mock_get_service.return_value = mock_service
 
         response = client.post(
@@ -287,7 +293,7 @@ class TestRecipeGenerationErrors:
         client = TestClient(app)
 
         mock_service = MagicMock()
-        mock_service.generate.side_effect = RuntimeError("Unexpected failure")
+        mock_service.generate = AsyncMock(side_effect=RuntimeError("Unexpected failure"))
         mock_get_service.return_value = mock_service
 
         response = client.post(
@@ -416,7 +422,7 @@ class TestRecipeGenerationUsageTracking:
         client = TestClient(app)
 
         mock_service = MagicMock()
-        mock_service.generate.return_value = _make_success_response()
+        mock_service.generate = AsyncMock(return_value=_make_success_response())
         mock_get_service.return_value = mock_service
 
         mock_usage_instance = MagicMock()
@@ -441,7 +447,7 @@ class TestRecipeGenerationUsageTracking:
         client = TestClient(app)
 
         mock_service = MagicMock()
-        mock_service.generate.return_value = _make_success_response()
+        mock_service.generate = AsyncMock(return_value=_make_success_response())
         mock_get_service.return_value = mock_service
 
         mock_usage_instance = MagicMock()
@@ -516,7 +522,7 @@ class TestRecipeGenerationUsageLimit:
                 patch("app.api.ai.recipe_generation.get_recipe_generation_service") as mock_get_service, \
                 patch("app.api.ai.recipe_generation.UsageService"):
             mock_service = MagicMock()
-            mock_service.generate.return_value = _make_success_response()
+            mock_service.generate = AsyncMock(return_value=_make_success_response())
             mock_get_service.return_value = mock_service
 
             client = TestClient(app)
@@ -549,7 +555,7 @@ class TestRecipeGenerationUsageLimit:
                 patch("app.api.ai.recipe_generation.get_recipe_generation_service") as mock_get_service, \
                 patch("app.api.ai.recipe_generation.UsageService"):
             mock_service = MagicMock()
-            mock_service.generate.return_value = _make_success_response()
+            mock_service.generate = AsyncMock(return_value=_make_success_response())
             mock_get_service.return_value = mock_service
 
             client = TestClient(app)

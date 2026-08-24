@@ -33,6 +33,13 @@ from app.services.ai.recipe_generation.service import (
     RecipeParseError,
 )
 
+pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -44,6 +51,9 @@ _INGREDIENT = {"ingredient_name": "Salt", "ingredient_category": "pantry"}
 def _make_gemini_response(text: str):
     """Create a mock Gemini API response containing the given text."""
     part = MagicMock()
+    # A bare MagicMock attribute is truthy, so an unset `thought` would make
+    # extract_text_from_response skip the part as a thinking part.
+    part.thought = False
     part.text = text
 
     content = MagicMock()
@@ -149,7 +159,7 @@ def recipe_service():
 class TestRecipeGenerationSuccess:
     """Tests for successful recipe generation."""
 
-    def test_successful_generation(self, recipe_service):
+    async def test_successful_generation(self, recipe_service):
         """Valid Gemini response is parsed into RecipeGenerationResponseDTO."""
         service, mock_client = recipe_service
 
@@ -157,7 +167,7 @@ class TestRecipeGenerationSuccess:
             _full_recipe_json()
         )
 
-        result = service.generate(_make_request())
+        result = await service.generate(_make_request())
 
         assert result.success is True
         assert result.error is None
@@ -177,7 +187,7 @@ class TestRecipeGenerationSuccess:
         assert "Heat oil" in result.recipe.directions
         assert result.recipe.notes == "Serve over jasmine rice."
 
-    def test_nutrition_included_when_requested(self, recipe_service):
+    async def test_nutrition_included_when_requested(self, recipe_service):
         """Nutrition facts are parsed when estimate_nutrition=True."""
         service, mock_client = recipe_service
 
@@ -185,7 +195,7 @@ class TestRecipeGenerationSuccess:
             _full_recipe_with_nutrition_json()
         )
 
-        result = service.generate(_make_request(estimate_nutrition=True))
+        result = await service.generate(_make_request(estimate_nutrition=True))
 
         assert result.success is True
         assert result.nutrition_facts is not None
@@ -194,7 +204,7 @@ class TestRecipeGenerationSuccess:
         assert result.nutrition_facts.total_fat_g == 28.0
         assert result.nutrition_facts.is_ai_estimated is True
 
-    def test_nutrition_excluded_when_not_requested(self, recipe_service):
+    async def test_nutrition_excluded_when_not_requested(self, recipe_service):
         """Nutrition facts are None when estimate_nutrition=False."""
         service, mock_client = recipe_service
 
@@ -202,12 +212,12 @@ class TestRecipeGenerationSuccess:
             _full_recipe_with_nutrition_json()
         )
 
-        result = service.generate(_make_request(estimate_nutrition=False))
+        result = await service.generate(_make_request(estimate_nutrition=False))
 
         assert result.success is True
         assert result.nutrition_facts is None
 
-    def test_partial_recipe_fields(self, recipe_service):
+    async def test_partial_recipe_fields(self, recipe_service):
         """Missing optional fields get defaults or None."""
         service, mock_client = recipe_service
 
@@ -222,7 +232,7 @@ class TestRecipeGenerationSuccess:
             minimal_json
         )
 
-        result = service.generate(_make_request(prompt="Toast"))
+        result = await service.generate(_make_request(prompt="Toast"))
 
         assert result.success is True
         assert result.recipe.recipe_name == "Simple Toast"
@@ -232,7 +242,7 @@ class TestRecipeGenerationSuccess:
         assert result.recipe.prep_time is None
         assert result.recipe.difficulty is None
 
-    def test_empty_ingredients_list_raises_parse_error(self, recipe_service):
+    async def test_empty_ingredients_list_raises_parse_error(self, recipe_service):
         """Recipe with empty ingredients list raises RecipeParseError, not a hollow success."""
         service, mock_client = recipe_service
 
@@ -241,9 +251,9 @@ class TestRecipeGenerationSuccess:
         )
 
         with pytest.raises(RecipeParseError, match="ingredients"):
-            service.generate(_make_request())
+            await service.generate(_make_request())
 
-    def test_no_images_by_default(self, recipe_service):
+    async def test_no_images_by_default(self, recipe_service):
         """Images are None when generate_image=False."""
         service, mock_client = recipe_service
 
@@ -251,13 +261,13 @@ class TestRecipeGenerationSuccess:
             _full_recipe_json()
         )
 
-        result = service.generate(_make_request(generate_image=False))
+        result = await service.generate(_make_request(generate_image=False))
 
         assert result.success is True
         assert result.reference_image_data is None
         assert result.banner_image_data is None
 
-    def test_allowed_categories_in_prompt(self, recipe_service):
+    async def test_allowed_categories_in_prompt(self, recipe_service):
         """Custom allowed_categories are interpolated into the prompt."""
         service, mock_client = recipe_service
 
@@ -265,7 +275,7 @@ class TestRecipeGenerationSuccess:
             _full_recipe_json()
         )
 
-        result = service.generate(_make_request(
+        result = await service.generate(_make_request(
             allowed_categories=["italian", "mexican", "thai"]
         ))
 
@@ -284,7 +294,7 @@ class TestRecipeImageGeneration:
     """Tests for image generation integration."""
 
     @patch("app.services.ai.recipe_generation.service.RecipeGenerationService._generate_images")
-    def test_images_generated_when_requested(self, mock_gen_images, recipe_service):
+    async def test_images_generated_when_requested(self, mock_gen_images, recipe_service):
         """Image data is included when generate_image=True."""
         service, mock_client = recipe_service
 
@@ -293,7 +303,7 @@ class TestRecipeImageGeneration:
         )
         mock_gen_images.return_value = ("ref_base64_data", "banner_base64_data")
 
-        result = service.generate(_make_request(generate_image=True))
+        result = await service.generate(_make_request(generate_image=True))
 
         assert result.success is True
         assert result.reference_image_data == "ref_base64_data"
@@ -301,7 +311,7 @@ class TestRecipeImageGeneration:
         mock_gen_images.assert_called_once_with("Spicy Thai Green Curry")
 
     @patch("app.services.ai.recipe_generation.service.RecipeGenerationService._generate_images")
-    def test_image_failure_is_nonfatal(self, mock_gen_images, recipe_service):
+    async def test_image_failure_is_nonfatal(self, mock_gen_images, recipe_service):
         """Image generation failure returns None images but recipe still succeeds."""
         service, mock_client = recipe_service
 
@@ -310,7 +320,7 @@ class TestRecipeImageGeneration:
         )
         mock_gen_images.return_value = (None, None)
 
-        result = service.generate(_make_request(generate_image=True))
+        result = await service.generate(_make_request(generate_image=True))
 
         assert result.success is True
         assert result.recipe is not None
@@ -377,7 +387,7 @@ class TestPreferencesBuilding:
 class TestRecipeGenerationErrors:
     """Tests for error handling paths."""
 
-    def test_empty_ai_response_raises_error(self, recipe_service):
+    async def test_empty_ai_response_raises_error(self, recipe_service):
         """Empty response from AI raises RecipeGenerationError."""
         service, mock_client = recipe_service
 
@@ -386,9 +396,9 @@ class TestRecipeGenerationErrors:
         mock_client.models.generate_content.return_value = empty_response
 
         with pytest.raises(RecipeGenerationError, match="No response"):
-            service.generate(_make_request())
+            await service.generate(_make_request())
 
-    def test_invalid_json_raises_parse_error(self, recipe_service):
+    async def test_invalid_json_raises_parse_error(self, recipe_service):
         """Malformed JSON raises RecipeParseError."""
         service, mock_client = recipe_service
 
@@ -397,18 +407,18 @@ class TestRecipeGenerationErrors:
         )
 
         with pytest.raises(RecipeParseError, match="parse"):
-            service.generate(_make_request())
+            await service.generate(_make_request())
 
-    def test_api_exception_raises_generation_error(self, recipe_service):
+    async def test_api_exception_raises_generation_error(self, recipe_service):
         """Exception during API call raises RecipeGenerationError."""
         service, mock_client = recipe_service
 
         mock_client.models.generate_content.side_effect = RuntimeError("API down")
 
         with pytest.raises(RecipeGenerationError, match="API down"):
-            service.generate(_make_request())
+            await service.generate(_make_request())
 
-    def test_import_error_raises_generation_error(self, recipe_service):
+    async def test_import_error_raises_generation_error(self, recipe_service):
         """Missing google-genai package raises RecipeGenerationError."""
         service, mock_client = recipe_service
 
@@ -417,7 +427,7 @@ class TestRecipeGenerationErrors:
             side_effect=RecipeGenerationError("google-genai package is not installed"),
         ):
             with pytest.raises(RecipeGenerationError, match="google-genai"):
-                service.generate(_make_request())
+                await service.generate(_make_request())
 
     def test_nutrition_parse_handles_empty_data(self, recipe_service):
         """Empty nutrition_facts dict returns None."""

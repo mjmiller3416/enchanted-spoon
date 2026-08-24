@@ -7,9 +7,18 @@ the preamble ("Here are some ideas! 🔍") is returned as a plain chat reply and
 the tool (e.g. suggest_recipes) never executes.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from app.services.ai.assistant import AssistantService
+
+pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
 
 
 # ---------------------------------------------------------------------------
@@ -60,10 +69,10 @@ def _make_service() -> AssistantService:
 # Tests
 # ---------------------------------------------------------------------------
 
-def test_function_call_takes_precedence_over_preamble_text():
+async def test_function_call_takes_precedence_over_preamble_text():
     """Preamble text before a function call must not short-circuit the tool."""
     service = _make_service()
-    service._handle_function_call = MagicMock(
+    service._handle_function_call = AsyncMock(
         return_value={"type": "suggestions", "response": "..."}
     )
 
@@ -74,7 +83,7 @@ def test_function_call_takes_precedence_over_preamble_text():
         ]
     )
 
-    result = service._process_response(response, user_context_data=None, contents=[])
+    result = await service._process_response(response, user_context_data=None, contents=[])
 
     service._handle_function_call.assert_called_once()
     called_tool = service._handle_function_call.call_args.args[0]
@@ -84,10 +93,10 @@ def test_function_call_takes_precedence_over_preamble_text():
     assert result["type"] == "suggestions"
 
 
-def test_function_call_handled_when_it_is_the_only_part():
+async def test_function_call_handled_when_it_is_the_only_part():
     """Gemini 2.x style: a bare function_call part still routes to the tool."""
     service = _make_service()
-    service._handle_function_call = MagicMock(
+    service._handle_function_call = AsyncMock(
         return_value={"type": "recipe", "response": "..."}
     )
 
@@ -95,25 +104,25 @@ def test_function_call_handled_when_it_is_the_only_part():
         [_function_call_part("create_recipe", {"recipe_name": "Tacos"})]
     )
 
-    service._process_response(response, user_context_data=None, contents=[])
+    await service._process_response(response, user_context_data=None, contents=[])
 
     service._handle_function_call.assert_called_once()
     assert service._handle_function_call.call_args.args[0] == "create_recipe"
 
 
-def test_plain_text_returns_chat():
+async def test_plain_text_returns_chat():
     """A text-only response (casual conversation) returns a chat reply."""
     service = _make_service()
 
     response = _make_response([_text_part("Honestly, I'm doing great! 💛")])
 
-    result = service._process_response(response, user_context_data=None, contents=[])
+    result = await service._process_response(response, user_context_data=None, contents=[])
 
     assert result["type"] == "chat"
     assert result["response"] == "Honestly, I'm doing great! 💛"
 
 
-def test_thought_parts_are_ignored():
+async def test_thought_parts_are_ignored():
     """Thinking parts must not be mistaken for the conversational reply."""
     service = _make_service()
 
@@ -124,7 +133,7 @@ def test_thought_parts_are_ignored():
 
     response = _make_response([thought, _text_part("The real answer ✨")])
 
-    result = service._process_response(response, user_context_data=None, contents=[])
+    result = await service._process_response(response, user_context_data=None, contents=[])
 
     assert result["type"] == "chat"
     assert result["response"] == "The real answer ✨"

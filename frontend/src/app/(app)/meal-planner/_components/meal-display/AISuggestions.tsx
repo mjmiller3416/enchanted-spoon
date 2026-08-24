@@ -76,6 +76,7 @@ export function AISuggestions({
 
   // Use mutation hook with automatic token injection
   const suggestionsMutation = useMealSuggestions();
+  const { mutate: mutateSuggestions } = suggestionsMutation;
 
   // Track which mealId we've already fetched to prevent duplicate requests
   const fetchedMealIdRef = useRef<number | null>(null);
@@ -96,7 +97,7 @@ export function AISuggestions({
       }
     }
 
-    suggestionsMutation.mutate(
+    mutateSuggestions(
       {
         main_recipe_name: mainRecipeName,
         main_recipe_category: mainRecipeCategory || undefined,
@@ -116,10 +117,13 @@ export function AISuggestions({
         },
       }
     );
-  }, [mealId, mainRecipeName, mainRecipeCategory, mealType, suggestionsMutation.mutate]);
+  }, [mealId, mainRecipeName, mainRecipeCategory, mealType, mutateSuggestions]);
 
-  // Auto-load on mount or when mealId changes
+  // Auto-load on mount or when mealId changes. The cache-hit path inside
+  // fetchSuggestions hydrates state synchronously from sessionStorage — that
+  // post-mount hydration is the SSR-safe pattern for external stores.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSuggestions();
   }, [fetchSuggestions]);
 

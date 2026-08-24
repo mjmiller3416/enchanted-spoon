@@ -49,17 +49,38 @@ hurt if ignored:
 > real (`info@whiskful.app` — app rebranding to **Whiskful**), security headers ship via
 > `next.config.ts`, `frontend/.env.example` exists, and a CI workflow gates the build.
 > Deferred: observability (Sentry/GlitchTip) and a full app-name rebrand.
+>
+> **Update 2026-08-23 (full re-audit of this doc):** Phase 2 is **closed** — #164, #165,
+> and #166 were all closed 2026-08-23, the metered free tier + paywall + billing UI are
+> merged to staging *and* main (deployed), and the only remainder is a manual smoke test:
+> one real test-mode checkout in prod to eyeball live Stripe values in the admin user
+> list. Meanwhile the app **launched at `https://enchantedspoon.app`** (2026-08-12,
+> Whiskful name dropped — see the completed rename plan), the rebrand finished through
+> internal identifiers (2026-08-22), and the GitHub issue tracker is at **zero open
+> issues** — every user-feedback bug filed from the live app (#171–#188 range) has been
+> fixed and closed. Still open, in priority order: the prod checkout smoke test, CI
+> hard-gating (pytest/lint baselines), observability (unchanged since 2026-08-03), CSP +
+> admin SQL console allowlist, and Phases 4–5 (verified still pending item-by-item today,
+> except the stray route directories, which are already gone).
+>
+> **Update 2026-08-23 (later): CI hard-gating is done.** The 33-failure async-mock
+> pytest baseline and all 9 react-hooks lint errors are fixed (340/340 tests pass, lint
+> reports 0 errors), and `continue-on-error` is dropped from both CI steps — pytest,
+> lint, and build are all hard gates now. See the Phase 3 item for details, including
+> the discovery that the report-only pytest step had never installed pytest at all.
+> Next up: the prod checkout smoke test (manual), observability, CSP + admin SQL
+> console allowlist, then Phases 4–5.
 
 ## Status tracker
 
-| Phase | Focus | Depends on | Status (2026-08-09) |
+| Phase | Focus | Depends on | Status (2026-08-23) |
 |---|---|---|---|
 | [0](#phase-0--reliability--cost-guardrails-do-first) | Reliability & cost guardrails | — | ✅ Complete, deployed |
 | [1](#phase-1--monetization-backend) | Monetization (backend) | Phase 0's usage-limit plumbing; a product decision | ✅ Complete (#164/#166 + #165 verification moved to Phase 2) |
-| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | 🔶 Code complete 2026-08-09 (#164/#166 done, verified locally) — deploy + one prod checkout closes #165 |
-| [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Most items done 2026-08-09 (CORS default, LAN-IP fallback, SSRF, query caps, startup validation, support email, CI, env examples, security headers); observability deferred |
-| [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) | Not started |
-| [5](#phase-5--ai-feature-completeness) | AI feature completeness | Phase 0 | Not started |
+| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | ✅ Complete, deployed — #164/#165/#166 closed 2026-08-23; one manual prod checkout smoke test outstanding (last item) |
+| [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Nearly done — CI hard-gated 2026-08-23; remaining: CSP + admin SQL console allowlist, observability (deferred) |
+| [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) | Not started (re-verified item-by-item 2026-08-23; only the stray route dirs turned out already resolved) |
+| [5](#phase-5--ai-feature-completeness) | AI feature completeness | Phase 0 | Not started, except the `/api/ai/meal-genie` → `/assistant` rename half of the URL-prefix item (done 2026-08-22) |
 
 Phases 0 and 3 are the most urgent and don't block on each other — either can start first.
 Phase 1 shouldn't start until the **DECISION** item in it is made, since it changes what
@@ -80,8 +101,16 @@ All four are now **fixed and closed** (kept for the record):
   directions.~~ ✅ (Phase 0, first item)
 - ~~**#136** — Adding a shopping item from mobile creates a duplicate "Other" category.~~ ✅ (via #148)
 
-New user-feedback bugs since (open): **#171** (planner drag-and-drop delay), **#172**
-(shopping-toggle tooltip), **#173** (shopping list toggle, cannot replicate).
+~~New user-feedback bugs since (open): **#171** (planner drag-and-drop delay), **#172**
+(shopping-toggle tooltip), **#173** (shopping list toggle, cannot replicate).~~ ✅ All
+three closed 2026-08-10.
+
+**As of 2026-08-23 the issue tracker has zero open issues.** Every user-feedback report
+filed from the live app since launch has been fixed and closed, including: #176/#177
+(assistant recipe-generation bugs), #182 (planner cap — raised to 20, completed meals
+excluded), #183 (nutrition-generation error), #184 (wrong recipe image — root-caused to
+pre-`image_key` clobbering, all affected photos regenerated), #187 (planner capacity
+indicator), and #188 (Home meal carousel tiny/cut off on mobile).
 
 ---
 
@@ -189,10 +218,12 @@ button to click, and the 429 UX shares one interception layer with the Phase 2 p
 
 ## Phase 2 — Monetization (frontend)
 
-**Code complete 2026-08-09** — everything below built and verified locally end-to-end
-(sign-in as free user → 429 → paywall dialog → checkout session → Stripe-hosted test
-page → cancel return to Settings → Plan & Billing). Only the post-deploy prod checkout
-run remains (last item).
+**Code complete 2026-08-09; deployed and closed out 2026-08-23** — everything below
+built and verified locally end-to-end (sign-in as free user → 429 → paywall dialog →
+checkout session → Stripe-hosted test page → cancel return to Settings → Plan &
+Billing), merged to staging and main, and issues #164/#165/#166 closed with passing
+test suites (`test_metered_free_tier.py`, `test_stripe_webhook_service.py`,
+`test_admin_usage.py`). Only the manual prod checkout smoke test remains (last item).
 
 - [✅] **Pricing page.** `(marketing)/pricing` route: Free vs Pro ($4.99/mo) cards,
       linked from the marketing header + footer, added to `sitemap.ts` and the public
@@ -222,13 +253,15 @@ run remains (last item).
       (shared by 4 features) / 10 assistant messages / 5 imports per month. Covered by
       `tests/test_metered_free_tier.py` (free under/at cap, pro, admin exempt, usage
       endpoint).
-- [🔶] **Final Stripe verification** (#165 remainder). Local end-to-end passed: checkout
-      session created from the paywall, Stripe customer persisted
-      (`stripe_customer_id` written), cancel path returns to the billing tab. The admin
-      Users list now renders `subscription_ends_at` ("renews {date}") next to the tier
-      badge. **Remaining (needs this code deployed):** one real test-mode checkout in
-      prod through the upgrade flow → confirm the webhook flips the tier and the admin
-      list shows the Stripe-driven values. Then close #165.
+- [🔶] **Final Stripe verification** (#165 remainder). **#165 closed 2026-08-23** — the
+      code halves are done and merged (admin usage-by-user view in `915b1e1f`; webhook →
+      `User` row → `AdminUserListDTO` pass-through verified by `test_admin_usage.py`
+      16/16 and `test_stripe_webhook_service.py` 21/21). Local end-to-end had already
+      passed: checkout session from the paywall, `stripe_customer_id` persisted, cancel
+      path returns to the billing tab, admin Users list renders `subscription_ends_at`.
+      **Remaining (manual smoke test, not code):** one real test-mode checkout in prod
+      through the upgrade flow → confirm the webhook flips the tier and the admin list
+      shows the Stripe-driven values. This is the only open Phase 2 item.
 - [✅] **Surface the data that's already being fetched.** `subscription_tier` /
       `has_pro_access` / `subscription_status` / `subscription_ends_at` now render in
       Settings → Plan & Billing and the admin Users list.
@@ -242,8 +275,9 @@ run remains (last item).
       whitespace stripped, and `allow_credentials` is only enabled when specific origins
       are configured (`allow_credentials = CORS_ORIGINS != ["*"]`) — superseding the old
       `origin/hotfix/cors-credentials-conflict` partial fix. **Railway prod already has
-      `CORS_ORIGINS` set to the frontend origin (verified 2026-08-09).** *Remaining manual
-      step: delete the now-stale `origin/hotfix/cors-credentials-conflict` remote branch.*
+      `CORS_ORIGINS` set to the frontend origin (verified 2026-08-09).** ~~Remaining manual
+      step: delete the now-stale `origin/hotfix/cors-credentials-conflict` remote branch.~~
+      *Done — no hotfix branches remain on origin (verified 2026-08-23).*
 - [✅] **Fix the hardcoded LAN IP fallback.** `frontend/src/lib/api-client.ts`,
       `api-server.ts`, and `lib/api/base.ts` now fall back to `http://localhost:8000` (the
       documented dev default) instead of a developer's home network IP. `sitemap.ts` /
@@ -255,11 +289,13 @@ run remains (last item).
       (`AuthSettings.is_configured`), or if `SQLALCHEMY_DATABASE_URL` still points at SQLite;
       in dev it logs the same conditions as notices. `ENVIRONMENT` added to `backend/.env.example`.
 - [✅] **Replace the placeholder support email.** `frontend/src/lib/config.ts` now uses
-      `info@whiskful.app` (rebrand to **Whiskful**; domain purchased 2026-08-09) and the
-      `TODO(launch)` comment is removed. *Note: the full app-name rebrand (page titles,
-      OG tags, backend API title, marketing copy, changelog) was completed 2026-08-10;
-      the AI assistant is now "Genie" and the internal `meal-genie-*` identifiers were
-      deliberately kept. The remaining launch-gated DNS/env switch is the next item.*
+      `info@enchantedspoon.app` (originally `info@whiskful.app`, updated with the
+      Whiskful → Enchanted Spoon rename) and the `TODO(launch)` comment is removed.
+      *Note: the full app-name rebrand (page titles, OG tags, backend API title,
+      marketing copy, changelog) was completed 2026-08-10 and carried through internal
+      identifiers on 2026-08-22 (`meal-genie-*` → `enchanted-spoon-*` localStorage keys
+      with migration shims, `/api/ai/assistant` route); the AI assistant is still named
+      "Genie". The launch-gated DNS/env switch is the next item.*
 - [✅] **Cut the public domain over.** *Superseded and executed 2026-08-12 — the app
       launched at **`https://enchantedspoon.app`**, not `whiskful.app` (the Whiskful name
       was dropped over a Samsung trademark; see
@@ -268,12 +304,16 @@ run remains (last item).
       `CORS_ORIGINS` + `FRONTEND_URL`, Clerk production instance at
       `clerk.enchantedspoon.app`, Stripe product renamed "Enchanted Spoon Pro"
       (2026-08-22, `STRIPE_PRICE_ID_PRO` unchanged), DNS custom-bound on Railway.*
-- [🔶] **Turn CI into an actual gate.** New `.github/workflows/ci.yml`: a **backend** job
+- [✅] **Turn CI into an actual gate.** `.github/workflows/ci.yml`: a **backend** job
       (Python 3.11, `pytest`) and a **frontend** job (Node 20, `npm run lint` + `npm run
-      build`). `npm run build` is the hard gate. pytest and lint are `continue-on-error`
-      (report-only) for now because both have a known pre-existing baseline of failures
-      (33 async-mock tests; 9 react-hooks lint errors) — drop `continue-on-error` on each
-      once its baseline is cleared to make it a hard gate.
+      build`). *All three steps are hard gates as of 2026-08-23:* the pytest baseline
+      (33 async-mock failures — sync tests calling the now-async AI services, plus mock
+      parts whose truthy `.thought` attribute made `extract_text_from_response` skip
+      them) and the 9 react-hooks lint errors were fixed, and `continue-on-error` was
+      dropped from both steps. Also fixed along the way: the report-only pytest step had
+      *never actually run* — `requirements.txt` contains no test dependencies, so every
+      CI run died on `pytest: command not found` behind `continue-on-error`. Added
+      `backend/requirements-dev.txt` (pytest) and CI now installs it.
 - [✅] **Add `.env.example` for both `backend/` and `frontend/`.** `frontend/.env.example`
       added (mirrors `.env.local`, secrets blanked); `backend/.env.example` landed earlier
       with #168.
@@ -300,14 +340,16 @@ run remains (last item).
 
 ## Phase 4 — UI polish & cleanup
 
-Lower urgency than 0–3; batch this whenever there's a slow week.
+Lower urgency than 0–3; batch this whenever there's a slow week. *(Every item below
+re-verified still pending on 2026-08-23, except where struck through.)*
 
 - [ ] **Dead code removal:** `frontend/src/components/common/IconButton.tsx` (orphaned,
       zero imports, and non-compliant — uses a raw `<button>` internally); unused shadcn
       primitives `accordion.tsx`, `multi-select.tsx`, `scroll-area.tsx`; deprecated
-      constant arrays in `frontend/src/lib/constants.ts:18-32,71-85`; stray leftover empty
+      constant arrays in `frontend/src/lib/constants.ts`; ~~stray leftover empty
       route directories from the route-groups migration (`app/dashboard/`, `app/recipes/`,
-      etc. — superseded by `(app)/...`); a stray debug comment in `constants.ts:2`.
+      etc. — superseded by `(app)/...`)~~ *(already gone, verified 2026-08-23)*; a stray
+      debug comment in `constants.ts:2`.
 - [ ] **Design-system sweep.** Raw `<button>` instead of `<Button>` clusters in ~18 files
       (worth prioritizing the theme picker in `AppearanceSection.tsx:63` and the
       method-selection cards in `MethodSelectionStep.tsx:72` — primary interactive
@@ -331,6 +373,10 @@ Lower urgency than 0–3; batch this whenever there's a slow week.
 
 ## Phase 5 — AI feature completeness
 
+*(Every item below re-verified still pending on 2026-08-23: "Import File" is still
+`isAvailable: false`, cooking tips still have no hook/UI, both stale-bytecode paths
+still exist, and the assistant still captures only the first function call.)*
+
 - [ ] **DECISION: ship or cut the "Import File" recipe-creation method.** Permanently
       `isAvailable: false` with a "Coming Soon" badge in the wizard
       (`MethodSelectionStep.tsx:36,63,100`) — dead option in a launch-facing flow either
@@ -345,11 +391,12 @@ Lower urgency than 0–3; batch this whenever there's a slow week.
       `/api/ai/meal-genie` → `/api/ai/assistant` — was done 2026-08-22 in the Phase 2
       rename; the old prefix is aliased for one release, then delete the alias line in
       `router.py`.
-- [ ] **Harden function-call handling.** `assistant/generators.py:59-60` — if Gemini
+- [ ] **Harden function-call handling.** `assistant/generators.py` — if Gemini
       calls a tool name outside the three declared ones, the dispatcher returns a
       response that makes the chat UI show nothing at all (the user's turn silently
       vanishes). Also only the *first* function call across all response parts is
-      captured (`assistant/service.py:174-186`); a parallel/multiple function-call
+      captured (`assistant/service.py`, the part scan around line 162 — unchanged by
+      the 2026-08-22 thought-signature rework); a parallel/multiple function-call
       response would silently drop the rest.
 - [ ] **Clean up stale bytecode** from an apparently-removed `assistant_suggestions`
       service and a removed assistant streaming feature

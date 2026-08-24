@@ -22,15 +22,11 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: backend/requirements*.txt
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt -r requirements-dev.txt
       - name: Run tests
-        # Non-blocking for now: the suite has a known async-mock baseline of
-        # failures (sync tests vs async services). This reports results without
-        # gating merges until that baseline is repaired, at which point drop
-        # continue-on-error to make pytest a hard gate.
-        continue-on-error: true
+        # Hard gate: failing tests block the merge.
         run: pytest -q
 
   frontend:
@@ -56,10 +52,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Lint
-        # Report-only for now: there's a known baseline of pre-existing lint
-        # errors (react-hooks rules). Drop continue-on-error to make lint a hard
-        # gate once that baseline is cleared.
-        continue-on-error: true
+        # Hard gate: lint errors block the merge (warnings do not).
         run: npm run lint
       - name: Build
         # Hard gate: a broken production build blocks the merge.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FolderOpen, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -49,17 +49,14 @@ export function ManageGroupsDialog({
   const assignMutation = useAssignRecipeToGroups();
   const createMutation = useCreateRecipeGroup();
 
-  // Initialize selected groups when dialog opens
-  useEffect(() => {
-    if (open && !isInitialized) {
-      // Initialize selection from recipe groups on first load
-      setSelectedGroupIds(new Set(recipeGroups.map((g) => g.id)));
-      setIsInitialized(true);
-    } else if (!open && isInitialized) {
-      // Reset initialization flag when dialog closes
-      setIsInitialized(false);
-    }
-  }, [open, isInitialized, recipeGroups]);
+  // Initialize selection from the recipe's groups when the dialog opens, and
+  // re-arm when it closes (guarded adjust-state-during-render pattern).
+  if (open && !isInitialized) {
+    setSelectedGroupIds(new Set(recipeGroups.map((g) => g.id)));
+    setIsInitialized(true);
+  } else if (!open && isInitialized) {
+    setIsInitialized(false);
+  }
 
   const handleToggleGroup = (groupId: number) => {
     const newSelected = new Set(selectedGroupIds);

@@ -1,0 +1,4 @@
+# Development/test dependencies (install alongside requirements.txt).
+# Async tests use the anyio pytest plugin, which ships with anyio itself
+# (a FastAPI dependency) — no pytest-asyncio needed.
+pytest>=8.0.0
