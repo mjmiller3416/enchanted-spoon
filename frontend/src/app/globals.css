@@ -736,6 +736,13 @@
   opacity: 1;
 }
 
+/* Touch devices have no hover - keep nav buttons always visible */
+@media (hover: none) {
+  .carousel-nav-btn {
+    opacity: 1;
+  }
+}
+
 @keyframes pill-slide-in {
   from {
     opacity: 0;
