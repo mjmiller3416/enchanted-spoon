@@ -9,6 +9,7 @@ export interface CurrentUserDTO {
   subscription_tier: string;
   subscription_status: string;
   subscription_ends_at: string | null;
+  cancel_at_period_end: boolean;
   has_pro_access: boolean;
   access_reason: string;
 }
@@ -21,6 +22,7 @@ export interface AdminUserDTO {
   subscription_tier: string;
   subscription_status: string;
   subscription_ends_at: string | null;
+  cancel_at_period_end: boolean;
   is_admin: boolean;
   has_pro_access: boolean;
   access_reason: string;

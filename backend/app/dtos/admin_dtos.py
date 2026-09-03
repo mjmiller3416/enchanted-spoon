@@ -28,6 +28,7 @@ class CurrentUserDTO(BaseModel):
     subscription_tier: str
     subscription_status: str
     subscription_ends_at: Optional[datetime] = None
+    cancel_at_period_end: bool = False
     has_pro_access: bool
     access_reason: str
 
@@ -42,6 +43,7 @@ class CurrentUserDTO(BaseModel):
             subscription_tier=user.subscription_tier,
             subscription_status=user.subscription_status,
             subscription_ends_at=user.subscription_ends_at,
+            cancel_at_period_end=user.cancel_at_period_end,
             has_pro_access=user.has_pro_access,
             access_reason=user.access_reason,
         )
@@ -60,6 +62,7 @@ class AdminUserListDTO(BaseModel):
     subscription_tier: str
     subscription_status: str
     subscription_ends_at: Optional[datetime] = None
+    cancel_at_period_end: bool = False
     is_admin: bool
     has_pro_access: bool
     access_reason: str
@@ -78,6 +81,7 @@ class AdminUserListDTO(BaseModel):
             subscription_tier=user.subscription_tier,
             subscription_status=user.subscription_status,
             subscription_ends_at=user.subscription_ends_at,
+            cancel_at_period_end=user.cancel_at_period_end,
             is_admin=user.is_admin,
             has_pro_access=user.has_pro_access,
             access_reason=user.access_reason,

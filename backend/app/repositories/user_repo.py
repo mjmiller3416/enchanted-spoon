@@ -190,6 +190,7 @@ class UserRepo:
         subscription_tier: Optional[str] = None,
         subscription_status: Optional[str] = None,
         subscription_ends_at: Optional[datetime] = None,
+        cancel_at_period_end: Optional[bool] = None,
     ) -> User:
         """
         Update a user's subscription state from a Stripe webhook event.
@@ -204,6 +205,8 @@ class UserRepo:
             subscription_tier: New subscription tier (e.g. "free", "pro").
             subscription_status: New subscription status (e.g. "active", "canceled").
             subscription_ends_at: When the current subscription period/access ends.
+            cancel_at_period_end: Whether Stripe will stop (not renew) the
+                subscription when the current period ends.
 
         Returns:
             The updated User (not yet committed).
@@ -216,6 +219,8 @@ class UserRepo:
             user.subscription_status = subscription_status
         if subscription_ends_at is not None:
             user.subscription_ends_at = subscription_ends_at
+        if cancel_at_period_end is not None:
+            user.cancel_at_period_end = cancel_at_period_end
         self.session.flush()
         return user
 

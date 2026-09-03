@@ -57,7 +57,9 @@ function planDetail(user: CurrentUserDTO): string {
       return "Payment past due — update your payment method to keep Pro access.";
     }
     if (user.subscription_ends_at) {
-      return `Your Pro subscription renews on ${formatDate(user.subscription_ends_at)}.`;
+      return user.cancel_at_period_end
+        ? `Your Pro subscription ends on ${formatDate(user.subscription_ends_at)} and won't renew.`
+        : `Your Pro subscription renews on ${formatDate(user.subscription_ends_at)}.`;
     }
     return "Your Pro subscription is active.";
   }

@@ -187,7 +187,8 @@ export function AdminUsersSection() {
                     ) : user.access_reason === "subscription" &&
                       user.subscription_ends_at ? (
                       <span className="text-xs text-muted-foreground hidden sm:inline">
-                        renews {formatDate(user.subscription_ends_at)}
+                        {user.cancel_at_period_end ? "ends" : "renews"}{" "}
+                        {formatDate(user.subscription_ends_at)}
                       </span>
                     ) : null}
                   </div>
