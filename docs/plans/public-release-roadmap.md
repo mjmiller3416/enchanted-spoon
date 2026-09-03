@@ -70,6 +70,31 @@ hurt if ignored:
 > the discovery that the report-only pytest step had never installed pytest at all.
 > Next up: the prod checkout smoke test (manual), observability, CSP + admin SQL
 > console allowlist, then Phases 4–5.
+>
+> **Update 2026-09-02: the prod checkout smoke test passed — Phase 2 is fully closed.**
+> A real test-mode checkout was run in prod from a free account (user 7): both webhook
+> deliveries returned 200, the tier flipped free→pro (verified directly in the prod DB —
+> `status=active`, `stripe_customer_id` persisted), and the billing tab re-rendered with
+> the Pro badge and pro caps. Four findings, none blocking:
+> (1) `subscription_ends_at` stayed NULL on a fresh subscription because
+> `customer.subscription.created` wasn't in `HANDLED_EVENT_TYPES` — **fixed same day**:
+> the created event now routes through the updated handler (+ test, 341/341 passing) and
+> the Stripe webhook endpoint (`we_1U2aqYR8YVVGwFvoGM98ZcRd`) now subscribes to it.
+> (2) The Stripe *sandbox account* name is still "Meal Genie sandbox" (checkout page
+> title) — live-mode customer-facing settings verified already say Enchanted Spoon, so
+> this is test-mode-only cosmetics.
+> (3) A one-off transient `psycopg2.OperationalError: SSL SYSCALL error: EOF detected`
+> in prod logs (2026-08-30, auth-dependency user lookup) — **fixed same day**:
+> `pool_pre_ping=True` added to `create_engine` in `backend/app/database/db.py`.
+> (4) After a portal cancel (cancel-at-period-end), Stripe keeps `status=active` and the
+> billing tab said "renews on Oct 2" when it actually *ends* then — **fixed same day**:
+> new `users.cancel_at_period_end` column (migration `a4c9e2b71d05`), written by the
+> subscription created/updated webhook handlers (reset on delete), exposed on
+> `CurrentUserDTO`/`AdminUserListDTO`, and the copy in `BillingSection.tsx` and the
+> admin Users list now switches between "renews on X" and "ends on X" (342/342 tests,
+> tsc clean). Note: an already-cancelled sub shows "renews" until Stripe's next
+> `customer.subscription.updated` for it backfills the flag.
+> Remaining fronts: observability, CSP + admin SQL console allowlist, then Phases 4–5.
 
 ## Status tracker
 
@@ -77,7 +102,7 @@ hurt if ignored:
 |---|---|---|---|
 | [0](#phase-0--reliability--cost-guardrails-do-first) | Reliability & cost guardrails | — | ✅ Complete, deployed |
 | [1](#phase-1--monetization-backend) | Monetization (backend) | Phase 0's usage-limit plumbing; a product decision | ✅ Complete (#164/#166 + #165 verification moved to Phase 2) |
-| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | ✅ Complete, deployed — #164/#165/#166 closed 2026-08-23; one manual prod checkout smoke test outstanding (last item) |
+| [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | ✅ Complete, deployed — #164/#165/#166 closed 2026-08-23; prod checkout smoke test passed 2026-09-02 (phase fully closed) |
 | [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Nearly done — CI hard-gated 2026-08-23; remaining: CSP + admin SQL console allowlist, observability (deferred) |
 | [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) | Not started (re-verified item-by-item 2026-08-23; only the stray route dirs turned out already resolved) |
 | [5](#phase-5--ai-feature-completeness) | AI feature completeness | Phase 0 | Not started, except the `/api/ai/meal-genie` → `/assistant` rename half of the URL-prefix item (done 2026-08-22) |
@@ -223,7 +248,7 @@ built and verified locally end-to-end (sign-in as free user → 429 → paywall 
 checkout session → Stripe-hosted test page → cancel return to Settings → Plan &
 Billing), merged to staging and main, and issues #164/#165/#166 closed with passing
 test suites (`test_metered_free_tier.py`, `test_stripe_webhook_service.py`,
-`test_admin_usage.py`). Only the manual prod checkout smoke test remains (last item).
+`test_admin_usage.py`). The manual prod checkout smoke test passed 2026-09-02 (last item).
 
 - [✅] **Pricing page.** `(marketing)/pricing` route: Free vs Pro ($4.99/mo) cards,
       linked from the marketing header + footer, added to `sitemap.ts` and the public
@@ -253,15 +278,18 @@ test suites (`test_metered_free_tier.py`, `test_stripe_webhook_service.py`,
       (shared by 4 features) / 10 assistant messages / 5 imports per month. Covered by
       `tests/test_metered_free_tier.py` (free under/at cap, pro, admin exempt, usage
       endpoint).
-- [🔶] **Final Stripe verification** (#165 remainder). **#165 closed 2026-08-23** — the
+- [✅] **Final Stripe verification** (#165 remainder). **#165 closed 2026-08-23** — the
       code halves are done and merged (admin usage-by-user view in `915b1e1f`; webhook →
       `User` row → `AdminUserListDTO` pass-through verified by `test_admin_usage.py`
       16/16 and `test_stripe_webhook_service.py` 21/21). Local end-to-end had already
       passed: checkout session from the paywall, `stripe_customer_id` persisted, cancel
       path returns to the billing tab, admin Users list renders `subscription_ends_at`.
-      **Remaining (manual smoke test, not code):** one real test-mode checkout in prod
-      through the upgrade flow → confirm the webhook flips the tier and the admin list
-      shows the Stripe-driven values. This is the only open Phase 2 item.
+      **Prod smoke test passed 2026-09-02:** real test-mode checkout from a free account
+      through the paywall upgrade flow → both webhook deliveries 200 → prod DB row shows
+      `tier=pro`, `status=active`, `stripe_customer_id` set → billing tab re-rendered
+      with Pro badge, pro usage caps, and the welcome toast. (Finding: `subscription_ends_at`
+      stays NULL until the first `customer.subscription.updated` — see the 2026-09-02
+      update note at the top.) Phase 2 is fully closed.
 - [✅] **Surface the data that's already being fetched.** `subscription_tier` /
       `has_pro_access` / `subscription_status` / `subscription_ends_at` now render in
       Settings → Plan & Billing and the admin Users list.
