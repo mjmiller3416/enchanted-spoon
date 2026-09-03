@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +16,12 @@ import type { PlannerEntryResponseDTO } from "@/types/planner";
 // CONSTANTS
 // ============================================================================
 
-const PER_PAGE = 3;
+/** Cards per page by viewport — 1 (mobile), 2 (sm), 3 (lg). Matches Tailwind breakpoints. */
+const PER_PAGE_DEFAULT = 3;
+const PER_PAGE_QUERIES: [query: string, perPage: number][] = [
+  ["(min-width: 1024px)", 3],
+  ["(min-width: 640px)", 2],
+];
 const SWIPE_MS = 400;
 /** gap-3.5 = 0.875rem = 14px at default 16px root font size */
 const GAP_PX = 14;
@@ -43,11 +49,38 @@ interface TransitionState {
 // HELPERS
 // ============================================================================
 
-/** Pad a slice to always be PER_PAGE length (nulls fill empty slots). */
+/** Pad a slice to always be perPage length (nulls fill empty slots). */
 function padPage(
-  arr: PlannerEntryResponseDTO[]
+  arr: PlannerEntryResponseDTO[],
+  perPage: number
 ): (PlannerEntryResponseDTO | null)[] {
-  return [...arr, ...Array(Math.max(0, PER_PAGE - arr.length)).fill(null)];
+  return [...arr, ...Array(Math.max(0, perPage - arr.length)).fill(null)];
+}
+
+function getPerPage(): number {
+  for (const [query, perPage] of PER_PAGE_QUERIES) {
+    if (window.matchMedia(query).matches) return perPage;
+  }
+  return 1;
+}
+
+/**
+ * Viewport-driven cards-per-page. Starts at the desktop default so SSR and
+ * hydration match, then syncs to the real viewport on mount and on resize.
+ */
+function usePerPage(): number {
+  const [perPage, setPerPage] = useState(PER_PAGE_DEFAULT);
+
+  useEffect(() => {
+    const mqls = PER_PAGE_QUERIES.map(([query]) => window.matchMedia(query));
+    const update = () => setPerPage(getPerPage());
+    update();
+    mqls.forEach((mql) => mql.addEventListener("change", update));
+    return () =>
+      mqls.forEach((mql) => mql.removeEventListener("change", update));
+  }, []);
+
+  return perPage;
 }
 
 // ============================================================================
@@ -67,6 +100,7 @@ export function MealCarouselWidget({
   excludeEntryId = null,
 }: MealCarouselWidgetProps) {
   const router = useRouter();
+  const perPage = usePerPage();
 
   // ── Data ──────────────────────────────────────────────────────────────
   const { data: fetchedEntries, isLoading: queryLoading } =
@@ -111,17 +145,19 @@ export function MealCarouselWidget({
 
   // ── Derived Values ────────────────────────────────────────────────────
   // Clamp startIndex when activeEntries shrinks (e.g. meal completion)
+  // or perPage grows (e.g. viewport resize)
   const safeStartIndex = Math.min(
     startIndex,
-    Math.max(0, totalMeals - PER_PAGE)
+    Math.max(0, totalMeals - perPage)
   );
 
-  const canGoNext = safeStartIndex + PER_PAGE < totalMeals;
+  const canGoNext = safeStartIndex + perPage < totalMeals;
   const canGoPrev = safeStartIndex > 0;
-  const showNav = totalMeals > PER_PAGE;
+  const showNav = totalMeals > perPage;
 
   const currentSlice = padPage(
-    activeEntries.slice(safeStartIndex, safeStartIndex + PER_PAGE)
+    activeEntries.slice(safeStartIndex, safeStartIndex + perPage),
+    perPage
   );
 
   // ── Transition Strip ──────────────────────────────────────────────────
@@ -129,25 +165,22 @@ export function MealCarouselWidget({
     if (!transition) return null;
 
     const { dir, advance, prevStartIndex } = transition;
-    const stripLength = PER_PAGE + advance;
+    const stripLength = perPage + advance;
 
     const start =
       dir === "next" ? prevStartIndex : prevStartIndex - advance;
 
     const stripEntries = padPage(
-      activeEntries.slice(start, start + stripLength)
+      activeEntries.slice(start, start + stripLength),
+      stripLength
     );
-    // Ensure strip is exactly stripLength (padPage pads to PER_PAGE, we may need more)
-    while (stripEntries.length < stripLength) {
-      stripEntries.push(null);
-    }
 
     return {
       entries: stripEntries,
       pageOffset: start,
       columns: stripLength,
     };
-  }, [transition, activeEntries]);
+  }, [transition, activeEntries, perPage]);
 
   // ── Strip Animation (Web Animations API) ─────────────────────────────
   useEffect(() => {
@@ -180,15 +213,15 @@ export function MealCarouselWidget({
 
       const advance =
         dir === "next"
-          ? Math.min(PER_PAGE, totalMeals - (safeStartIndex + PER_PAGE))
-          : Math.min(PER_PAGE, safeStartIndex);
+          ? Math.min(perPage, totalMeals - (safeStartIndex + perPage))
+          : Math.min(perPage, safeStartIndex);
 
       if (advance <= 0) return;
 
       // Measure container for pixel-accurate translation
       const containerWidth = stageRef.current.offsetWidth;
-      const slotWidthPx = (containerWidth + GAP_PX) / PER_PAGE;
-      const stripColumns = PER_PAGE + advance;
+      const slotWidthPx = (containerWidth + GAP_PX) / perPage;
+      const stripColumns = perPage + advance;
       const stripWidthPx = stripColumns * slotWidthPx - GAP_PX;
 
       const fromTxPx = dir === "next" ? 0 : -(advance * slotWidthPx);
@@ -211,7 +244,7 @@ export function MealCarouselWidget({
       setStartIndex(newStartIndex);
       setIsAnimating(true);
     },
-    [isAnimating, safeStartIndex, totalMeals]
+    [isAnimating, safeStartIndex, totalMeals, perPage]
   );
 
   // ── Actions ───────────────────────────────────────────────────────────
@@ -277,6 +310,7 @@ export function MealCarouselWidget({
               <CarouselCardGrid
                 entries={currentSlice}
                 pageOffset={safeStartIndex}
+                columns={perPage}
                 completingId={completingId}
                 onComplete={handleComplete}
                 onViewRecipe={handleViewRecipe}
@@ -341,12 +375,20 @@ export function MealCarouselWidget({
 // INTERNAL SUB-COMPONENTS
 // ============================================================================
 
-/** Loading skeleton — 3-column grid of card placeholders. */
+/** Loading skeleton — responsive grid of card placeholders (1/2/3 columns). */
 function CarouselSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-3.5 flex-1">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 flex-1">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="flex flex-col gap-3">
+        <div
+          key={i}
+          className={cn(
+            "flex-col gap-3",
+            i === 1 && "flex",
+            i === 2 && "hidden sm:flex",
+            i === 3 && "hidden lg:flex"
+          )}
+        >
           <Skeleton className="aspect-video w-full rounded-lg" />
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-3 w-1/2" />

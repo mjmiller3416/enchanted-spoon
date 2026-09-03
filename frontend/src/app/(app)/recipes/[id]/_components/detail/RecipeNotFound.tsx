@@ -17,7 +17,7 @@ export function RecipeNotFound() {
           Recipe Not Found
         </h1>
         <p className="mb-8 text-muted-foreground">
-          Sorry, we couldn't find the recipe you're looking for. It may have been
+          Sorry, we couldn&apos;t find the recipe you&apos;re looking for. It may have been
           deleted or the link might be incorrect.
         </p>
         <Link href="/recipes">

@@ -14,6 +14,7 @@ export * from "./events";
 export {
   // Queries
   usePlannerEntries,
+  usePlannerSummary,
   useMeal,
   useMeals,
   useSavedMeals,

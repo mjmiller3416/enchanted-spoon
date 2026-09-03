@@ -238,7 +238,65 @@ class TestHandleEventSubscriptionUpdated:
             subscription_tier=expected_tier,
             subscription_status=status,
             subscription_ends_at=datetime.fromtimestamp(1700000000, tz=timezone.utc),
+            cancel_at_period_end=False,
         )
+
+    def test_cancel_at_period_end_passes_through(self):
+        # A portal cancel keeps status=active but sets cancel_at_period_end —
+        # the flag is what lets the UI say "ends on X" instead of "renews on X".
+        service, session = _service_with_mock_repo()
+        user = User(id=12)
+        service.repo.get_by_stripe_customer_id.return_value = user
+
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_cancel",
+                    "status": "active",
+                    "current_period_end": 1700000000,
+                    "cancel_at_period_end": True,
+                }
+            },
+        }
+        service.handle_event(event)
+
+        service.repo.update_subscription.assert_called_once_with(
+            user,
+            subscription_tier="pro",
+            subscription_status="active",
+            subscription_ends_at=datetime.fromtimestamp(1700000000, tz=timezone.utc),
+            cancel_at_period_end=True,
+        )
+
+    def test_created_event_populates_period_end_for_new_subscriber(self):
+        # customer.subscription.created shares the updated handler so a brand-new
+        # subscriber gets subscription_ends_at immediately (checkout.session.completed
+        # carries no period end).
+        service, session = _service_with_mock_repo()
+        user = User(id=11)
+        service.repo.get_by_stripe_customer_id.return_value = user
+
+        event = {
+            "type": "customer.subscription.created",
+            "data": {
+                "object": {
+                    "customer": "cus_new",
+                    "status": "active",
+                    "current_period_end": 1900000000,
+                }
+            },
+        }
+        service.handle_event(event)
+
+        service.repo.update_subscription.assert_called_once_with(
+            user,
+            subscription_tier="pro",
+            subscription_status="active",
+            subscription_ends_at=datetime.fromtimestamp(1900000000, tz=timezone.utc),
+            cancel_at_period_end=False,
+        )
+        session.commit.assert_called_once()
 
     def test_period_end_falls_back_to_subscription_items(self):
         # Stripe API 2025-03-31+ ("basil") reports current_period_end on
@@ -264,6 +322,7 @@ class TestHandleEventSubscriptionUpdated:
             subscription_tier="pro",
             subscription_status="active",
             subscription_ends_at=datetime.fromtimestamp(1800000000, tz=timezone.utc),
+            cancel_at_period_end=False,
         )
 
 
@@ -288,6 +347,7 @@ class TestHandleEventSubscriptionDeleted:
             subscription_tier="free",
             subscription_status="canceled",
             subscription_ends_at=datetime.fromtimestamp(1700000000, tz=timezone.utc),
+            cancel_at_period_end=False,
         )
 
 

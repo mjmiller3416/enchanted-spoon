@@ -80,6 +80,25 @@ export function useSavedMeals() {
 }
 
 /**
+ * Fetch the planner summary (entry counts + capacity).
+ * Mutations don't invalidate this cache, so counts can lag behind the
+ * entries list — prefer deriving live counts from usePlannerEntries and
+ * reading only the server-owned capacity fields here.
+ */
+export function usePlannerSummary() {
+  const { getToken } = useAuth();
+
+  return useQuery({
+    queryKey: plannerQueryKeys.summary(),
+    queryFn: async () => {
+      const token = await getToken();
+      return plannerApi.getSummary(token);
+    },
+    staleTime: 60000, // 1 minute - max_capacity is effectively static
+  });
+}
+
+/**
  * Fetch cooking streak data.
  * Includes current streak, longest streak, and week activity.
  */

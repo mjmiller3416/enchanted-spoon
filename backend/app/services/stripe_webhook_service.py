@@ -38,6 +38,7 @@ class StripeWebhookProcessingError(Exception):
 HANDLED_EVENT_TYPES = {
     "checkout.session.completed",
     "invoice.paid",
+    "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
 }
@@ -118,7 +119,10 @@ class StripeWebhookService:
                 self._handle_checkout_completed(data)
             elif event_type == "invoice.paid":
                 self._handle_invoice_paid(data)
-            elif event_type == "customer.subscription.updated":
+            elif event_type in ("customer.subscription.created", "customer.subscription.updated"):
+                # A fresh subscription and an update carry the same shape; handling
+                # .created here is what populates subscription_ends_at for brand-new
+                # subscribers (checkout.session.completed has no period end on it).
                 self._handle_subscription_updated(data)
             elif event_type == "customer.subscription.deleted":
                 self._handle_subscription_deleted(data)
@@ -184,6 +188,7 @@ class StripeWebhookService:
             subscription_tier=tier,
             subscription_status=status,
             subscription_ends_at=self._to_datetime(self._current_period_end(subscription)),
+            cancel_at_period_end=bool(subscription.get("cancel_at_period_end")),
         )
 
     def _handle_subscription_deleted(self, subscription: Mapping[str, Any]) -> None:
@@ -198,6 +203,7 @@ class StripeWebhookService:
             subscription_tier="free",
             subscription_status="canceled",
             subscription_ends_at=ended_at,
+            cancel_at_period_end=False,
         )
 
     # -- Helpers ------------------------------------------------------------------------------

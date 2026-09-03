@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useRecipe, useDeleteRecipe, usePlannerEntries } from "@/hooks/api";
 import type { RecipeResponseDTO } from "@/types/recipe";
-import type { PlannerEntryResponseDTO } from "@/types/planner";
 import { useRecentRecipes } from "@/hooks/persistence";
 import { parseDirections, groupIngredientsByCategory } from "./recipe-utils";
 
@@ -22,18 +21,18 @@ export function useRecipeView(recipeId: number) {
   const { data: plannerEntries = [] } = usePlannerEntries();
   const deleteRecipeMutation = useDeleteRecipe();
 
-  // Local state for UI interactions
-  const [isFavorite, setIsFavorite] = useState(false);
+  // Local state for UI interactions. Favorite is derived from the recipe with
+  // a local override so toggling doesn't require mirroring server state.
+  const [favoriteOverride, setFavoriteOverride] = useState<boolean | null>(null);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
   const loading = recipeLoading;
+  const isFavorite = favoriteOverride ?? recipe?.is_favorite ?? false;
 
-  // Sync favorite state when recipe loads
+  // Track this recipe as recently viewed once it loads
   useEffect(() => {
     if (recipe) {
-      setIsFavorite(recipe.is_favorite);
-      // Track this recipe as recently viewed
       addToRecent({
         id: recipe.id,
         name: recipe.recipe_name,
@@ -48,15 +47,16 @@ export function useRecipeView(recipeId: number) {
   }, [recipe?.directions]);
 
   // Group ingredients
+  const ingredients = recipe?.ingredients;
   const groupedIngredients = useMemo(() => {
-    if (!recipe?.ingredients) return new Map<string, RecipeResponseDTO["ingredients"]>();
-    return groupIngredientsByCategory(recipe.ingredients);
-  }, [recipe?.ingredients]);
+    if (!ingredients) return new Map<string, RecipeResponseDTO["ingredients"]>();
+    return groupIngredientsByCategory(ingredients);
+  }, [ingredients]);
 
   // Handlers
   const handleFavoriteToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
+    setFavoriteOverride(!isFavorite);
     // In production: await fetch(`/api/recipes/${recipeId}/favorite`, { method: 'POST' })
   };
 

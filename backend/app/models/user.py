@@ -65,6 +65,9 @@ class User(Base):
     subscription_tier: Mapped[str] = mapped_column(String(50), default="free", nullable=False)
     subscription_status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
     subscription_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # True when Stripe will stop the subscription at the current period end
+    # (portal cancel) — subscription_ends_at is then an end date, not a renewal.
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Granted access fields (for testers, promos)
     granted_pro_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

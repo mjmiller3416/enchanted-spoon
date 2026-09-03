@@ -28,6 +28,9 @@ from app.services.ai.parse_utils import safe_float, safe_int
 def _make_gemini_response(text: str):
     """Create a mock Gemini API response containing the given text."""
     part = MagicMock()
+    # A bare MagicMock attribute is truthy, so an unset `thought` would make
+    # extract_text_from_response skip the part as a thinking part.
+    part.thought = False
     part.text = text
 
     content = MagicMock()
@@ -112,8 +115,8 @@ class TestNutritionEstimationService:
         assert nf.total_fat_g == 8.0
         assert nf.is_ai_estimated is True
 
-    def test_markdown_wrapped_json_rejected(self, nutrition_service):
-        """Markdown-wrapped JSON is rejected (response_mime_type ensures clean JSON)."""
+    def test_markdown_wrapped_json_parsed(self, nutrition_service):
+        """Markdown-fenced JSON is still parsed (_extract_json strips the fences)."""
         service, mock_client = nutrition_service
 
         text = '```json\n{"calories": 200, "protein_g": 10.0}\n```'
@@ -121,8 +124,9 @@ class TestNutritionEstimationService:
 
         result = service.estimate(_make_request())
 
-        assert result.success is False
-        assert "parse" in result.error.lower()
+        assert result.success is True
+        assert result.nutrition_facts.calories == 200
+        assert result.nutrition_facts.protein_g == 10.0
 
     def test_partial_fields_from_ai(self, nutrition_service):
         """Missing fields in AI response result in None values."""

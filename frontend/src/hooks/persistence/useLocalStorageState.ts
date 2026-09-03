@@ -60,6 +60,10 @@ export function useLocalStorageState<T>(
       if (stored) {
         const parsed = JSON.parse(stored);
         const value = deserialize ? deserialize(parsed) : parsed;
+        // Post-mount hydration from localStorage: the first render must match
+        // the server (initialValue), then this one-time sync loads the stored
+        // value. Consumers gate on isLoaded, so the extra render is the point.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setStateInternal(value);
       }
     } catch (err) {

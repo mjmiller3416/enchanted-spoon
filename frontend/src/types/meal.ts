@@ -43,10 +43,13 @@ export interface MealSelectionUpdateDTO {
 }
 
 export interface MealPlanSummaryDTO {
-  total_meals: number;
+  total_entries: number;
+  completed_entries: number;
+  incomplete_entries: number;
   total_recipes: number;
   meal_names: string[];
-  has_saved_plan: boolean;
+  is_at_capacity: boolean;
+  max_capacity: number;
   error: string | null;
 }
 

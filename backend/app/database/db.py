@@ -24,6 +24,10 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args=connect_args,
+    # Postgres closes idle pooled connections (seen in prod as
+    # "SSL SYSCALL error: EOF detected"); pre-ping validates a
+    # connection at checkout instead of failing the request.
+    pool_pre_ping=True,
 )
 
 # Enable foreign key support for SQLite only

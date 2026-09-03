@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Users, Clock, Plus, Check, Bookmark } from "lucide-react";
+import { Users, Clock, Check, Bookmark } from "lucide-react";
 import { formatTime } from "@/lib/quantityUtils";
 import { cn, getErrorMessage } from "@/lib/utils";
 import { Card } from "@/components/ui/card";

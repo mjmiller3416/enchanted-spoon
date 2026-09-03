@@ -40,9 +40,9 @@ export function MealQueueWidget({ entries: initialEntries }: MealQueueWidgetProp
   const refreshEntries = useRefreshPlannerEntries();
 
   // Determine which entries to use and derive active entries
-  const entries = initialEntries ?? fetchedEntries ?? [];
+  const entries = initialEntries ?? fetchedEntries;
   const activeEntries = useMemo(() => {
-    return [...entries]
+    return [...(entries ?? [])]
       .sort((a, b) => a.position - b.position)
       .filter((e) => !e.is_completed);
   }, [entries]);

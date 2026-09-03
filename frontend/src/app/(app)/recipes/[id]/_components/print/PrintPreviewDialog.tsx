@@ -90,7 +90,7 @@ export function PrintPreviewDialog({
                   }
                 />
                 <Label htmlFor="print-notes" className="cursor-pointer">
-                  Chef's Notes
+                  Chef&apos;s Notes
                 </Label>
               </div>
             )}
