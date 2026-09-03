@@ -2,6 +2,14 @@
 // CHANGELOG - Edit the markdown below
 // ============================================
 const CHANGELOG_MD = `
+## 2026-09-02 - New Features
+- Meal Planner header now shows how many of your 20 planner slots are in use
+- Plan & Billing now shows your renewal date as soon as you subscribe — and after cancelling, it correctly shows when your access ends instead of a renewal date
+
+## 2026-09-02 - Bug Fixes
+- Home page meal carousel now displays at the right size on mobile
+- More resilient database connections — fixed rare one-off errors after idle periods
+
 ## 2026-08-22 - Bug Fixes
 - Meal Planner now allows up to 20 planned meals, and completed meals waiting to be cleared no longer count against the limit
 - Restored recipe photos that had been displaying the wrong image — all affected photos have been regenerated
