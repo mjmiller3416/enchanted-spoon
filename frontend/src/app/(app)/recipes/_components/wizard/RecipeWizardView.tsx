@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Link, Loader2, RotateCcw, Save, Sparkles } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -300,6 +301,18 @@ export function RecipeWizardView({
         </div>
         </Form>
 
+          {wizard.createUncertain && (
+            <Card className="mx-6 mb-4 border-warning" role="alert">
+              <CardContent className="space-y-3 pt-4">
+                <p className="text-sm">The save response was lost. This recipe may already exist. Your draft is still open. Check the library in a new tab; if the recipe exists, continue from that saved recipe.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" asChild><a href="/recipes" target="_blank" rel="noreferrer">Check recipe library</a></Button>
+                  <Button variant="outline" size="sm" onClick={wizard.acknowledgeCreateRetry}>I checked; allow another save</Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Another save can create a duplicate if the first request succeeded.</p>
+              </CardContent>
+            </Card>
+          )}
           {/* ── Footer navigation ───────────────────────────────────── */}
           <div className="flex w-full items-center justify-between px-6 py-4 border-t border-border-subtle bg-background/50">
             {/* Left side — Discard (steps 2+, create mode only) */}
@@ -405,7 +418,7 @@ export function RecipeWizardView({
                 <Button
                   type="button"
                   onClick={wizard.handleSubmit}
-                  disabled={wizard.isSubmitting}
+                  disabled={wizard.isSubmitting || wizard.createUncertain}
                   aria-busy={wizard.isSubmitting}
                   aria-label={
                     wizard.isSubmitting

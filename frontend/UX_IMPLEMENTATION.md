@@ -94,3 +94,10 @@ Validation: 22 frontend tests, TypeScript, lint and production build passed. Tes
 - Public nutrition copy accurately describes on-demand estimates.
 
 Validation: 22 frontend tests, TypeScript, lint and production build passed (the final input-label forwarding also passed TypeScript, lint and tests). Inspected settings at 390, 768 and 1440 widths in light/dark, verified section reload persistence and account dialog open/close. Original dark theme restored. Local account lacks admin access, so populated admin visual validation remains for staging; access was not bypassed.
+
+## 10. Final recipe submission hardening — `codex/recipe-submit-hardening`
+
+- Submission locks before asynchronous validation so rapid clicks cannot start two saves.
+- A lost initial create response or timeout blocks automatic replay and preserves the draft. The editor asks the user to check the library before explicitly allowing another create; partial image/PATCH retries continue using the known recipe ID.
+
+Validation: 25 frontend tests, TypeScript, lint and production build passed. Tests cover lost create responses, explicit retry acknowledgement, confirmed validation rejection and timeout ambiguity. Final focused backend regression run: 86 tests passed (three existing dependency/transaction warnings).

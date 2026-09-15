@@ -43,3 +43,31 @@ it("uploads a changed image instead of reusing its previous checkpoint", async (
   expect(api.upload).toHaveBeenCalledTimes(1);
   expect(api.update).toHaveBeenCalledWith(42, expect.objectContaining({ reference_image_path: "/new" }), "test");
 });
+
+it("blocks replay after an uncertain create until the user acknowledges checking the library", async () => {
+  const checkpoint: RecipeSaveCheckpoint = {};
+  api.create.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+  await expect(saveRecipeDraft(options(checkpoint))).rejects.toThrow("save response was lost");
+  await expect(saveRecipeDraft(options(checkpoint))).rejects.toThrow("save response was lost");
+  expect(api.create).toHaveBeenCalledTimes(1);
+  checkpoint.createUncertain = false;
+  api.upload.mockResolvedValue({ success: true, path: "/image" });
+  await saveRecipeDraft(options(checkpoint));
+  expect(api.create).toHaveBeenCalledTimes(2);
+});
+
+it("allows correcting a confirmed validation rejection without an uncertainty checkpoint", async () => {
+  const { ApiError } = await import("@/lib/api/base");
+  const checkpoint: RecipeSaveCheckpoint = {};
+  api.create.mockRejectedValueOnce(new ApiError("Invalid input", 422));
+  await expect(saveRecipeDraft(options(checkpoint))).rejects.toThrow("Invalid input");
+  expect(checkpoint.createUncertain).toBeUndefined();
+});
+
+it("treats a timeout as uncertain even though it uses a 408 status", async () => {
+  const { ApiError } = await import("@/lib/api/base");
+  const checkpoint: RecipeSaveCheckpoint = {};
+  api.create.mockRejectedValueOnce(new ApiError("Timed out", 408));
+  await expect(saveRecipeDraft(options(checkpoint))).rejects.toThrow("save response was lost");
+  expect(checkpoint.createUncertain).toBe(true);
+});
