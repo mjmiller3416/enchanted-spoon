@@ -681,6 +681,8 @@ export function RecipeBrowserView({
     isSelectMode && filterPortalTarget?.current
       ? createPortal(
           <div
+            inert={!filtersOpen}
+            aria-hidden={!filtersOpen}
             className={cn(
               "absolute inset-y-0 left-0 w-80 z-20 bg-background border-r border-border flex flex-col transition-transform duration-300 ease-in-out",
               filtersOpen ? "translate-x-0" : "-translate-x-full"

@@ -1,7 +1,7 @@
 "use client";
 import { toast } from "sonner";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 } from "@/hooks/api";
 import type { ShoppingItemResponseDTO } from "@/types/shopping";
 import { ShoppingCart, CalendarDays, Eye, EyeOff, Filter, X, Trash2, Clock, CheckCircle, Package } from "lucide-react";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { StatCard } from "@/components/common/StatCard";
 import {
   AlertDialog,
@@ -46,7 +47,7 @@ import { useSettings } from "@/hooks/persistence/useSettings";
  */
 export function ShoppingListView() {
   // Settings for category ordering and hide-completed
-  const { settings, updateSettings, isLoaded: settingsLoaded } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const { categorySortOrder, customCategoryOrder, hideCompleted } = settings.shoppingList;
 
   // React Query hooks for data fetching and mutations
@@ -61,31 +62,30 @@ export function ShoppingListView() {
   // UI state
   const [filterRecipeName, setFilterRecipeName] = useState<string | null>(null);
 
-  // One-time migration of the old raw-localStorage hide-completed flag into
-  // the settings store (runs after load so the API snapshot can't clobber it)
-  useEffect(() => {
-    if (!settingsLoaded) return;
-    const legacy = localStorage.getItem("shopping-list-hide-completed");
-    if (legacy === null) return;
-    localStorage.removeItem("shopping-list-hide-completed");
-    if (legacy === "true") {
-      updateSettings("shoppingList", { hideCompleted: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- migration runs once, when settings finish loading
-  }, [settingsLoaded]);
 
   // Clear manual items dialog state
   const [showClearManualDialog, setShowClearManualDialog] = useState(false);
 
 
   // Handle toggling an item's checked state
+  const pendingRef = useRef(new Set<number>());
+  const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
+  const finishItem = (id: number) => { pendingRef.current.delete(id); setPendingIds(new Set(pendingRef.current)); };
+  const beginItem = (id: number) => {
+    if (pendingRef.current.has(id)) return false;
+    pendingRef.current.add(id); setPendingIds(new Set(pendingRef.current)); return true;
+  };
   const handleToggleItem = (itemId: number) => {
-    toggleItem.mutate(itemId, { onError: () => toast.error("Couldn't update this item. Please try again.") });
+    const item = shoppingData?.items.find(item => item.id === itemId);
+    if (!item || !beginItem(itemId)) return;
+    void toggleItem.mutateAsync({ id: itemId, value: !item.have }).catch(() => toast.error("Couldn't update this item. Please try again.")).finally(() => finishItem(itemId));
   };
 
   // Handle toggling an item's flagged state
   const handleToggleFlagged = (itemId: number) => {
-    toggleFlagged.mutate(itemId, { onError: () => toast.error("Couldn't update the flag. Please try again.") });
+    const item = shoppingData?.items.find(item => item.id === itemId);
+    if (!item || !beginItem(itemId)) return;
+    void toggleFlagged.mutateAsync({ id: itemId, value: !item.flagged }).catch(() => toast.error("Couldn't update the flag. Please try again.")).finally(() => finishItem(itemId));
   };
 
   // Toggle hiding completed items (persists via the settings store)
@@ -414,20 +414,23 @@ export function ShoppingListView() {
       pinActionsToNav
     >
       {/* Summary stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
         <StatCard
+          compact
           icon={Clock}
           value={remainingItems}
           label="Remaining"
           colorClass="green"
         />
         <StatCard
+          compact
           icon={CheckCircle}
           value={shoppingData.checked_items}
           label="Collected"
           colorClass="amber"
         />
         <StatCard
+          compact
           icon={Package}
           value={shoppingData.total_items}
           label="Total Items"
@@ -451,10 +454,20 @@ export function ShoppingListView() {
       {/* Add manual item form */}
       <QuickAddForm variant="inline" />
 
+      <div className="mb-4 lg:hidden">
+        <Select value={filterRecipeName ?? "__all__"} onValueChange={value => setFilterRecipeName(value === "__all__" ? null : value)}>
+          <SelectTrigger className="w-full" aria-label="Filter by recipe source"><SelectValue placeholder="All sources" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All sources</SelectItem>
+            {manualItemCount > 0 && <SelectItem value="__manual__">Manual items</SelectItem>}
+            {[...new Set(recipes.map(recipe => recipe.name))].map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
       {/* Two-column layout: Main content + Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_clamp(200px,25%,320px)] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main content column */}
-        <div className="min-w-0">
+        <div className="min-w-0 lg:col-span-3">
           {/* Active filter indicator */}
           {filterRecipeName && (
             <div className="flex items-center gap-2 px-3 py-2.5 mb-4 rounded-lg bg-primary/10 border border-primary/30">
@@ -481,6 +494,7 @@ export function ShoppingListView() {
                 key={category}
                 category={category}
                 items={getFilteredItems(groupedItems[category])}
+                pendingIds={pendingIds}
                 onToggleItem={handleToggleItem}
                 onToggleFlagged={handleToggleFlagged}
               />

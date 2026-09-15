@@ -33,7 +33,7 @@ interface MealGridProps {
   selectedId?: number | null;
   onItemClick?: (item: MealGridItem) => void;
   onAddMealClick?: () => void;
-  onCycleShoppingMode?: (item: MealGridItem) => void;
+  onSetShoppingMode?: (item: MealGridItem, mode: NonNullable<MealGridItem["shoppingMode"]>) => void;
   pendingShoppingModeId?: number | null;
   onReorder?: (reorderedItems: MealGridItem[]) => void;
   className?: string;
@@ -90,7 +90,7 @@ export function MealGrid({
   selectedId,
   onItemClick,
   onAddMealClick,
-  onCycleShoppingMode,
+  onSetShoppingMode,
   pendingShoppingModeId,
   onReorder,
   className,
@@ -169,7 +169,7 @@ export function MealGrid({
           items={items.map((item) => item.id)}
           strategy={rectSortingStrategy}
         >
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-fr">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4 auto-rows-fr">
             {items.map((item) => (
               <MealGridCard
                 key={item.id}
@@ -177,7 +177,7 @@ export function MealGrid({
                 isSelected={selectedId === item.id}
                 isAnyDragging={activeId != null}
                 onClick={() => onItemClick?.(item)}
-                onCycleShoppingMode={() => onCycleShoppingMode?.(item)}
+                onSetShoppingMode={mode => onSetShoppingMode?.(item, mode)}
                 isShoppingModePending={pendingShoppingModeId === item.id}
               />
             ))}

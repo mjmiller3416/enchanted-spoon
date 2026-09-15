@@ -53,6 +53,7 @@ function getCategoryIcon(category: string): RecipeIconData {
 interface ShoppingCategoryProps {
   category: string;
   items: ShoppingItemResponseDTO[];
+  pendingIds?: Set<number>;
   onToggleItem: (id: number) => void;
   onToggleFlagged: (id: number) => void;
 }
@@ -68,6 +69,7 @@ interface ShoppingCategoryProps {
 export function ShoppingCategory({
   category,
   items,
+  pendingIds,
   onToggleItem,
   onToggleFlagged,
 }: ShoppingCategoryProps) {
@@ -144,6 +146,7 @@ export function ShoppingCategory({
       {/* Category header */}
       <Button
         variant="ghost"
+        aria-expanded={isExpanded}
         onClick={handleToggleExpanded}
         className="w-full flex items-center gap-3 px-4 py-4 h-auto justify-start rounded-none"
       >
@@ -191,6 +194,7 @@ export function ShoppingCategory({
             <ShoppingItem
               key={item.id}
               item={item}
+              pending={pendingIds?.has(item.id)}
               onToggle={onToggleItem}
               onToggleFlagged={onToggleFlagged}
             />

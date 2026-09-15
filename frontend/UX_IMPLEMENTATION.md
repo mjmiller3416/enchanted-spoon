@@ -68,3 +68,12 @@ Validation: 16 tests, TypeScript, lint, and production build passed. Inspected e
 - Reduced library hero spacing and missing-image detail banners. Secondary detail actions share a menu; phone readers can jump to ingredients/directions. Cached recipe content remains visible if refresh fails.
 
 Validation: 19 frontend tests, TypeScript, lint and production build passed after correcting action-menu markup. Synthetic 5,000-record grid renders 24 cards and advances correctly. Phone detail and print-options dialog verified. Filtering remains on the full existing dataset; server pagination is deferred because the lightweight endpoint lacks filter parity, and local data cannot establish representative network performance.
+
+## 7. Planner and shopping — `codex/planner-shopping-ux`
+
+- Planner has a direct Add meal action, adjacent desktop details, and a phone detail sheet. Labels describe an ordered menu rather than implying scheduled dates.
+- Shopping mode is an explicit choice backed by a repeatable PUT; existing cycle endpoint remains compatible. Backend item updates now honor flagged as well as have.
+- Checkbox/flag writes send desired values, track pending rows, roll back only their own field, and reconcile after concurrent writes settle. Item deletion no longer restores a whole stale list on failure.
+- Compact phone stats, wrapped ingredient names, named checkboxes, and mobile source selection. Hidden editor filters are inert while closed.
+
+Validation: 20 frontend tests (including concurrent failure isolation), 64 focused backend tests, TypeScript, lint and production build passed. Inspected phone planner and meal editor. Local account has no planned meals or shopping items; populated-state interaction coverage comes from isolated tests, with visual review of populated staging data still recommended.

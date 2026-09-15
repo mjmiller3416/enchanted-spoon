@@ -14,6 +14,7 @@ from app.api.auth import get_current_user
 from app.database.db import get_session
 from app.dtos.planner_dtos import (
     CookingStreakDTO,
+    PlannerShoppingModeDTO,
     PlannerBulkAddDTO,
     PlannerEntryResponseDTO,
     PlannerOperationResultDTO,
@@ -26,6 +27,9 @@ from app.services.planner import (
     PlannerFullError,
     PlannerService,
 )
+
+from app.services.planner.entry import EntryNotFoundError
+from app.services.planner.status import ShoppingModeSaveError
 
 router = APIRouter()
 
@@ -193,6 +197,22 @@ def mark_incomplete(
     if not entry:
         raise HTTPException(status_code=404, detail="Planner entry not found")
     return entry
+
+
+@router.put("/entries/{entry_id}/shopping-mode", response_model=PlannerEntryResponseDTO)
+def set_shopping_mode(
+    entry_id: int,
+    data: PlannerShoppingModeDTO,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> PlannerEntryResponseDTO:
+    service = PlannerService(session, current_user.id)
+    try:
+        return service.set_shopping_mode(entry_id, data)
+    except EntryNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ShoppingModeSaveError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 
 @router.post("/entries/{entry_id}/cycle-shopping-mode", response_model=PlannerEntryResponseDTO)
