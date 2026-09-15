@@ -77,3 +77,11 @@ Validation: 19 frontend tests, TypeScript, lint and production build passed afte
 - Compact phone stats, wrapped ingredient names, named checkboxes, and mobile source selection. Hidden editor filters are inert while closed.
 
 Validation: 20 frontend tests (including concurrent failure isolation), 64 focused backend tests, TypeScript, lint and production build passed. Inspected phone planner and meal editor. Local account has no planned meals or shopping items; populated-state interaction coverage comes from isolated tests, with visual review of populated staging data still recommended.
+
+## 8. Dashboard and assistant — `codex/dashboard-assistant-ux`
+
+- Home presents section-level recovery and retains healthy/cached content; onboarding is not inferred from failed requests. Queue labels say Up next and Your planned meals.
+- Genie uses a nonmodal desktop dialog and modal expanded/phone dialog with keyboard containment and focus restoration.
+- Account-session state owns chat requests, unsent input and generated drafts; closing the popup or changing display size does not discard them. Generated image data stays in memory.
+
+Validation: 22 frontend tests, TypeScript, lint and production build passed. Tested a response arriving after popup closure and dashboard partial failure. Browser verified expanded focus wrapping, return to launcher, unsent close/reopen persistence, and phone layout. Cleared the temporary unsent text; no paid AI request was sent.
