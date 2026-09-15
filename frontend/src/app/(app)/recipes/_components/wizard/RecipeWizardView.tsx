@@ -5,11 +5,11 @@ import { ArrowLeft, ArrowRight, Link, Loader2, RotateCcw, Save, Sparkles } from 
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { EditorDialogContent } from "@/components/layout/EditorDialogContent";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
@@ -187,17 +187,14 @@ export function RecipeWizardView({
           - gap: 0
           - display: flex / flex-direction: column
       */}
-      <DialogContent
-        size="xl"
-        className="flex flex-col h-[85vh] p-0 gap-0 overflow-hidden"
-      >
+      <EditorDialogContent>
         {/* ── Header ──────────────────────────────────────────────── */}
-        <div className="shrink-0 px-6 pt-5 pb-4 space-y-3">
+        <div className="shrink-0 px-4 sm:px-6 pt-5 pb-4 space-y-3 border-b border-border">
           <DialogHeader className="text-center sm:text-center">
             <p className="text-xs font-semibold uppercase tracking-widest text-primary">
               {isEditMode ? "Edit Recipe" : "Create New Recipe"}
             </p>
-            <DialogTitle className="text-2xl font-bold">
+            <DialogTitle className="text-page-title">
               {wizard.currentStep === 2 && wizard.creationMethod === "ai-generate"
                 ? "AI Recipe Generator"
                 : wizard.currentStep === 2 && wizard.creationMethod === "url-import"
@@ -424,7 +421,7 @@ export function RecipeWizardView({
               )}
             </div>
           </div>
-      </DialogContent>
+      </EditorDialogContent>
     </Dialog>
 
     <AlertDialog open={showDiscardConfirm || leave.showLeaveDialog} onOpenChange={(value) => { setShowDiscardConfirm(value); if (!value) leave.cancelLeave(); }}>

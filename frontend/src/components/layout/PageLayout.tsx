@@ -159,7 +159,7 @@ export function PageLayout(props: PageLayoutProps) {
   // ============================================
   if (hero) {
     return (
-      <div className={cn("min-h-screen bg-background", className)}>
+      <div className={cn("min-h-0 bg-background", className)}>
         {/* Hero section */}
         {hero}
 
@@ -193,7 +193,7 @@ export function PageLayout(props: PageLayoutProps) {
   // On mobile (< lg), use normal scrolling since there's no sidebar that needs independent scroll
   if (fillViewport) {
     return (
-      <div className={cn("min-h-screen lg:h-dvh flex flex-col lg:overflow-hidden bg-background", className)}>
+      <div className={cn("page-fill-viewport flex flex-col bg-background", className)}>
         {headerElement}
         <div className={cn("flex-1 lg:min-h-0 max-w-7xl mx-auto w-full px-4 md:px-6 py-6", contentClassName)}>
           {children}
@@ -204,7 +204,7 @@ export function PageLayout(props: PageLayoutProps) {
 
   // Default: scrollable page
   return (
-    <div className={cn("min-h-screen bg-background", className)}>
+    <div className={cn("min-h-0 bg-background", className)}>
       {headerElement}
       <div className={cn("max-w-7xl mx-auto px-4 md:px-6 py-6", contentClassName)}>
         {children}

@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -22,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Loader2, Plus, X } from "lucide-react";
 import { useCreateMeal, useUpdateMeal, useAddToPlanner } from "@/hooks/api";
+import { EditorDialogContent } from "@/components/layout/EditorDialogContent";
 import { useUnsavedChanges } from "@/hooks/ui/useUnsavedChanges";
 import { RecipeBrowserView } from "@/components/recipe/RecipeBrowserView";
 import { MealPreviewPanel } from "./MealPreviewPanel";
@@ -296,10 +296,10 @@ export function MealCreationOverlay({
     <>
       {open && (
         <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-          <DialogContent
+          <EditorDialogContent
             size="xl"
             showCloseButton={false}
-            className="max-w-full h-dvh rounded-none sm:rounded-lg sm:max-w-[90vw] lg:max-w-6xl sm:h-[85vh] p-0 gap-0 overflow-hidden"
+
           >
             <DialogTitle className="sr-only">{title}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -405,7 +405,7 @@ export function MealCreationOverlay({
                   {/* Mobile summary bar — sticky at the bottom, expandable preview */}
                   <div className="lg:hidden shrink-0 border-t border-border bg-card">
                     {mobilePreviewOpen && (
-                      <div className="max-h-[45vh] overflow-y-auto px-4 pt-4 border-b border-border">
+                      <div className="max-h-80 overflow-y-auto px-4 pt-4 border-b border-border">
                         {previewPanel}
                       </div>
                     )}
@@ -447,7 +447,7 @@ export function MealCreationOverlay({
                 </Tabs>
               </div>
             </div>
-          </DialogContent>
+          </EditorDialogContent>
         </Dialog>
       )}
 

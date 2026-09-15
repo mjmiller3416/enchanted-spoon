@@ -51,3 +51,12 @@ Validation: 13 frontend regression tests and 74 focused backend tests passed; Ty
 - Cook Mode exposes actual wake-lock acquisition/release and handles late acquisition after cancellation.
 
 Validation: 16 frontend tests, TypeScript, lint, and production build passed. Authenticated recipe detail and its action controls rendered successfully. Destructive deletion was not executed against the local account.
+
+## 5. Layout foundation — `codex/frontend-layout-foundation`
+
+- Shared page headers wrap actions and use the existing typography roles.
+- Recipe and meal editors share a viewport-aware shell: full-screen on phones, bounded on larger screens, with a scrolling body and visible footer.
+- Planner fill height accounts for navigation; the recipe wizard mounts only while open.
+- Added UX_DESIGN.md documenting the existing design system and shared composition patterns.
+
+Validation: 16 tests, TypeScript, lint, and production build passed. Inspected editor at 390 and 1440 widths; corrected the default dialog width override. An ingredient-only edit triggered discard protection; discarded the temporary edit and verified the original quantity remained.
