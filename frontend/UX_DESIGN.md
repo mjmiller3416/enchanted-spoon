@@ -12,3 +12,5 @@ Use the existing semantic tokens in `src/app/globals.css`, shadcn primitives, an
 - Shared services and primitives should be extended only for demonstrated needs. Keep recipe reading narrower than the recipe grid and shopping focused on its list.
 
 Validation: run tests, TypeScript, lint, and build, plus rendered keyboard/theme/viewport checks for visual changes. The historical context files live under `.claude/context`; hook descriptions are guidance, not proof that a particular editing tool runs them.
+
+Section navigation uses SectionNav for a compact phone selector and a restrained desktop sidebar. Settings and admin sections are represented by the `section` URL parameter; invalid values fall back to the first section. SectionHeader owns the shared heading/icon/description pattern. Keep user-facing copy focused on account actions rather than naming the authentication implementation.

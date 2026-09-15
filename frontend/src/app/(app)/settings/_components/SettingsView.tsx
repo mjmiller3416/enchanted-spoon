@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { RotateCcw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { SidebarPageSkeleton } from "@/components/layout/SidebarPageSkeleton";
 import { DataManagementSection } from "./sections/DataManagementSection";
@@ -31,9 +30,14 @@ export function SettingsView() {
   const queryClient = useQueryClient();
   // Stripe Checkout returns to /settings?checkout=success|cancelled
   // (see BillingService success_url/cancel_url) — land on the billing tab.
-  const [activeCategory, setActiveCategory] = useState<SettingsCategory>(() =>
-    searchParams.get("checkout") ? "billing" : "profile"
-  );
+  const requestedSection = searchParams.get("section");
+  const activeCategory: SettingsCategory = searchParams.get("checkout") ? "billing" : CATEGORIES.find(category => category.id === requestedSection)?.id ?? "profile";
+  const setActiveCategory = (category: SettingsCategory) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("section", category);
+    params.delete("checkout");
+    router.push(`/settings?${params}`, { scroll: false });
+  };
   const { settings, isLoaded, updateSettings, resetSection, isSyncing, error: settingsError, retrySave } = useSettings();
   const { theme, setTheme } = useTheme();
 
@@ -50,7 +54,7 @@ export function SettingsView() {
     } else if (checkout === "cancelled") {
       toast.info("Checkout cancelled — no changes were made.");
     }
-    router.replace("/settings", { scroll: false });
+    router.replace("/settings?section=billing", { scroll: false });
   }, [searchParams, router, queryClient]);
 
   // Handle reset current section
@@ -149,7 +153,7 @@ export function SettingsView() {
     <PageLayout
       title="Settings"
       description="Manage your preferences and account settings."
-      actions={
+      actions={!["profile", "billing", "dataManagement", "feedback"].includes(activeCategory) &&
         <Button
           variant="ghost"
           onClick={handleResetSection}
@@ -165,22 +169,18 @@ export function SettingsView() {
           <span className={settingsError ? "text-destructive" : "text-muted-foreground"}>{settingsError ?? (isSyncing ? "Saving changes…" : "All changes saved")}</span>
           {settingsError && <Button variant="outline" size="sm" disabled={isSyncing} onClick={() => void retrySave()}>Retry</Button>}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-8">
           {/* Left Sidebar - Category Navigation */}
           <div className="lg:col-span-1">
             <div className="sticky top-24">
-              <Card className="overflow-hidden">
-                <CardContent className="p-4">
                   <CategoryNav
                     categories={CATEGORIES}
                     activeCategory={activeCategory}
                     onCategoryChange={setActiveCategory}
                   />
-                </CardContent>
-              </Card>
 
               {/* Version Info */}
-              <div className="mt-4 px-4 py-3 text-center">
+              <div className="hidden lg:block mt-4 px-4 py-3 text-center">
                 <p className="text-xs text-muted-foreground">
                   {appConfig.appName} v{packageJson.version}
                 </p>
@@ -190,7 +190,7 @@ export function SettingsView() {
           </div>
 
           {/* Right Content - Settings Form */}
-          <div className="lg:col-span-3 space-y-6">{renderCategoryContent()}</div>
+          <div className="min-w-0 lg:col-span-3 space-y-6">{renderCategoryContent()}</div>
         </div>
     </PageLayout>
   );
