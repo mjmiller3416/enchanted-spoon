@@ -32,3 +32,12 @@ The local dev server had been started without outbound network access, preventin
 - OAuth callback completion uses Clerk's supported callback component.
 
 Validation: 10 regression tests, TypeScript, lint, and production build passed. Browser navigation to `/sign-in` redirected to `/dashboard`, and authenticated API data rendered successfully.
+
+## 3. Settings persistence — `codex/settings-persistence`
+
+- One account-scoped store owns settings and publishes saving/saved/error state.
+- Field patches are serialized; local pending edits survive reload and resume on reopening. Delayed responses preserve newer edits. Cross-tab/focus refresh merges around pending fields.
+- Versioned backend DTOs normalize legacy theme/clearing values; nested PATCH preserves unrelated fields. The settings service owns commits and requests row locking on supported databases.
+- Removed automatic-clear options with no implementation; imports invalidate dependent caches, and backup restore uses the shared settings store.
+
+Validation: 13 frontend regression tests and 74 focused backend tests passed; TypeScript, lint, and production build passed. In the authenticated browser, changing appearance showed “Saving changes…” followed by “All changes saved”; the API confirmed PATCH 200. Restored the original dark preference.

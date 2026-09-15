@@ -27,13 +27,13 @@ import {
 } from "@/components/ui/dialog";
 import { dataManagementApi } from "@/lib/api";
 import { getErrorMessage, downloadBlob } from "@/lib/utils";
-import { useSettings, SETTINGS_STORAGE_KEY } from "@/hooks/persistence/useSettings";
-import { accountStorageKey } from "@/lib/account-storage";
+import { useSettings } from "@/hooks/persistence/useSettings";
+
 import type { RestorePreview, RestoreResult } from "@/types/common";
 
 export function BackupRestore() {
-  const { getToken, userId } = useAuth();
-  const { settings } = useSettings();
+  const { getToken } = useAuth();
+  const { settings, updateMultipleSections } = useSettings();
 
   // Full backup state
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
@@ -115,8 +115,7 @@ export function BackupRestore() {
       const result = await dataManagementApi.executeRestore(restoreFile, true, token);
 
       if (result.settings) {
-        localStorage.setItem(accountStorageKey(SETTINGS_STORAGE_KEY, userId), JSON.stringify(result.settings));
-        window.dispatchEvent(new CustomEvent(`settings-updated:${accountStorageKey(SETTINGS_STORAGE_KEY, userId)}`, { detail: result.settings }));
+        updateMultipleSections(result.settings);
       }
 
       setRestoreResult(result);

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateRecipeDependents } from "@/hooks/api/invalidateRecipeDependents";
 import { useAuth } from "@clerk/nextjs";
 import {
   Upload,
@@ -102,6 +104,7 @@ function DuplicateResolutionRow({
 
 export function ExportImport() {
   const { getToken } = useAuth();
+  const queryClient = useQueryClient();
 
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -178,6 +181,7 @@ export function ExportImport() {
     try {
       const token = await getToken();
       const result = await dataManagementApi.executeImport(importFile, resolutions, token);
+      await invalidateRecipeDependents(queryClient);
       setImportResult(result);
       setShowPreviewDialog(false);
       setShowResultDialog(true);

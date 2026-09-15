@@ -22,14 +22,9 @@ def _utcnow() -> datetime:
 
 
 # Default settings for new users
-DEFAULT_SETTINGS: Dict[str, Any] = {
-    "theme": "system",
-    "defaultServings": 4,
-    "showNutritionalInfo": False,
-    "preferredUnits": "imperial",
-    "mealPlannerView": "list",
-    "shoppingListGroupBy": "category",
-}
+from app.dtos.settings_dtos import SettingsDTO
+
+DEFAULT_SETTINGS: Dict[str, Any] = SettingsDTO().model_dump()
 
 
 class UserSettings(Base):
