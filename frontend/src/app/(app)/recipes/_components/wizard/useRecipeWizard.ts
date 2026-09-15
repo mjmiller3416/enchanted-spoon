@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import { recipeApi, ingredientApi, recipeGenerationApi, recipeImportApi, ApiError } from "@/lib/api";
 import { maybeHandleAiGateError } from "@/lib/paywall";
 import { invalidateRecipeDependents } from "@/hooks/api/invalidateRecipeDependents";
-import { saveRecipeDraft, type RecipeSaveCheckpoint } from "@/lib/recipe-save";
+import { RecipeCreateUncertainError, saveRecipeDraft, type RecipeSaveCheckpoint } from "@/lib/recipe-save";
 import { setNavigationBypass } from "@/hooks/ui/useUnsavedChanges";
 import { base64ToFile } from "@/lib/utils";
 import type {
@@ -66,6 +66,7 @@ export function useRecipeWizard({
   const queryClient = useQueryClient();
   const isEditMode = mode === "edit";
   const saveCheckpoint = useRef<RecipeSaveCheckpoint>({});
+  const [createUncertain, setCreateUncertain] = useState(false);
   const submittingRef = useRef(false);
 
   // ---------------------------------------------------------------------------
@@ -702,6 +703,7 @@ export function useRecipeWizard({
   // ---------------------------------------------------------------------------
   const resetWizard = useCallback((): void => {
     saveCheckpoint.current = {};
+    setCreateUncertain(false);
     setCurrentStep(1);
     setCreationMethod(null);
     form.reset();
@@ -734,20 +736,18 @@ export function useRecipeWizard({
   // ---------------------------------------------------------------------------
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (submittingRef.current) return;
-    // Validate all steps before submission
-    for (let step = 1; step <= LAST_STEP; step++) {
-      const isValid = await validateStep(step as WizardStep);
-      if (!isValid) {
-        setCurrentStep(step as WizardStep);
-        toast.error("Please fix the errors before submitting.");
-        return;
-      }
-    }
-
     submittingRef.current = true;
     setIsSubmitting(true);
-
     try {
+      // Guard before asynchronous validation so rapid clicks cannot race.
+      for (let step = 1; step <= LAST_STEP; step++) {
+        const isValid = await validateStep(step as WizardStep);
+        if (!isValid) {
+          setCurrentStep(step as WizardStep);
+          toast.error("Please fix the errors before submitting.");
+          return;
+        }
+      }
       const token = await getToken();
       const values = form.getValues();
 
@@ -834,6 +834,11 @@ export function useRecipeWizard({
       onSave?.();
       router.push(`/recipes/${savedId}`);
     } catch (error) {
+      if (error instanceof RecipeCreateUncertainError) {
+        setCreateUncertain(true);
+        toast.error(error.message);
+        return;
+      }
       if (saveCheckpoint.current.id) {
         await invalidateRecipeDependents(queryClient);
         toast.error("The recipe exists, but saving is incomplete. Your draft is still open. Save again to retry the remaining work.");
@@ -975,6 +980,11 @@ export function useRecipeWizard({
 
     // Submission
     handleSubmit,
+    createUncertain,
+    acknowledgeCreateRetry: () => {
+      saveCheckpoint.current.createUncertain = false;
+      setCreateUncertain(false);
+    },
     isSubmitting,
 
     // Unsaved data detection

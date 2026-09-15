@@ -1,12 +1,21 @@
 import { recipeApi, uploadApi } from "@/lib/api";
+import { ApiError } from "@/lib/api/base";
 import type { RecipeCreateDTO } from "@/types/recipe";
 
 type ImageSource = File | string | null;
 type SavedImage = { source: ImageSource; path: string };
 export interface RecipeSaveCheckpoint {
   id?: number;
+  createUncertain?: boolean;
   reference?: SavedImage;
   banner?: SavedImage;
+}
+
+export class RecipeCreateUncertainError extends Error {
+  constructor() {
+    super("The save response was lost. Check your recipe library before trying to create this recipe again.");
+    this.name = "RecipeCreateUncertainError";
+  }
 }
 
 /** The checkpoint belongs to the open editor and survives partial failures.
@@ -21,8 +30,17 @@ export async function saveRecipeDraft({ checkpoint, payload, reference, banner, 
   token: string | null;
 }): Promise<number> {
   if (!checkpoint.id) {
-    const created = await recipeApi.create(payload, token);
-    checkpoint.id = created.id;
+    if (checkpoint.createUncertain) throw new RecipeCreateUncertainError();
+    try {
+      const created = await recipeApi.create(payload, token);
+      if (!Number.isInteger(created.id) || created.id <= 0) throw new Error("Missing recipe ID");
+      checkpoint.id = created.id;
+    } catch (error) {
+      // A timeout can occur after the server committed. Do not silently replay it.
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408) throw error;
+      checkpoint.createUncertain = true;
+      throw new RecipeCreateUncertainError();
+    }
   }
   const id = checkpoint.id;
   async function imagePath(kind: "reference" | "banner", source: ImageSource, original: string | null) {
