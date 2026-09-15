@@ -13,11 +13,11 @@ export function MarketingHeader() {
       <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4 lg:px-6">
         <Link href="/" className="flex items-center gap-3" aria-label={`${appConfig.appName} home`}>
           <Logo className="h-8 w-auto shrink-0" />
-          <span className="whitespace-nowrap text-lg font-semibold text-foreground">
+          <span className="hidden sm:inline whitespace-nowrap text-lg font-semibold text-foreground">
             {appConfig.appName}
           </span>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button asChild variant="ghost" className="hidden sm:inline-flex">
             <Link href="/pricing">Pricing</Link>
           </Button>

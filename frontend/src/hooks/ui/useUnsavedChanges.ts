@@ -42,7 +42,7 @@ interface UseUnsavedChangesReturn {
 }
 
 // Global registry for pages with unsaved changes
-const unsavedChangesRegistry = new Map<symbol, { path: string; check: () => boolean }>();
+const unsavedChangesRegistry = new Map<symbol, { path: string; check: () => boolean; discard: () => void }>();
 
 // Global flag to temporarily bypass checks (set during confirmed navigation)
 let navigationBypassActive = false;
@@ -69,6 +69,13 @@ export function hasAnyUnsavedChanges(): boolean {
     if (check()) return true;
   }
   return false;
+}
+
+/** Run confirmed discard handlers for dirty editors, including persistent overlays. */
+export function discardUnsavedChanges(): void {
+  for (const entry of [...unsavedChangesRegistry.values()]) {
+    if (entry.check()) entry.discard();
+  }
 }
 
 /**
@@ -104,6 +111,8 @@ export function useUnsavedChanges({
   const historyStateAddedRef = useRef(false);
   // Store isDirty in a ref so popstate handler has current value
   const isDirtyRef = useRef(isDirty);
+  const discardRef = useRef(onConfirmLeave);
+  useEffect(() => { discardRef.current = onConfirmLeave; }, [onConfirmLeave]);
   // Store pendingNavigation in ref to ensure it's available during confirm
   const pendingNavigationRef = useRef<string | null>(null);
 
@@ -118,7 +127,7 @@ export function useUnsavedChanges({
   // Register this page in the global registry
   useEffect(() => {
     const id = registryId.current;
-    unsavedChangesRegistry.set(id, { path: pathname, check: () => isDirtyRef.current });
+    unsavedChangesRegistry.set(id, { path: pathname, check: () => isDirtyRef.current, discard: () => discardRef.current?.() });
     return () => {
       unsavedChangesRegistry.delete(id);
     };

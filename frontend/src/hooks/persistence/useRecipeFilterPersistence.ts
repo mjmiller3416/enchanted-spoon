@@ -19,6 +19,7 @@ export interface SavedRecipeFilterState {
   activeQuickFilters: string[];
   sortBy: SortOption;
   sortDirection: SortDirection;
+  page?: { key: string; index: number };
   timestamp: number;
 }
 

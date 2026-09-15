@@ -34,3 +34,11 @@ describe("recipe browsing", () => {
     expect(screen.getAllByTestId("recipe")).toHaveLength(24);
   });
 });
+
+it("restores the requested page and clamps it when the result collection shrinks", () => {
+  const view = render(<RecipeGrid page={2} recipes={Array.from({ length: 80 }, (_, i) => recipe(i))} hasActiveFilters={false} onRecipeClick={vi.fn()} onFavoriteToggle={vi.fn()} onClearFilters={vi.fn()} />);
+  expect(screen.getByText("Recipe 48")).toBeTruthy();
+  view.rerender(<RecipeGrid page={2} recipes={[recipe(0)]} hasActiveFilters={false} onRecipeClick={vi.fn()} onFavoriteToggle={vi.fn()} onClearFilters={vi.fn()} />);
+  expect(screen.getByText("Recipe 0")).toBeTruthy();
+  expect(screen.queryByText("Recipe 48")).toBeNull();
+});

@@ -101,3 +101,27 @@ Validation: 22 frontend tests, TypeScript, lint and production build passed (the
 - A lost initial create response or timeout blocks automatic replay and preserves the draft. The editor asks the user to check the library before explicitly allowing another create; partial image/PATCH retries continue using the known recipe ID.
 
 Validation: 25 frontend tests, TypeScript, lint and production build passed. Tests cover lost create responses, explicit retry acknowledgement, confirmed validation rejection and timeout ambiguity. Final focused backend regression run: 86 tests passed (three existing dependency/transaction warnings).
+
+## 11. Navigation integration — `codex/frontend-navigation-hardening`
+
+- Recipe library pages are retained with the account-scoped filters and clamped when results shrink.
+- Confirmed navigation invokes dirty editors' discard handlers so persistent overlays close/reset correctly.
+- At small desktop widths the app uses compact navigation. Inactive pinned controls are unmounted, and active controls have space without pushing account actions out of view. Active navigation exposes aria-current.
+- Public phone header uses the logo without the full wordmark to prevent sign-in controls overlapping. Pricing language describes recipe nutrition facts and queue-based meal planning accurately.
+
+Validation: 27 frontend tests passed, including restored pagination, shrinking collections and selective discard handlers. TypeScript, lint and production build passed before the final small public-header/copy adjustment; final lint/build rechecked for that adjustment. Browser confirmed the repaired 1024px app header and inspected 360px profile layout.
+
+## Staging review notes and verification limits
+
+All changes use the existing semantic design system; no rebrand or backend architecture overhaul. Each feature was tested before its staging merge. Targeted backend integration coverage totals 86 passing tests. Frontend coverage totals 27 passing tests, plus type checking, lint and production builds.
+
+Runtime review covered authenticated home, library/detail/print controls, recipe/meal editors, empty planner/shopping, settings, assistant, profile management and public pricing across phone/tablet/desktop sizes. Local sign-in now works with the authenticated backend; authentication was not bypassed.
+
+Still requiring populated staging review:
+- Local account has one recipe and no planned meals/shopping items, and is not an admin. Populated planner/shopping behaviors have isolated test coverage, but populated admin tables and realistic long-content visual coverage are incomplete.
+- Large-collection rendering is tested with 5,000 synthetic records; representative network performance and server browse pagination are deferred.
+- The in-app browser did not apply keyboard zoom shortcuts, so actual 200% browser zoom remains unverified. Full rendered contrast, system-theme/reduced-motion and every network/account-switch combination were not exhaustively exercised.
+- No live paid AI request, checkout, destructive recipe deletion, or account-security change was performed. Failure cases use focused tests where available.
+- Visual checks were inspected during implementation; a complete archived before/after screenshot set was not produced.
+
+The remaining matrix is review work, not evidence of a passing full end-to-end suite. Existing build warnings about multiple lockfiles/browser-baseline data and three backend dependency/transaction warnings remain.

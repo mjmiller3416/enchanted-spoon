@@ -6,6 +6,8 @@ import type { RecipeCardData } from "@/types/recipe";
 
 export interface RecipeGridProps {
   recipes: RecipeCardData[];
+  page?: number;
+  onPageChange?: (page: number) => void;
   hasActiveFilters: boolean;
   onRecipeClick: (recipe: RecipeCardData) => void;
   onFavoriteToggle: (recipe: RecipeCardData) => void;
@@ -21,6 +23,8 @@ export interface RecipeGridProps {
 
 export function RecipeGrid({
   recipes,
+  page: requestedPage,
+  onPageChange,
   hasActiveFilters,
   onRecipeClick,
   onFavoriteToggle,
@@ -30,11 +34,13 @@ export function RecipeGrid({
   selectionMode = false,
   selectedIds = new Set(),
 }: RecipeGridProps) {
-  const [page, setPage] = useState(0);
+  const [localPage, setPage] = useState(0);
   const gridRef = useRef<HTMLDivElement>(null);
   const pageSize = 24;
   const pages = Math.ceil(recipes.length / pageSize);
-  const changePage = (next: number) => { setPage(next); gridRef.current?.scrollIntoView({ block: "start" }); };
+  const rawPage = requestedPage ?? localPage;
+  const page = Math.min(Math.max(0, Number.isInteger(rawPage) ? rawPage : 0), Math.max(0, pages - 1));
+  const changePage = (next: number) => { setPage(next); onPageChange?.(next); gridRef.current?.scrollIntoView({ block: "start" }); };
   if (recipes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
