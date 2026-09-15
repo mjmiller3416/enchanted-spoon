@@ -38,7 +38,9 @@ export function SignInForm() {
 
   // Handle Google OAuth sign-in
   const handleGoogleSignIn = async () => {
-    if (!isLoaded || !signIn) return;
+    if (!isLoaded || !signIn || isLoading) return;
+    setError("");
+    setIsLoading(true);
 
     try {
       await signIn.authenticateWithRedirect({
@@ -47,8 +49,10 @@ export function SignInForm() {
         redirectUrlComplete: "/dashboard",
       });
     } catch (err) {
-      setError("Failed to start Google sign-in. Please try again.");
+      const clerkError = err as { errors?: Array<{ longMessage?: string; message?: string }> };
+      setError(clerkError.errors?.[0]?.longMessage || clerkError.errors?.[0]?.message || "Failed to start Google sign-in. Please try again.");
       console.error("Google sign-in error:", err);
+      setIsLoading(false);
     }
   };
 
@@ -200,7 +204,7 @@ export function SignInForm() {
               onClick={handleGoogleSignIn}
               disabled={isLoading}
             >
-              <GoogleIcon />
+              {isLoading ? <Loader2 className="size-5 animate-spin" strokeWidth={1.5} /> : <GoogleIcon />}
               Continue with Google
             </Button>
 

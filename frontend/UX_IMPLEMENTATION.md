@@ -20,3 +20,15 @@ Validation: 4 regression tests passed; TypeScript, lint, and production build pa
 - Changed images replace their checkpoint, and edit upload failures keep the editor open instead of reporting success.
 - Successful saves refresh recipe, meal/planner, shopping, and dashboard query families.
 - Added failure-injection tests for image uploads and final patch retries, plus unsaved-editor registration/unload checks.
+
+Validation: 10 regression tests, TypeScript, lint, and production build passed.
+
+## Local sign-in recovery — `codex/auth-session-recovery`
+
+The local dev server had been started without outbound network access, preventing Clerk handshakes. Restarted it with network access and started the local authenticated API on port 8000. No authentication bypass or credentials were changed.
+
+- Auth pages redirect an already signed-in user to the dashboard.
+- Google sign-in shows pending state and the actual provider error.
+- OAuth callback completion uses Clerk's supported callback component.
+
+Validation: 10 regression tests, TypeScript, lint, and production build passed. Browser navigation to `/sign-in` redirected to `/dashboard`, and authenticated API data rendered successfully.
