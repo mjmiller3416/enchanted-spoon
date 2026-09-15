@@ -24,3 +24,14 @@ it("warns before refresh only while the editor has unsaved changes", () => {
   window.dispatchEvent(saved);
   expect(saved.defaultPrevented).toBe(false);
 });
+
+it("runs only dirty editor discard handlers on confirmed cross-page navigation", async () => {
+  const { discardUnsavedChanges } = await import("@/hooks/ui/useUnsavedChanges");
+  const discard = vi.fn();
+  const clean = vi.fn();
+  renderHook(() => useUnsavedChanges({ isDirty: true, onConfirmLeave: discard }));
+  renderHook(() => useUnsavedChanges({ isDirty: false, onConfirmLeave: clean }));
+  discardUnsavedChanges();
+  expect(discard).toHaveBeenCalledTimes(1);
+  expect(clean).not.toHaveBeenCalled();
+});

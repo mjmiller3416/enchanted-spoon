@@ -79,15 +79,16 @@ function TopNavLink({
   return (
     <SafeLink
       href={href}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium",
+        "flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium",
         "transition-colors duration-200",
         isActive
           ? "text-primary bg-primary/10"
           : "text-muted-foreground hover:text-foreground hover:bg-hover/50"
       )}
     >
-      <Icon className="h-4 w-4" strokeWidth={isActive ? 2 : 1.5} />
+      <Icon className="h-4 w-4" strokeWidth={1.5} />
       <span>{label}</span>
 
       {badge !== undefined && badge > 0 && (
@@ -502,15 +503,15 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
         {/* Left section: Logo + App Name + Hamburger */}
         <div className="flex items-center gap-3 mr-6">
           <Logo className="h-8 w-auto flex-shrink-0" />
-          <span className="text-lg font-semibold text-foreground whitespace-nowrap">
+          <span className={cn("text-lg font-semibold text-foreground whitespace-nowrap", isPinned && Boolean(navActions) && "hidden")}>
             {appConfig.appName}
           </span>
 
-          {/* Hamburger button — visible between md and lg */}
+          {/* Hamburger button — visible between md and xl */}
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden ml-1"
+            className="xl:hidden ml-1"
             aria-label="Open navigation menu"
             onClick={() => setSheetOpen(true)}
           >
@@ -518,8 +519,8 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
           </Button>
         </div>
 
-        {/* Center section: Inline nav links — hidden below lg */}
-        <nav className="hidden lg:flex items-center gap-1.5 flex-1" aria-label="Main navigation">
+        {/* Center section: Inline nav links — hidden below xl */}
+        <nav className="hidden xl:flex items-center gap-1.5 flex-1" aria-label="Main navigation">
           {navigation.map((item) => (
             <TopNavLink
               key={item.href}
@@ -534,10 +535,10 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
         </nav>
 
         {/* Spacer to push right section when nav is hidden */}
-        <div className="flex-1 lg:hidden" />
+        <div className="flex-1 xl:hidden" />
 
         {/* Pinned page actions — injected from PageLayout when header scrolls out */}
-        {navActions && (
+        {navActions && isPinned && (
           <div
             className={cn(
               "flex items-center gap-2 border-l border-border pl-3",

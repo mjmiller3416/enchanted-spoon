@@ -13,15 +13,15 @@ export const metadata: Metadata = {
 
 const FREE_FEATURES = [
   "Unlimited recipes, collections, and favorites",
-  "Weekly meal planner with cooking streaks",
+  "Meal planning with cooking streaks",
   "Shopping list that builds itself from your plan",
-  "Nutrition tracking and unit conversions",
+  "Recipe nutrition facts and unit conversions",
   "A monthly taste of every AI feature",
 ];
 
 const PRO_FEATURES = [
   "Everything in Free",
-  "Import recipes from any URL",
+  "Import recipes from a URL",
   "Generate complete recipes from a prompt",
   "AI food photography for your recipes",
   "Genie assistant — chat, ideas, and tips",

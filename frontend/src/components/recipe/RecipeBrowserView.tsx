@@ -507,6 +507,10 @@ export function RecipeBrowserView({
     }
   }, [mode, searchParams, filters.favoritesOnly, setFilters, setActiveQuickFilters]);
 
+  const [savedPage, setSavedPage] = useState(savedState?.page);
+  const pageKey = JSON.stringify([filters, [...activeQuickFilters].sort(), sortBy, sortDirection]);
+  const currentPage = savedPage?.key === pageKey ? savedPage.index : 0;
+
   // Persist filter state on every change so it survives any navigation path,
   // not just the back-navigation restore this hook originally supported.
   useEffect(() => {
@@ -517,8 +521,9 @@ export function RecipeBrowserView({
       activeQuickFilters: Array.from(activeQuickFilters),
       sortBy,
       sortDirection,
+      page: { key: pageKey, index: currentPage },
     });
-  }, [mode, filters, activeQuickFilters, sortBy, sortDirection, saveFilterState]);
+  }, [mode, filters, activeQuickFilters, sortBy, sortDirection, saveFilterState, pageKey, currentPage]);
 
   // Scroll position restore on back navigation
   useEffect(() => {
@@ -771,7 +776,8 @@ export function RecipeBrowserView({
         />
       )}
       <RecipeGrid
-        key={filteredRecipes.map(recipe => recipe.id).join(",")}
+        page={currentPage}
+        onPageChange={(index) => setSavedPage({ key: pageKey, index })}
         recipes={filteredRecipes}
         hasActiveFilters={hasActiveFilters}
         onRecipeClick={handleRecipeClick}
