@@ -1578,3 +1578,10 @@ input[type="number"] {
     transform: scale(1.05);
   }
 }
+
+@utility assistant-dialog {
+  max-height: calc(100dvh - 3rem);
+  @media (width < 48rem) {
+    max-height: 100dvh;
+  }
+}
