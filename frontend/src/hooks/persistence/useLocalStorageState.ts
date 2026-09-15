@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { accountStorageKey } from "@/lib/account-storage";
 
 interface UseLocalStorageStateOptions<T> {
   /** Maximum number of items to keep (for array values) */
@@ -40,11 +42,13 @@ export function migrateLocalStorageKey(legacyKey: string, key: string): void {
  * @returns [state, setState, isLoaded] tuple
  */
 export function useLocalStorageState<T>(
-  key: string,
+  baseKey: string,
   initialValue: T,
   options: UseLocalStorageStateOptions<T> = {}
 ): [T, (value: T | ((prev: T) => T)) => void, boolean] {
-  const { maxItems, deserialize, legacyKey } = options;
+  const { maxItems, deserialize } = options;
+  const { userId } = useAuth();
+  const key = accountStorageKey(baseKey, userId);
   const eventName = `localStorage:${key}`;
 
   const [state, setStateInternal] = useState<T>(initialValue);
@@ -53,9 +57,6 @@ export function useLocalStorageState<T>(
   // Load from localStorage on mount
   useEffect(() => {
     try {
-      if (legacyKey) {
-        migrateLocalStorageKey(legacyKey, key);
-      }
       const stored = localStorage.getItem(key);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -70,7 +71,7 @@ export function useLocalStorageState<T>(
       console.error(`[useLocalStorageState] Failed to load ${key}:`, err);
     }
     setIsLoaded(true);
-  }, [key, deserialize, legacyKey]);
+  }, [key, deserialize]);
 
   // Listen for changes from other tabs (StorageEvent) and same window (CustomEvent)
   useEffect(() => {

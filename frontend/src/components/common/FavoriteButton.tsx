@@ -1,6 +1,7 @@
 "use client";
 
-import { Heart } from "lucide-react";
+import { Heart, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface FavoriteButtonProps {
@@ -9,6 +10,7 @@ interface FavoriteButtonProps {
   variant?: "overlay" | "inline";
   size?: "sm" | "md" | "lg";
   readOnly?: boolean;
+  pending?: boolean;
   className?: string;
 }
 
@@ -28,6 +30,7 @@ export function FavoriteButton({
   variant = "overlay",
   size = "md",
   readOnly = false,
+  pending = false,
   className,
 }: FavoriteButtonProps) {
   // Size variants for the button
@@ -76,6 +79,7 @@ export function FavoriteButton({
         aria-label={isFavorite ? "Favorited" : "Not favorited"}
       >
         <Heart
+          strokeWidth={1.5}
           className={cn(
             iconSizes[size],
             isFavorite && "fill-current"
@@ -86,7 +90,13 @@ export function FavoriteButton({
   }
 
   return (
-    <button
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      disabled={pending}
+      aria-busy={pending}
+      aria-pressed={isFavorite}
       onClick={onToggle}
       className={cn(
         // Base styles
@@ -114,7 +124,8 @@ export function FavoriteButton({
       )}
       aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
     >
-      <Heart 
+      {pending ? <Loader2 className="size-5 animate-spin" strokeWidth={1.5} /> : <Heart
+        strokeWidth={1.5}
         className={cn(
           // Icon size
           iconSizes[size],
@@ -128,7 +139,7 @@ export function FavoriteButton({
           // Pulse animation on favorite
           isFavorite && "animate-pulse-once"
         )}
-      />
-    </button>
+      />}
+    </Button>
   );
 }

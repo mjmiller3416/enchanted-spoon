@@ -108,6 +108,7 @@ export function FullRecipeView() {
     recipe,
     loading,
     isFavorite,
+    favoritePending,
     plannerEntries,
     directions,
     groupedIngredients,
@@ -187,6 +188,7 @@ export function FullRecipeView() {
             <div className="absolute top-6 right-6">
               <FavoriteButton
                 isFavorite={isFavorite}
+                pending={favoritePending}
                 onToggle={handleFavoriteToggle}
                 variant="overlay"
                 size="lg"
