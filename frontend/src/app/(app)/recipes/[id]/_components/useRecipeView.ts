@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useRecipe, useDeleteRecipe, usePlannerEntries } from "@/hooks/api";
+import { useRecipe, useDeleteRecipe, usePlannerEntries, useToggleFavorite } from "@/hooks/api";
+import { toast } from "sonner";
 import type { RecipeResponseDTO } from "@/types/recipe";
 import { useRecentRecipes } from "@/hooks/persistence";
 import { parseDirections, groupIngredientsByCategory } from "./recipe-utils";
@@ -20,15 +21,15 @@ export function useRecipeView(recipeId: number) {
   const { data: recipe, isLoading: recipeLoading } = useRecipe(recipeId);
   const { data: plannerEntries = [] } = usePlannerEntries();
   const deleteRecipeMutation = useDeleteRecipe();
+  const favoriteMutation = useToggleFavorite();
 
   // Local state for UI interactions. Favorite is derived from the recipe with
   // a local override so toggling doesn't require mirroring server state.
-  const [favoriteOverride, setFavoriteOverride] = useState<boolean | null>(null);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
   const loading = recipeLoading;
-  const isFavorite = favoriteOverride ?? recipe?.is_favorite ?? false;
+  const isFavorite = recipe?.is_favorite ?? false;
 
   // Track this recipe as recently viewed once it loads
   useEffect(() => {
@@ -56,8 +57,10 @@ export function useRecipeView(recipeId: number) {
   // Handlers
   const handleFavoriteToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setFavoriteOverride(!isFavorite);
-    // In production: await fetch(`/api/recipes/${recipeId}/favorite`, { method: 'POST' })
+    if (favoriteMutation.isPending) return;
+    favoriteMutation.mutate(recipeId, {
+      onError: () => toast.error("Couldn't update favorite. Please try again."),
+    });
   };
 
   const handleIngredientToggle = (ingredientId: number) => {
@@ -111,6 +114,7 @@ export function useRecipeView(recipeId: number) {
     recipe: recipe ?? null,
     loading,
     isFavorite,
+    favoritePending: favoriteMutation.isPending,
     plannerEntries,
     directions,
     groupedIngredients,

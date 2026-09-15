@@ -199,82 +199,23 @@ export function useDeleteRecipe() {
 export function useToggleFavorite() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
-
   return useMutation({
+    scope: { id: "recipe-favorites" },
     mutationFn: async (recipeId: number) => {
       const token = await getToken();
       return recipeApi.toggleFavorite(recipeId, token);
     },
-    onMutate: async (recipeId) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: recipeQueryKeys.all });
-
-      // Snapshot for rollback
-      const previousLists = queryClient.getQueriesData<RecipeResponseDTO[]>({
-        queryKey: recipeQueryKeys.list(),
-      });
-      const previousCards = queryClient.getQueriesData<RecipeCardDTO[]>({
-        queryKey: recipeQueryKeys.cards(),
-      });
-      const previousDetail = queryClient.getQueryData<RecipeResponseDTO>(
-        recipeQueryKeys.detail(recipeId)
-      );
-
-      // Optimistically update all lists containing this recipe
-      queryClient.setQueriesData<RecipeResponseDTO[]>(
-        { queryKey: recipeQueryKeys.list() },
-        (old) =>
-          old?.map((r) =>
-            r.id === recipeId ? { ...r, is_favorite: !r.is_favorite } : r
-          )
-      );
-
-      queryClient.setQueriesData<RecipeCardDTO[]>(
-        { queryKey: recipeQueryKeys.cards() },
-        (old) =>
-          old?.map((r) =>
-            r.id === recipeId ? { ...r, is_favorite: !r.is_favorite } : r
-          )
-      );
-
-      // Optimistically update detail view if cached
-      if (previousDetail) {
-        queryClient.setQueryData<RecipeResponseDTO>(
-          recipeQueryKeys.detail(recipeId),
-          { ...previousDetail, is_favorite: !previousDetail.is_favorite }
-        );
-      }
-
-      return { previousLists, previousCards, previousDetail };
+    onSuccess: (recipe) => {
+      queryClient.setQueryData(recipeQueryKeys.detail(recipe.id), recipe);
+      queryClient.setQueriesData<RecipeResponseDTO[]>({ queryKey: recipeQueryKeys.list() },
+        old => old?.map(item => item.id === recipe.id ? { ...item, is_favorite: recipe.is_favorite } : item));
+      queryClient.setQueriesData<RecipeCardDTO[]>({ queryKey: recipeQueryKeys.cards() },
+        old => old?.map(item => item.id === recipe.id ? { ...item, is_favorite: recipe.is_favorite } : item));
     },
-    onError: (_err, recipeId, context) => {
-      // Rollback on error
-      if (context?.previousLists) {
-        context.previousLists.forEach(([key, data]) => {
-          if (data) queryClient.setQueryData(key, data);
-        });
-      }
-      if (context?.previousCards) {
-        context.previousCards.forEach(([key, data]) => {
-          if (data) queryClient.setQueryData(key, data);
-        });
-      }
-      if (context?.previousDetail) {
-        queryClient.setQueryData(
-          recipeQueryKeys.detail(recipeId),
-          context.previousDetail
-        );
-      }
-    },
-    onSuccess: (updatedRecipe) => {
-      // Update with server response to ensure consistency
-      queryClient.setQueryData(
-        recipeQueryKeys.detail(updatedRecipe.id),
-        updatedRecipe
-      );
-      // Favorites count feeds the Home header chips
-      queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.stats() });
-    },
+    onSettled: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: recipeQueryKeys.all }),
+      queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all }),
+    ]),
   });
 }
 

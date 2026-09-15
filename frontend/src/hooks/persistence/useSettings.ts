@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useDebouncedCallback } from "use-debounce";
 import { settingsApi } from "@/lib/api";
 import { migrateLocalStorageKey } from "./useLocalStorageState";
+import { accountStorageKey } from "@/lib/account-storage";
 
 // Auto-save debounce delay (ms)
 const AUTO_SAVE_DELAY = 500;
@@ -103,7 +104,6 @@ export const SETTINGS_STORAGE_KEY = "enchanted-spoon-settings";
 export const THEME_STORAGE_KEY = "enchanted-spoon-theme"; // Separate key for instant theme load (read by the blocking script in the root layout — keep that script in sync)
 export const LEGACY_THEME_STORAGE_KEY = "theme"; // Pre-unification key written by the old TopNav toggle
 // Pre-rename (Meal Genie era) keys, migrated on first load — drop the shims after 1-2 releases
-const LEGACY_SETTINGS_STORAGE_KEY = "meal-genie-settings";
 const LEGACY_PREFIXED_THEME_STORAGE_KEY = "meal-genie-theme";
 
 // ============================================================================
@@ -171,14 +171,14 @@ interface UseSettingsReturn {
  * ```
  */
 export function useSettings(): UseSettingsReturn {
-  const { isSignedIn, isLoaded: isAuthLoaded, getToken } = useAuth();
+  const { userId, isSignedIn, isLoaded: isAuthLoaded, getToken } = useAuth();
+  const storageKey = accountStorageKey(SETTINGS_STORAGE_KEY, userId);
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     // Initialize with theme from localStorage for instant apply (SSR-safe)
     if (typeof window !== "undefined") {
       // Runs before any read in this hook, so loadFromLocalStorage always
       // sees the new keys (initializers execute ahead of the load effect)
-      migrateLocalStorageKey(LEGACY_SETTINGS_STORAGE_KEY, SETTINGS_STORAGE_KEY);
       migrateLocalStorageKey(LEGACY_PREFIXED_THEME_STORAGE_KEY, THEME_STORAGE_KEY);
       try {
         const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
@@ -238,10 +238,10 @@ export function useSettings(): UseSettingsReturn {
             // Also save theme to localStorage for instant load on refresh
             localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(merged.appearance.theme));
             // Keep full settings in localStorage as fallback
-            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(merged));
+            localStorage.setItem(storageKey, JSON.stringify(merged));
           } else {
             // API returned empty - load from localStorage and sync to API
-            const localSettings = loadFromLocalStorage();
+            const localSettings = loadFromLocalStorage(storageKey);
             setSettings(localSettings);
 
             // Sync localStorage settings to API for first-time users
@@ -253,13 +253,13 @@ export function useSettings(): UseSettingsReturn {
           }
         } else {
           // Not signed in - use localStorage
-          const localSettings = loadFromLocalStorage();
+          const localSettings = loadFromLocalStorage(storageKey);
           setSettings(localSettings);
         }
       } catch (error) {
         console.error("[useSettings] Failed to load settings from API:", error);
         // Fallback to localStorage
-        const localSettings = loadFromLocalStorage();
+        const localSettings = loadFromLocalStorage(storageKey);
         setSettings(localSettings);
       } finally {
         setIsLoading(false);
@@ -268,7 +268,7 @@ export function useSettings(): UseSettingsReturn {
     }
 
     loadSettings();
-  }, [isAuthLoaded, isSignedIn, getToken]);
+  }, [isAuthLoaded, isSignedIn, getToken, storageKey]);
 
   // Keep every useSettings instance in sync: when any instance persists (or a
   // backup restore dispatches "settings-updated"), adopt the new snapshot so a
@@ -279,9 +279,9 @@ export function useSettings(): UseSettingsReturn {
       if (!detail) return;
       setSettings(deepMergeSettings(DEFAULT_SETTINGS, detail));
     };
-    window.addEventListener("settings-updated", handleSettingsUpdated);
-    return () => window.removeEventListener("settings-updated", handleSettingsUpdated);
-  }, []);
+    window.addEventListener(`settings-updated:${storageKey}`, handleSettingsUpdated);
+    return () => window.removeEventListener(`settings-updated:${storageKey}`, handleSettingsUpdated);
+  }, [storageKey]);
 
   // Persist settings to localStorage and API
   const persistSettings = useCallback(
@@ -289,10 +289,10 @@ export function useSettings(): UseSettingsReturn {
       // Always save theme to localStorage for instant load
       localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(settingsToSave.appearance.theme));
       // Always save full settings to localStorage as fallback
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsToSave));
+      localStorage.setItem(storageKey, JSON.stringify(settingsToSave));
 
       // Dispatch event for other components to react
-      window.dispatchEvent(new CustomEvent("settings-updated", { detail: settingsToSave }));
+      window.dispatchEvent(new CustomEvent(`settings-updated:${storageKey}`, { detail: settingsToSave }));
 
       // If signed in, sync to API
       if (isSignedIn) {
@@ -308,7 +308,7 @@ export function useSettings(): UseSettingsReturn {
         }
       }
     },
-    [isSignedIn, getToken]
+    [isSignedIn, getToken, storageKey]
   );
 
   // Debounced auto-save (triggers after user stops making changes)
@@ -398,9 +398,9 @@ export function useSettings(): UseSettingsReturn {
 /**
  * Load settings from localStorage with defaults merge
  */
-function loadFromLocalStorage(): AppSettings {
+function loadFromLocalStorage(storageKey: string): AppSettings {
   try {
-    const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (stored) {
       const parsed = JSON.parse(stored) as Partial<AppSettings>;
       return deepMergeSettings(DEFAULT_SETTINGS, parsed);
