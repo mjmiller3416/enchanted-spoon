@@ -4,6 +4,7 @@ import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react
 import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { maybeHandleAiGateError } from "@/lib/paywall";
+import { SettingsProvider } from "./SettingsProvider";
 
 export function QueryProvider({ children }: { children: ReactNode }) {
   const { userId, isLoaded } = useAuth();
@@ -52,6 +53,6 @@ function QuerySession({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}><SettingsProvider>{children}</SettingsProvider></QueryClientProvider>
   );
 }

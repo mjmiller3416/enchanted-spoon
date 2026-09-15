@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,7 +34,7 @@ export function SettingsView() {
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>(() =>
     searchParams.get("checkout") ? "billing" : "profile"
   );
-  const { settings, isLoaded, updateSettings, resetSection } = useSettings();
+  const { settings, isLoaded, updateSettings, resetSection, isSyncing, error: settingsError, retrySave } = useSettings();
   const { theme, setTheme } = useTheme();
 
   const checkoutHandled = useRef(false);
@@ -98,10 +98,6 @@ export function SettingsView() {
       case "shoppingList":
         return (
           <ShoppingListSection
-            autoClearChecked={settings.shoppingList.autoClearChecked}
-            onAutoClearChange={(value) =>
-              updateSettings("shoppingList", { autoClearChecked: value })
-            }
             categorySortOrder={settings.shoppingList.categorySortOrder}
             customCategoryOrder={settings.shoppingList.customCategoryOrder}
             onCategorySortOrderChange={(value) =>
@@ -152,7 +148,7 @@ export function SettingsView() {
   return (
     <PageLayout
       title="Settings"
-      description="Manage your preferences and account settings. Changes are saved automatically."
+      description="Manage your preferences and account settings."
       actions={
         <Button
           variant="ghost"
@@ -164,6 +160,11 @@ export function SettingsView() {
         </Button>
       }
     >
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm" role="status" aria-live="polite">
+          {isSyncing && <Loader2 className="size-4 animate-spin text-primary" strokeWidth={1.5} />}
+          <span className={settingsError ? "text-destructive" : "text-muted-foreground"}>{settingsError ?? (isSyncing ? "Saving changes…" : "All changes saved")}</span>
+          {settingsError && <Button variant="outline" size="sm" disabled={isSyncing} onClick={() => void retrySave()}>Retry</Button>}
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Sidebar - Category Navigation */}
           <div className="lg:col-span-1">
