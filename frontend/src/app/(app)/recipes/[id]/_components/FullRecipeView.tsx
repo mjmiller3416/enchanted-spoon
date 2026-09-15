@@ -160,7 +160,7 @@ export function FullRecipeView() {
   }
 
   // Not found state
-  if (error && (!(error instanceof ApiError) || error.status !== 404)) {
+  if (!recipe && error && (!(error instanceof ApiError) || error.status !== 404)) {
     return <div className="mx-auto max-w-5xl p-6"><QueryError title="Couldn't load this recipe" onRetry={() => void refetch()} retrying={isFetching} /></div>;
   }
   if (!recipe) {
@@ -212,7 +212,8 @@ export function FullRecipeView() {
         </div>
 
         {/* Main Content - Hidden for Print */}
-        <div className="relative z-10 max-w-5xl px-6 pb-12 mx-auto -mt-16 print:hidden">
+        <div className="relative z-10 max-w-5xl px-4 sm:px-6 pb-12 mx-auto -mt-6 print:hidden">
+          {error && <div className="mb-4"><QueryError title="Couldn’t refresh this recipe" onRetry={() => void refetch()} retrying={isFetching} /></div>}
           {/* Recipe Header Card */}
           <RecipeHeaderCard
             recipe={recipe}
@@ -228,11 +229,15 @@ export function FullRecipeView() {
             onDelete={handleDelete}
           />
 
+          <nav aria-label="Recipe sections" className="mb-6 flex gap-2 lg:hidden">
+            <Button variant="outline" size="sm" asChild><a href="#ingredients">Ingredients</a></Button>
+            <Button variant="outline" size="sm" asChild><a href="#directions">Directions</a></Button>
+          </nav>
           {/* Two Column Layout: Ingredients & Directions */}
           {wakeLockError && <p role="status" className="mb-4 text-sm text-warning">{wakeLockError}</p>}
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 print:block print:space-y-6">
             {/* Ingredients Column */}
-            <div className="lg:col-span-4 print:w-full">
+            <div id="ingredients" className="scroll-mt-24 lg:col-span-4 print:w-full">
               <Card className="print:shadow-none print:border print:border-gray-200">
                 <CardContent className="p-6 print:p-4">
                   {/* Section Header */}
@@ -293,7 +298,7 @@ export function FullRecipeView() {
             </div>
 
             {/* Directions Column */}
-            <div className="lg:col-span-8 print:w-full">
+            <div id="directions" className="scroll-mt-24 lg:col-span-8 print:w-full">
               <Card className="print:shadow-none print:border print:border-gray-200">
                 <CardContent className="p-6 print:p-4">
                   {/* Section Header */}

@@ -18,7 +18,9 @@ import {
   FolderOpen,
   ChefHat,
   Loader2,
+  MoreHorizontal,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +33,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   Tooltip,
@@ -87,8 +88,8 @@ export function RecipeHeaderCard({
     queryFn: async () => recipeApi.deletionImpact(recipeId, await getToken()) });
 
   return (
-    <Card className="mb-8 shadow-xl">
-      <CardContent className="p-6 md:p-8">
+    <Card className="mb-6 shadow-sm">
+      <CardContent className="p-4 sm:p-6">
         {/* Recipe Name */}
         <h1 className="mb-2 text-3xl font-bold leading-tight md:text-4xl text-foreground">
           {recipe.recipe_name}
@@ -168,7 +169,7 @@ export function RecipeHeaderCard({
         </RecipeBadgeGroup>
 
         {/* Quick Stats */}
-        <div className="flex flex-wrap items-center gap-6 text-muted-foreground">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-primary/10">
               <Timer className="w-5 h-5 text-primary" strokeWidth={1.5} />
@@ -238,7 +239,7 @@ export function RecipeHeaderCard({
             onClick={onMealPlanClick}
             className="gap-2"
           >
-            <CalendarPlus className="w-4 h-4" />
+            <CalendarPlus className="w-4 h-4" strokeWidth={1.5} />
             Add to Meal Plan
           </Button>
 
@@ -251,7 +252,7 @@ export function RecipeHeaderCard({
                   onClick={onCookModeToggle}
                   aria-pressed={cookMode}
                 >
-                  <ChefHat className="w-4 h-4" />
+                  <ChefHat className="w-4 h-4" strokeWidth={1.5} />
                   {cookMode ? (cookModeHeld ? "Screen awake" : "Screen lock paused") : "Cook Mode"}
                 </Button>
               </TooltipTrigger>
@@ -264,47 +265,26 @@ export function RecipeHeaderCard({
           )}
 
           <Button
-            onClick={onManageGroupsClick}
-            variant="secondary"
-            className="gap-2"
-          >
-            <FolderOpen className="w-4 h-4" />
-            Manage Groups
-          </Button>
-
-          <Button
             variant="outline"
             className="gap-2"
             onClick={() => openWizardForEdit(recipeId)}
           >
-            <Edit3 className="w-4 h-4" />
+            <Edit3 className="w-4 h-4" strokeWidth={1.5} />
             Edit Recipe
           </Button>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Print recipe" onClick={onPrintClick}>
-                <Printer className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Print Recipe</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Share recipe" onClick={onShare}>
-                <Share2 className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Share Recipe</TooltipContent>
-          </Tooltip>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline" aria-label="More recipe actions"><MoreHorizontal className="size-4" strokeWidth={1.5} />More</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onManageGroupsClick}><FolderOpen className="size-4" strokeWidth={1.5} />Manage groups</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onPrintClick}><Printer className="size-4" strokeWidth={1.5} />Print recipe</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onShare}><Share2 className="size-4" strokeWidth={1.5} />Copy private link</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => setDeleteOpen(true)}><Trash2 className="size-4" strokeWidth={1.5} />Delete recipe</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <AlertDialog open={deleteOpen} onOpenChange={value => { if (!deleting) setDeleteOpen(value); }}>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Delete recipe" className="text-muted-foreground hover:text-error hover:border-error">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Recipe</AlertDialogTitle>

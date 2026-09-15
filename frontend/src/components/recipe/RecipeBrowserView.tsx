@@ -41,6 +41,7 @@ import { RecipeSortControls, SORT_OPTIONS, type SortOption, type SortDirection }
 import { useNavActions } from "@/lib/providers/NavActionsProvider";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
 import { useAssistantDialog } from "@/lib/providers/AssistantProvider";
+import { compareRecipes } from "@/lib/recipe-sorting";
 import { cn } from "@/lib/utils";
 import { RecipeGrid } from "./browser/RecipeGrid";
 import { RecipeBrowserSkeleton } from "./browser/RecipeBrowserSkeleton";
@@ -85,7 +86,7 @@ function HeroSection({
   const defaultDescription =
     recipeCount === 0
       ? "Build your personal cookbook — every recipe you save is ready to plan and shop from"
-      : `Browse through your collection of ${recipeCount} saved recipes`;
+      : `Browse through your collection of ${recipeCount} saved ${recipeCount === 1 ? "recipe" : "recipes"}`;
   const displayDescription = description ?? defaultDescription;
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -107,17 +108,18 @@ function HeroSection({
         <div className="absolute inset-0 backdrop-blur-sm" />
       </div>
 
-      <div className="relative z-10 max-w-4xl mx-auto px-6 py-16 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-3 tracking-tight">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 sm:px-6 sm:py-10 text-center">
+        <h1 className="text-page-title text-foreground mb-3">
           {title}
         </h1>
-        <p className="text-muted-foreground text-lg mb-8">
+        <p className="text-muted-foreground text-sm sm:text-base mb-6">
           {displayDescription}
         </p>
 
         <div className="relative max-w-2xl mx-auto mb-4">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
+            aria-label="Search saved recipes, ingredients, and tags"
             placeholder="Search saved recipes, ingredients, tags..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -211,6 +213,7 @@ function CompactSearchHeader({
       <div className="relative max-w-xl mx-auto">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
+          aria-label="Search recipes"
           placeholder="Search recipes..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -599,21 +602,7 @@ export function RecipeBrowserView({
 
   const filteredRecipes = useMemo(() => {
     const result = applyTo(recipes);
-    return [...result].sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case "alphabetical":
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case "cookTime":
-          comparison = (a.totalTime || 0) - (b.totalTime || 0);
-          break;
-        case "createdAt":
-          comparison = Number(a.id) - Number(b.id);
-          break;
-      }
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
+    return [...result].sort((a, b) => compareRecipes(a, b, sortBy, sortDirection));
   }, [applyTo, recipes, sortBy, sortDirection]);
 
   const hasActiveFilters = hookHasActiveFilters || filters.searchTerm.length > 0;
@@ -780,6 +769,7 @@ export function RecipeBrowserView({
         />
       )}
       <RecipeGrid
+        key={filteredRecipes.map(recipe => recipe.id).join(",")}
         recipes={filteredRecipes}
         hasActiveFilters={hasActiveFilters}
         onRecipeClick={handleRecipeClick}

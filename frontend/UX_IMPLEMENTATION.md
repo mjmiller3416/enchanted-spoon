@@ -60,3 +60,11 @@ Validation: 16 frontend tests, TypeScript, lint, and production build passed. Au
 - Added UX_DESIGN.md documenting the existing design system and shared composition patterns.
 
 Validation: 16 tests, TypeScript, lint, and production build passed. Inspected editor at 390 and 1440 widths; corrected the default dialog width override. An ingredient-only edit triggered discard protection; discarded the temporary edit and verified the original quantity remained.
+
+## 6. Recipe browsing — `codex/recipe-browsing-polish`
+
+- Date Added sorts real timestamps; missing legacy dates remain last. Card rendering is bounded to 24 per page and resets when the filtered ordering changes.
+- Images reset failure/loading state on source replacement, load lazily with asynchronous decoding, and use Cloudinary responsive widths; detail heroes load eagerly.
+- Reduced library hero spacing and missing-image detail banners. Secondary detail actions share a menu; phone readers can jump to ingredients/directions. Cached recipe content remains visible if refresh fails.
+
+Validation: 19 frontend tests, TypeScript, lint and production build passed after correcting action-menu markup. Synthetic 5,000-record grid renders 24 cards and advances correctly. Phone detail and print-options dialog verified. Filtering remains on the full existing dataset; server pagination is deferred because the lightweight endpoint lacks filter parity, and local data cannot establish representative network performance.
