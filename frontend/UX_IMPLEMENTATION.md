@@ -85,3 +85,12 @@ Validation: 20 frontend tests (including concurrent failure isolation), 64 focus
 - Account-session state owns chat requests, unsent input and generated drafts; closing the popup or changing display size does not discard them. Generated image data stays in memory.
 
 Validation: 22 frontend tests, TypeScript, lint and production build passed. Tested a response arriving after popup closure and dashboard partial failure. Browser verified expanded focus wrapping, return to launcher, unsent close/reopen persistence, and phone layout. Cleared the temporary unsent text; no paid AI request was sent.
+
+## 9. Settings, admin and public polish — `codex/settings-admin-public-polish`
+
+- Settings and admin share section navigation: a compact phone selector and desktop sidebar, with section selection retained in the URL.
+- Shared section headers, fewer nested containers, wrapping user rows, and recoverable admin query errors align these views with the rest of the app.
+- Profile controls open the authenticated account dialog. Appearance choices use accessible shared buttons; quantity labels reach the actual input.
+- Public nutrition copy accurately describes on-demand estimates.
+
+Validation: 22 frontend tests, TypeScript, lint and production build passed (the final input-label forwarding also passed TypeScript, lint and tests). Inspected settings at 390, 768 and 1440 widths in light/dark, verified section reload persistence and account dialog open/close. Original dark theme restored. Local account lacks admin access, so populated admin visual validation remains for staging; access was not bypassed.

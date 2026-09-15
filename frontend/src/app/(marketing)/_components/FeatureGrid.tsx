@@ -44,7 +44,7 @@ const FEATURES: Feature[] = [
   {
     icon: Apple,
     title: "Nutrition facts",
-    body: "Calories and macros for every recipe, estimated automatically.",
+    body: "Estimate calories and macros on demand while creating or editing a recipe.",
   },
   {
     icon: Flame,

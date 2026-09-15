@@ -10,6 +10,7 @@ import {
   ShieldOff,
 } from "lucide-react";
 import { toast } from "sonner";
+import { QueryError } from "@/components/common/QueryError";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +62,7 @@ function formatDate(dateStr: string): string {
 export function AdminUsersSection() {
   const [page, setPage] = useState(0);
   const limit = 20;
-  const { data, isLoading } = useAdminUsers(page * limit, limit);
+  const { data, isLoading, isError, isFetching, refetch } = useAdminUsers(page * limit, limit);
 
   const grantPro = useGrantPro();
   const revokePro = useRevokePro();
@@ -154,12 +155,12 @@ export function AdminUsersSection() {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : isError ? <QueryError title="Couldn’t load users" onRetry={() => void refetch()} retrying={isFetching} /> : (
             <div className="space-y-2">
               {data?.items.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center gap-4 p-3 rounded-xl hover:bg-hover transition-colors"
+                  className="flex flex-wrap items-center gap-3 p-3 rounded-xl hover:bg-hover transition-colors"
                 >
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={user.avatar_url || undefined} />
@@ -168,7 +169,7 @@ export function AdminUsersSection() {
                     </AvatarFallback>
                   </Avatar>
 
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-32">
                     <p className="text-sm font-medium text-foreground truncate">
                       {user.name || "No name"}
                     </p>
@@ -193,7 +194,7 @@ export function AdminUsersSection() {
                     ) : null}
                   </div>
 
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-1 ml-auto">
                     {!user.has_pro_access ? (
                       <Button
                         size="icon"

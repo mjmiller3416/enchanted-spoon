@@ -59,6 +59,7 @@ export function AdminDatabaseSection() {
       <Card>
         <CardContent className="p-4 space-y-3">
           <Textarea
+            aria-label="Read-only SQL query"
             ref={textareaRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -133,7 +134,7 @@ export function AdminDatabaseSection() {
 
             {/* Results table */}
             {result.columns.length > 0 ? (
-              <div className="overflow-auto max-h-[600px] rounded-lg border border-border">
+              <div className="overflow-auto max-h-144 rounded-lg border border-border">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-muted">

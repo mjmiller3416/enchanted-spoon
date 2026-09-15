@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { parseQuantity } from "@/lib/quantityUtils";
 import { formatQuantity } from "@/lib/utils";
 
-interface QuantityInputProps {
+interface QuantityInputProps extends Pick<React.ComponentProps<typeof Input>, "id" | "aria-label" | "aria-labelledby" | "aria-describedby" | "aria-invalid"> {
   value: number | null;
   onChange: (value: number | null) => void;
   placeholder?: string;
@@ -25,6 +25,7 @@ export function QuantityInput({
   onChange,
   placeholder = "Qty",
   className,
+  ...accessibility
 }: QuantityInputProps) {
   const [inputText, setInputText] = React.useState(() => formatQuantity(value));
   const [isFocused, setIsFocused] = React.useState(false);
@@ -52,6 +53,7 @@ export function QuantityInput({
 
   return (
     <Input
+      {...accessibility}
       type="text"
       value={inputText}
       onChange={handleChange}

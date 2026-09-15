@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Shield, Database, Activity } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { SectionNav } from "@/components/layout/SectionNav";
+import { QueryError } from "@/components/common/QueryError";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { SidebarPageSkeleton } from "@/components/layout/SidebarPageSkeleton";
-import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/api";
 import { AdminUsersSection } from "./AdminUsersSection";
 import { AdminUsageSection } from "./AdminUsageSection";
@@ -43,13 +42,18 @@ const TABS: TabConfig[] = [
 ];
 
 export function AdminView() {
-  const [activeTab, setActiveTab] = useState<AdminTab>("users");
-  const { isAdmin, isLoading } = useCurrentUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = TABS.find(tab => tab.id === searchParams.get("section"))?.id ?? "users";
+  const setActiveTab = (tab: AdminTab) => router.push(`/admin?section=${tab}`, { scroll: false });
+  const { isAdmin, isLoading, error, refetch, isFetching } = useCurrentUser();
 
   // Show loading state (skeleton matches the final sidebar+content layout)
   if (isLoading) {
     return <SidebarPageSkeleton />;
   }
+
+  if (error) return <PageLayout title="Admin Panel"><QueryError title="Couldn’t verify admin access" onRetry={() => void refetch()} retrying={isFetching} /></PageLayout>;
 
   // Block non-admin users
   if (!isAdmin) {
@@ -84,67 +88,16 @@ export function AdminView() {
       title="Admin Panel"
       description="Manage users and access levels."
     >
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-8">
         {/* Left Sidebar - Tab Navigation */}
         <div className="lg:col-span-1">
           <div className="sticky top-24">
-            <Card className="overflow-hidden">
-              <CardContent className="p-4">
-                <nav className="space-y-1">
-                  {TABS.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-
-                    return (
-                      <Button
-                        key={tab.id}
-                        variant="ghost"
-                        onClick={() => setActiveTab(tab.id)}
-                        className={cn(
-                          "w-full h-auto flex items-center gap-3 px-4 py-3 rounded-xl text-left justify-start transition-all duration-200",
-                          isActive
-                            ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
-                            : "text-muted-foreground hover:text-foreground hover:bg-hover"
-                        )}
-                      >
-                        <Icon
-                          className={cn(
-                            "size-5 flex-shrink-0",
-                            isActive && "text-primary-foreground"
-                          )}
-                          strokeWidth={1.5}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={cn(
-                              "text-sm font-medium",
-                              isActive && "text-primary-foreground"
-                            )}
-                          >
-                            {tab.label}
-                          </p>
-                          <p
-                            className={cn(
-                              "text-xs truncate mt-0.5",
-                              isActive
-                                ? "text-primary-foreground/70"
-                                : "text-muted-foreground"
-                            )}
-                          >
-                            {tab.description}
-                          </p>
-                        </div>
-                      </Button>
-                    );
-                  })}
-                </nav>
-              </CardContent>
-            </Card>
+            <SectionNav sections={TABS} active={activeTab} onChange={setActiveTab} label="Admin section" />
           </div>
         </div>
 
         {/* Right Content */}
-        <div className="lg:col-span-3 space-y-6">{renderContent()}</div>
+        <div className="min-w-0 lg:col-span-3 space-y-6">{renderContent()}</div>
       </div>
     </PageLayout>
   );

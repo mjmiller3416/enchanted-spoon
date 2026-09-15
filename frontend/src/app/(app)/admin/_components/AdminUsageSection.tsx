@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Activity, ChevronLeft, ChevronRight } from "lucide-react";
+import { QueryError } from "@/components/common/QueryError";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -96,7 +97,7 @@ export function AdminUsageSection() {
   const currentMonth = useMemo(() => getCurrentMonth(), []);
   const isCurrentMonth = month >= currentMonth;
 
-  const { data, isLoading, isError, error } = useAdminUsage(month);
+  const { data, isLoading, isError, isFetching, refetch } = useAdminUsage(month);
 
   return (
     <Card>
@@ -149,13 +150,9 @@ export function AdminUsageSection() {
             ))}
           </div>
         ) : isError ? (
-          <p className="text-sm text-destructive text-center py-8">
-            {error instanceof Error
-              ? error.message
-              : "Failed to load usage data."}
-          </p>
+          <QueryError title="Couldn’t load usage" onRetry={() => void refetch()} retrying={isFetching} />
         ) : (
-          <div className="rounded-lg border border-border">
+          <div className="min-w-0 rounded-lg border border-border">
             <Table>
               <TableHeader>
                 <TableRow>
