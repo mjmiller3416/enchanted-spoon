@@ -61,8 +61,13 @@ export function SavedMealCard({
     <Card
       interactive
       onClick={handleClick}
+      role="button"
+      tabIndex={isAdding ? -1 : 0}
+      aria-disabled={isAdding}
+      aria-label={`Select ${meal.meal_name}`}
+      onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); handleClick(); } }}
       className={cn(
-        "overflow-hidden group p-0 gap-0 animate-slide-up",
+        "overflow-hidden group p-0 gap-0 animate-slide-up focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isAdding && "opacity-50 pointer-events-none",
         className
       )}

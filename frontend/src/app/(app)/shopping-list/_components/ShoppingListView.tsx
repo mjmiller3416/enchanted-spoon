@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
@@ -79,12 +80,12 @@ export function ShoppingListView() {
 
   // Handle toggling an item's checked state
   const handleToggleItem = (itemId: number) => {
-    toggleItem.mutate(itemId);
+    toggleItem.mutate(itemId, { onError: () => toast.error("Couldn't update this item. Please try again.") });
   };
 
   // Handle toggling an item's flagged state
   const handleToggleFlagged = (itemId: number) => {
-    toggleFlagged.mutate(itemId);
+    toggleFlagged.mutate(itemId, { onError: () => toast.error("Couldn't update the flag. Please try again.") });
   };
 
   // Toggle hiding completed items (persists via the settings store)
@@ -464,6 +465,7 @@ export function ShoppingListView() {
               <Button
                 variant="ghost"
                 size="icon-sm"
+                aria-label="Clear recipe filter"
                 onClick={() => setFilterRecipeName(null)}
                 className="ml-auto text-primary"
               >

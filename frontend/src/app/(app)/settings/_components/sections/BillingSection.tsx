@@ -2,6 +2,7 @@
 
 import { CreditCard, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { QueryError } from "@/components/common/QueryError";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -105,8 +106,8 @@ function UsageRow({
  * and the monthly AI usage meter.
  */
 export function BillingSection() {
-  const { data: user, isLoading: userLoading } = useCurrentUser();
-  const { data: usage, isLoading: usageLoading } = useMyUsage();
+  const { data: user, isLoading: userLoading, error: userError, refetch: retryUser, isFetching: fetchingUser } = useCurrentUser();
+  const { data: usage, isLoading: usageLoading, error: usageError, refetch: retryUsage, isFetching: fetchingUsage } = useMyUsage();
   const startCheckout = useStartCheckout();
   const openPortal = useOpenBillingPortal();
 
@@ -138,7 +139,7 @@ export function BillingSection() {
 
         <div className="space-y-6">
           {/* Current plan */}
-          {userLoading || !user ? (
+          {userError ? <QueryError title="Couldn’t load your plan" onRetry={() => void retryUser()} retrying={fetchingUser} /> : userLoading || !user ? (
             <div className="space-y-2">
               <Skeleton className="h-5 w-24" />
               <Skeleton className="h-4 w-64" />
@@ -192,7 +193,7 @@ export function BillingSection() {
               </p>
             </div>
 
-            {usageLoading || !usage ? (
+            {usageError ? <QueryError title="Couldn’t load usage" onRetry={() => void retryUsage()} retrying={fetchingUsage} /> : usageLoading || !usage ? (
               <div className="space-y-4">
                 {USAGE_ROWS.map((row) => (
                   <div key={row.field} className="space-y-1.5">
