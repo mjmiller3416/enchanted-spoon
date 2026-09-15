@@ -37,7 +37,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
       <AssistantFab />
       <AssistantPopup open={assistantOpen} onOpenChange={setAssistantOpen} />
-      <RecipeWizardView
+      {isOpen && <RecipeWizardView
         key={
           mode === "edit"
             ? `edit-${editRecipeId}`
@@ -50,7 +50,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         mode={mode}
         recipeId={editRecipeId}
         initialGenerated={generatedSeed}
-      />
+      />}
       <ScrollToTopButton />
       <PaywallDialog />
     </div>
