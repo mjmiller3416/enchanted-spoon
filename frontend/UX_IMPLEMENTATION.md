@@ -41,3 +41,13 @@ Validation: 10 regression tests, TypeScript, lint, and production build passed. 
 - Removed automatic-clear options with no implementation; imports invalidate dependent caches, and backup restore uses the shared settings store.
 
 Validation: 13 frontend regression tests and 74 focused backend tests passed; TypeScript, lint, and production build passed. In the authenticated browser, changing appearance showed “Saving changes…” followed by “All changes saved”; the API confirmed PATCH 200. Restored the original dark preference.
+
+## 4. Feedback and accessibility — `codex/frontend-feedback-accessibility`
+
+- Added shared query-failure/retry presentation for planner, recipe detail, and billing; mutation failures now have visible feedback.
+- Numeric inputs support replacement editing, bounded steps, associated labels, forwarded error descriptions/ref, and container focus styling. Autocomplete exposes combobox/option relationships.
+- Saved-meal selection and recipe-image actions support keyboard use. Shopping icon actions are named; navigation has nested active states and a skip link.
+- Clipboard success is awaited. Recipe deletion loads affected-meal counts and retains confirmation on failure. Checkout-return messaging no longer asserts an unverified subscription state.
+- Cook Mode exposes actual wake-lock acquisition/release and handles late acquisition after cancellation.
+
+Validation: 16 frontend tests, TypeScript, lint, and production build passed. Authenticated recipe detail and its action controls rendered successfully. Destructive deletion was not executed against the local account.

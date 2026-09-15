@@ -1,100 +1,41 @@
-import * as React from "react"
-import { Minus, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { Minus, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
-interface NumberStepperProps {
-    value?: number
-    onChange?: (value: number) => void
-    min?: number
-    max?: number
-    step?: number
-    unit?: string
-    className?: string
-    label?: string
-    hasError?: boolean
-    id?: string
+interface NumberStepperProps extends Omit<React.ComponentProps<"input">, "value" | "onChange" | "size" | "type"> {
+  value?: number;
+  onChange?: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+  label?: string;
+  hasError?: boolean;
 }
 
-export function NumberStepper({
-    value = 0,
-    onChange,
-    min = 0,
-    max = 999,
-    step = 1,
-    unit,
-    className,
-    label,
-    hasError,
-    id,
-}: NumberStepperProps) {
-
-    const handleDecrement = () => {
-        if (value > min) onChange?.(value - step)
-    }
-
-    const handleIncrement = () => {
-        if (value < max) onChange?.(value + step)
-    }
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newValue = parseInt(e.target.value)
-        if (!isNaN(newValue)) {
-            onChange?.(Math.min(Math.max(newValue, min), max))
-        }
-    }
-
-    return (
-        <div className={cn("flex flex-col gap-1.5", className)}>
-            {label && (
-                <label className="text-sm text-foreground">
-                    {label}
-                </label>
-            )}
-            <div className="flex items-center rounded-lg border border-border bg-background overflow-hidden">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 rounded-none bg-elevated text-primary hover:bg-hover hover:text-primary active:scale-95 transition-transform border-r border-border"
-                    onClick={handleDecrement}
-                    disabled={value <= min}
-                    aria-label={label ? `Decrease ${label}` : "Decrease value"}
-                >
-                    <Minus className="size-3.5" strokeWidth={1.5} />
-                </Button>
-
-                <div className="relative flex-1 min-w-[50px]">
-                    <Input
-                        id={id}
-                        type="number"
-                        value={value}
-                        onChange={handleInputChange}
-                        className={cn(
-                            "text-center pr-1 bg-background border-0 rounded-none shadow-none focus-visible:ring-0",
-                            hasError && "border-destructive",
-                        )}
-                    />
-                    {unit && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground pointer-events-none">
-                            {unit}
-                        </span>
-                    )}
-                </div>
-
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 rounded-none bg-elevated text-primary hover:bg-hover hover:text-primary active:scale-95 transition-transform border-l border-border"
-                    onClick={handleIncrement}
-                    disabled={value >= max}
-                    aria-label={label ? `Increase ${label}` : "Increase value"}
-                >
-                    <Plus className="size-3.5" strokeWidth={1.5} />
-                </Button>
-            </div>
-        </div>
-    )
+export function NumberStepper({ value = 0, onChange, min = 0, max = 999, step = 1, unit, label, hasError, id, className, disabled, readOnly, onBlur, ref, ...props }: NumberStepperProps) {
+  const generatedId = React.useId();
+  const inputId = id ?? generatedId;
+  const [draft, setDraft] = React.useState<string | null>(null);
+  const clamp = (number: number) => Math.min(max, Math.max(min, number));
+  const adjust = (delta: number) => { setDraft(null); onChange?.(clamp(value + delta)); };
+  const invalid = hasError || props["aria-invalid"];
+  return (
+    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
+      {label && <Label htmlFor={inputId}>{label}</Label>}
+      <div className={cn("flex items-center overflow-hidden rounded-lg border bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background", invalid ? "border-destructive" : "border-input")}>
+        <Button type="button" variant="ghost" size="icon" className="shrink-0 rounded-none border-r border-border" disabled={disabled || readOnly || value <= min} aria-label={label ? `Decrease ${label}` : "Decrease value"} onClick={() => adjust(-step)}><Minus className="size-4" strokeWidth={1.5} /></Button>
+        <Input {...props} ref={ref} id={inputId} type="number" inputMode="decimal" min={min} max={max} step={step} disabled={disabled} readOnly={readOnly} value={draft ?? value} aria-invalid={invalid} className="min-w-12 rounded-none border-0 bg-transparent px-1 text-center shadow-none focus-visible:ring-0" onChange={event => {
+          const text = event.target.value;
+          setDraft(text);
+          if (text !== "" && Number.isFinite(Number(text))) onChange?.(clamp(Number(text)));
+        }} onBlur={event => { setDraft(null); onBlur?.(event); }} />
+        {unit && <span className="pr-2 text-xs text-muted-foreground">{unit}</span>}
+        <Button type="button" variant="ghost" size="icon" className="shrink-0 rounded-none border-l border-border" disabled={disabled || readOnly || value >= max} aria-label={label ? `Increase ${label}` : "Increase value"} onClick={() => adjust(step)}><Plus className="size-4" strokeWidth={1.5} /></Button>
+      </div>
+    </div>
+  );
 }

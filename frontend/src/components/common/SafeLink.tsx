@@ -17,6 +17,7 @@ import {
 import { AlertTriangle } from "lucide-react";
 
 interface SafeLinkProps {
+  "aria-current"?: React.AriaAttributes["aria-current"];
   href: string;
   children: React.ReactNode;
   className?: string;
@@ -29,7 +30,7 @@ interface SafeLinkProps {
  * 
  * Use this in navigation components (like Sidebar) to respect unsaved changes.
  */
-export function SafeLink({ href, children, className, onClick }: SafeLinkProps) {
+export function SafeLink({ href, children, className, onClick, ...ariaProps }: SafeLinkProps) {
   const router = useRouter();
   const [showDialog, setShowDialog] = useState(false);
   // Use ref to store href so it's not affected by state updates during dialog close
@@ -98,7 +99,7 @@ export function SafeLink({ href, children, className, onClick }: SafeLinkProps) 
 
   return (
     <>
-      <Link href={href} className={className} onClick={handleClick}>
+      <Link {...ariaProps} href={href} className={className} onClick={handleClick}>
         {children}
       </Link>
 

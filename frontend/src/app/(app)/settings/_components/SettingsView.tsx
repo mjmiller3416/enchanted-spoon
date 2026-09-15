@@ -44,7 +44,7 @@ export function SettingsView() {
     checkoutHandled.current = true;
 
     if (checkout === "success") {
-      toast.success("Welcome to Pro! Your subscription is now active.");
+      toast.info("Checkout completed. Refreshing your subscription status…");
       // Webhook writes the new tier — refetch profile + usage caps.
       queryClient.invalidateQueries({ queryKey: currentUserQueryKeys.all });
     } else if (checkout === "cancelled") {

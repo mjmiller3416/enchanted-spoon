@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { QueryError } from "@/components/common/QueryError";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,7 +42,7 @@ export function MealPlannerView() {
   const searchParams = useSearchParams();
 
   // Fetch planner entries via React Query
-  const { data: entries = [], isLoading } = usePlannerEntries();
+  const { data: entries = [], isLoading, error: loadError, refetch, isFetching } = usePlannerEntries();
 
   // Planner summary supplies the server-owned capacity limit; the live count
   // comes from the entries cache so it tracks optimistic updates instantly
@@ -68,7 +69,7 @@ export function MealPlannerView() {
   const [explicitSelectedEntryId, setSelectedEntryId] = useState<number | null>(null);
   const selectedEntryId =
     explicitSelectedEntryId ?? entries.find((e) => !e.is_completed)?.id ?? null;
-  const [, setError] = useState<string | null>(null);
+  const setError = (message: string | null) => { if (message) toast.error(message); };
   const [mealRefreshKey, setMealRefreshKey] = useState(0);
 
   // Meal builder overlay state (the overlay owns the in-progress meal itself)
@@ -357,6 +358,8 @@ export function MealPlannerView() {
       },
     });
   };
+
+  if (loadError && !entries.length) return <PageLayout title="Meal Planner"><QueryError title="Couldn’t load your meal plan" onRetry={() => void refetch()} retrying={isFetching} /></PageLayout>;
 
   return (
     <PageLayout

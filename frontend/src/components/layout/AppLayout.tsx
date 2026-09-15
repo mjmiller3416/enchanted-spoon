@@ -29,9 +29,10 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-screen print:block print:min-h-0">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">Skip to main content</a>
       <TopNav onOpenAssistant={openAssistant} />
       <MobileBottomNav onOpenAssistant={openAssistant} />
-      <main className="flex-1 pb-20 md:pb-0 print:pb-0">
+      <main id="main-content" tabIndex={-1} className="flex-1 pb-20 md:pb-0 print:pb-0">
         {children}
       </main>
       <AssistantFab />

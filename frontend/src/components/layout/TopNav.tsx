@@ -130,6 +130,7 @@ function NavButton({
   return (
     <SafeLink
       href={href}
+      aria-current={isActive ? "page" : undefined}
       onClick={onClick}
       className={cn(
         // Base layout
@@ -525,7 +526,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
               icon={item.icon}
               label={item.name}
               href={item.href}
-              isActive={pathname === item.href}
+              isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
               badge={item.hasBadge ? shoppingListRemaining : undefined}
             />
           ))}
@@ -632,7 +633,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
                 icon={item.icon}
                 label={item.name}
                 href={item.href}
-                isActive={pathname === item.href}
+                isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
                 badge={item.hasBadge ? shoppingListRemaining : undefined}
                 onClick={handleSheetNavigate}
               />

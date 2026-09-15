@@ -18,7 +18,7 @@ export function useRecipeView(recipeId: number) {
   const { addToRecent } = useRecentRecipes();
 
   // Fetch recipe and planner entries via React Query
-  const { data: recipe, isLoading: recipeLoading } = useRecipe(recipeId);
+  const { data: recipe, isLoading: recipeLoading, error, refetch, isFetching } = useRecipe(recipeId);
   const { data: plannerEntries = [] } = usePlannerEntries();
   const deleteRecipeMutation = useDeleteRecipe();
   const favoriteMutation = useToggleFavorite();
@@ -93,6 +93,8 @@ export function useRecipeView(recipeId: number) {
       router.push("/recipes");
     } catch (error) {
       console.error("Failed to delete recipe:", error);
+      toast.error("Couldn't delete the recipe. Please try again.");
+      throw error;
     }
   };
 
@@ -112,6 +114,9 @@ export function useRecipeView(recipeId: number) {
   return {
     // Data
     recipe: recipe ?? null,
+    error,
+    refetch,
+    isFetching,
     loading,
     isFavorite,
     favoritePending: favoriteMutation.isPending,

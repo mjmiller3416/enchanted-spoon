@@ -1,4 +1,8 @@
 "use client";
+import { useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
+import { recipeApi } from "@/lib/api";
 
 import {
   Clock,
@@ -13,6 +17,7 @@ import {
   Share2,
   FolderOpen,
   ChefHat,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,6 +49,7 @@ interface RecipeHeaderCardProps {
   recipeId: number;
   /** Whether Cook Mode (keep-screen-awake) is currently on. */
   cookMode: boolean;
+  cookModeHeld: boolean;
   /** Whether the browser supports the wake lock — hides the toggle when false. */
   cookModeSupported: boolean;
   onCookModeToggle: () => void;
@@ -51,7 +57,7 @@ interface RecipeHeaderCardProps {
   onManageGroupsClick: () => void;
   onPrintClick: () => void;
   onShare: () => void;
-  onDelete: () => void;
+  onDelete: () => Promise<void>;
 }
 
 /**
@@ -62,6 +68,7 @@ export function RecipeHeaderCard({
   recipe,
   recipeId,
   cookMode,
+  cookModeHeld,
   cookModeSupported,
   onCookModeToggle,
   onMealPlanClick,
@@ -73,6 +80,11 @@ export function RecipeHeaderCard({
   // Fetch recipe groups
   const { data: recipeGroups = [] } = useRecipeGroupsForRecipe(recipeId);
   const { openWizardForEdit } = useRecipeWizardDialog();
+  const { getToken } = useAuth();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const impact = useQuery({ queryKey: ["recipes", "deletion-impact", recipeId], enabled: deleteOpen,
+    queryFn: async () => recipeApi.deletionImpact(recipeId, await getToken()) });
 
   return (
     <Card className="mb-8 shadow-xl">
@@ -240,12 +252,12 @@ export function RecipeHeaderCard({
                   aria-pressed={cookMode}
                 >
                   <ChefHat className="w-4 h-4" />
-                  {cookMode ? "Cook Mode On" : "Cook Mode"}
+                  {cookMode ? (cookModeHeld ? "Screen awake" : "Screen lock paused") : "Cook Mode"}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
                 {cookMode
-                  ? "Screen will stay awake — tap to turn off"
+                  ? (cookModeHeld ? "Screen wake lock is active — tap to turn off" : "The browser has not acquired a screen wake lock — tap to turn off")
                   : "Keep the screen awake while you cook"}
               </TooltipContent>
             </Tooltip>
@@ -287,7 +299,7 @@ export function RecipeHeaderCard({
             <TooltipContent>Share Recipe</TooltipContent>
           </Tooltip>
 
-          <AlertDialog>
+          <AlertDialog open={deleteOpen} onOpenChange={value => { if (!deleting) setDeleteOpen(value); }}>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="icon" aria-label="Delete recipe" className="text-muted-foreground hover:text-error hover:border-error">
                 <Trash2 className="w-4 h-4" />
@@ -298,15 +310,19 @@ export function RecipeHeaderCard({
                 <AlertDialogTitle>Delete Recipe</AlertDialogTitle>
                 <AlertDialogDescription>
                   Are you sure you want to delete &quot;{recipe.recipe_name}&quot;? This action cannot be undone.
+                  {impact.isLoading && <span className="mt-2 block">Checking affected meals…</span>}
+                  {impact.data && impact.data.total_affected > 0 && <span className="mt-2 block">This also deletes {impact.data.meals_to_delete.length} meal(s) and removes this recipe from the sides of {impact.data.meals_to_update.length} meal(s).</span>}
+                  {impact.isError && <span className="mt-2 block text-destructive">Couldn&apos;t check affected meals. <Button variant="link" size="sm" onClick={() => void impact.refetch()}>Retry</Button></span>}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={onDelete}
+                  disabled={deleting || !impact.data || impact.isFetching || impact.isError}
+                  onClick={async event => { event.preventDefault(); setDeleting(true); try { await onDelete(); setDeleteOpen(false); } catch { /* The mutation shows the error; keep confirmation open. */ } finally { setDeleting(false); } }}
                   className="bg-error hover:bg-error/90"
                 >
-                  Delete Recipe
+                  {deleting && <Loader2 className="size-4 animate-spin" strokeWidth={1.5} />}Delete Recipe
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

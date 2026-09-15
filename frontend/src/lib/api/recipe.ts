@@ -8,6 +8,8 @@ import type {
 import { fetchApi, buildQueryString } from "./base";
 
 export const recipeApi = {
+  deletionImpact: (id: number, token?: string | null): Promise<{ meals_to_delete: { id: number; meal_name: string }[]; meals_to_update: { id: number; meal_name: string }[]; total_affected: number }> =>
+    fetchApi(`/api/recipes/${id}/deletion-impact`, undefined, token),
   /**
    * List recipes with optional filters
    * @param filters - Optional filter parameters

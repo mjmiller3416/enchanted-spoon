@@ -157,6 +157,8 @@ export function ShoppingItem({ item, onToggle, onToggleFlagged }: ShoppingItemPr
         variant="ghost"
         size="icon-sm"
         onClick={handleFlagClick}
+        aria-label={item.flagged ? "Remove item flag" : "Flag item"}
+        aria-pressed={item.flagged}
         className={cn(
           "shrink-0",
           item.flagged
@@ -165,6 +167,7 @@ export function ShoppingItem({ item, onToggle, onToggleFlagged }: ShoppingItemPr
         )}
       >
         <Flag
+          strokeWidth={1.5}
           className={cn(
             "size-4",
             item.flagged && "fill-warning"
