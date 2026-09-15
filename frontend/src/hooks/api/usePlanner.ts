@@ -412,6 +412,21 @@ export function useToggleSaveMeal() {
  * Cycle the shopping mode of a planner entry: all -> produce_only -> none -> all
  * With optimistic update for instant UI feedback.
  */
+export function useSetShoppingMode() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    scope: { id: "planner-shopping-mode" },
+    mutationFn: async ({ id, mode }: { id: number; mode: ShoppingMode }) => plannerApi.setShoppingMode(id, mode, await getToken()),
+    onSuccess: entry => queryClient.setQueryData<PlannerEntryResponseDTO[]>(plannerQueryKeys.entries(), old => old?.map(item => item.id === entry.id ? entry : item)),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: plannerQueryKeys.entries() });
+      void queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() });
+      dispatchPlannerUpdate();
+    },
+  });
+}
+
 export function useCycleShoppingMode() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();

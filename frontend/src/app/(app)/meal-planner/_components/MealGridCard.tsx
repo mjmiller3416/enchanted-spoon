@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
 import { RecipeBannerImage } from "@/components/recipe/RecipeBannerImage";
-import { ShoppingCart, Users, Clock, Bookmark } from "lucide-react";
+import { ShoppingCart, Users, Clock, Bookmark, Loader2 } from "lucide-react";
 import { formatTime } from "@/lib/quantityUtils";
 import { ShoppingMode } from "@/types/shopping";
 
@@ -32,7 +31,7 @@ interface MealGridCardProps {
   isSelected?: boolean;
   isAnyDragging?: boolean;
   onClick?: () => void;
-  onCycleShoppingMode?: () => void;
+  onSetShoppingMode?: (mode: ShoppingMode) => void;
   isShoppingModePending?: boolean;
   className?: string;
 }
@@ -53,18 +52,6 @@ function getShoppingModeTooltip(mode: ShoppingMode): string {
   }
 }
 
-/** Get aria-label for the shopping mode button */
-function getShoppingModeAriaLabel(mode: ShoppingMode): string {
-  switch (mode) {
-    case "all":
-      return "Click to include only produce";
-    case "produce_only":
-      return "Click to exclude from shopping list";
-    case "none":
-      return "Click to include all ingredients";
-  }
-}
-
 // ============================================================================
 // MEAL GRID CARD COMPONENT
 // ============================================================================
@@ -78,7 +65,7 @@ export function MealGridCard({
   isSelected = false,
   isAnyDragging = false,
   onClick,
-  onCycleShoppingMode,
+  onSetShoppingMode,
   isShoppingModePending = false,
   className,
 }: MealGridCardProps) {
@@ -104,19 +91,11 @@ export function MealGridCard({
 
   const shoppingMode = item.shoppingMode ?? "all";
 
-  // The shopping-mode tooltip is controlled (open = hovering || focused) so it
-  // survives the click that cycles the mode. An uncontrolled Radix tooltip
-  // closes on pointer-down, so after toggling you'd have to move the cursor off
-  // and back to see the new text — the bug reported in #172. Keeping it open
-  // lets the reactive tooltip text update the instant shoppingMode changes.
-  const [tooltipHovering, setTooltipHovering] = useState(false);
-  const [tooltipFocused, setTooltipFocused] = useState(false);
-
   // Keyboard: Enter opens the meal; Space (via the sensor's keyboardCodes)
   // lifts it for reordering. While a keyboard drag is active the sensor owns
   // all key handling at the document level, so we stay out of the way.
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isDragging) return;
+    if (isDragging || e.target !== e.currentTarget) return;
     if (e.key === "Enter") {
       e.preventDefault();
       onClick?.();
@@ -168,60 +147,20 @@ export function MealGridCard({
 
         {/* Status Icons - Top Right */}
         <div className="absolute top-2 right-2 flex gap-1">
-          {/* Shopping Cart Toggle with Tooltip */}
-          <Tooltip open={tooltipHovering || tooltipFocused}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                shape="pill"
-                aria-busy={isShoppingModePending}
-                onPointerEnter={() => setTooltipHovering(true)}
-                onPointerLeave={() => {
-                  // Clear focus too: a mouse click also focuses the button, and
-                  // without this the tooltip would stay stuck open (and stack on
-                  // top of the next card's tooltip) after the pointer moves away.
-                  // Keyboard focus never fires pointerleave, so tabbing to the
-                  // toggle still shows the tooltip until blur.
-                  setTooltipHovering(false);
-                  setTooltipFocused(false);
-                }}
-                onFocus={() => setTooltipFocused(true)}
-                onBlur={() => setTooltipFocused(false)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Guard rapid re-clicks while the mode change is in flight —
-                  // the button stays enabled (so hover/tooltip keep working),
-                  // and the parent also ignores overlapping requests (#173).
-                  if (isShoppingModePending) return;
-                  onCycleShoppingMode?.();
-                }}
-                className={cn(
-                  "relative size-6 bg-overlay-strong",
-                  isShoppingModePending && "opacity-60"
-                )}
-                aria-label={getShoppingModeAriaLabel(shoppingMode)}
-              >
-                <ShoppingCart
-                  className={cn(
-                    "size-3.5",
-                    shoppingMode === "none" && "text-destructive",
-                    shoppingMode === "produce_only" && "text-warning",
-                    shoppingMode === "all" && "text-secondary"
-                  )}
-                  strokeWidth={1.5}
-                />
-                {shoppingMode === "none" && (
-                  <span className="absolute inset-0 flex items-center justify-center">
-                    <span className="w-4 h-0.5 bg-destructive rotate-[-45deg]" />
-                  </span>
-                )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon-sm" disabled={isShoppingModePending} aria-label={`Shopping mode: ${getShoppingModeTooltip(shoppingMode)}`} onPointerDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
+                {isShoppingModePending ? <Loader2 className="size-4 animate-spin" strokeWidth={1.5} /> : <ShoppingCart className="size-4" strokeWidth={1.5} />}
               </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {getShoppingModeTooltip(shoppingMode)}
-            </TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+              <DropdownMenuRadioGroup value={shoppingMode} onValueChange={value => onSetShoppingMode?.(value as ShoppingMode)}>
+                <DropdownMenuRadioItem value="all">All ingredients</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="produce_only">Produce only</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="none">Exclude from shopping</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Saved Indicator */}
           {item.isSaved && (

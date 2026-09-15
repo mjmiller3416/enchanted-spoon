@@ -9,6 +9,7 @@ interface StatCardProps {
   label: string;
   colorClass: "purple" | "pink" | "teal" | "amber" | "green" | "indigo";
   isLoading?: boolean;
+  compact?: boolean;
 }
 
 const colorStyles = {
@@ -26,10 +27,11 @@ export function StatCard({
   label,
   colorClass,
   isLoading = false,
+  compact = false,
 }: StatCardProps) {
   if (isLoading) {
     return (
-      <Card className="rounded-xl p-4 flex flex-row items-center gap-4 shadow-raised">
+      <Card className={cn("rounded-xl p-4 flex items-center gap-4 shadow-raised", compact ? "flex-col gap-1 px-2 sm:flex-row sm:gap-4 sm:px-4" : "flex-row")}>
         <Skeleton className="h-12 w-12 rounded-lg" />
         <div className="space-y-2">
           <Skeleton className="h-8 w-16" />
@@ -40,13 +42,13 @@ export function StatCard({
   }
 
   return (
-    <Card className="rounded-xl p-4 flex flex-row items-center gap-4 shadow-raised">
-      <div className={cn("p-3 rounded-lg", colorStyles[colorClass])}>
+    <Card className={cn("rounded-xl p-4 flex items-center gap-4 shadow-raised", compact ? "flex-col gap-1 px-2 sm:flex-row sm:gap-4 sm:px-4" : "flex-row")}>
+      <div className={cn("p-3 rounded-lg", compact && "hidden sm:block", colorStyles[colorClass])}>
         <Icon className="h-6 w-6" strokeWidth={1.5} />
       </div>
-      <div>
-        <p className="text-3xl font-bold text-foreground">{value}</p>
-        <p className="text-sm text-muted-foreground">{label}</p>
+      <div className={cn(compact && "text-center sm:text-left")} >
+        <p className="text-2xl sm:text-3xl font-bold text-foreground">{value}</p>
+        <p className="text-xs sm:text-sm text-muted-foreground">{label}</p>
       </div>
     </Card>
   );

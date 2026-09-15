@@ -155,6 +155,8 @@ class ItemManagementMixin:
                 item.unit = update_dto.unit
             if update_dto.category is not None:
                 item.category = update_dto.category
+            if update_dto.flagged is not None:
+                item.flagged = update_dto.flagged
             if update_dto.have is not None:
                 item.have = update_dto.have
 

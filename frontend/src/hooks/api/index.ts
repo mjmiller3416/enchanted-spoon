@@ -28,6 +28,7 @@ export {
   useMarkIncomplete,
   useToggleSaveMeal,
   useCycleShoppingMode,
+  useSetShoppingMode,
   useReorderEntries,
   useClearCompleted,
   useAddSideToMeal,

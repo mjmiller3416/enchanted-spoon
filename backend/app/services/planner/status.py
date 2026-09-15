@@ -10,7 +10,12 @@ from typing import List, Optional
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from ...dtos.planner_dtos import PlannerEntryResponseDTO
+from ...dtos.planner_dtos import PlannerEntryResponseDTO, PlannerShoppingModeDTO
+from .entry import EntryNotFoundError
+
+
+class ShoppingModeSaveError(Exception):
+    """Raised when a shopping mode cannot be saved."""
 
 
 # -- Status Management Mixin ---------------------------------------------------------------------
@@ -35,6 +40,21 @@ class StatusManagementMixin:
         except SQLAlchemyError:
             self.session.rollback()
             return False
+
+    def set_shopping_mode(self, entry_id: int, data: PlannerShoppingModeDTO) -> PlannerEntryResponseDTO:
+        """Set the requested state instead of cycling from an uncertain state."""
+        try:
+            entry = self.repo.get_by_id(entry_id, self.user_id)
+            if not entry:
+                raise EntryNotFoundError("Planner entry not found")
+            entry.shopping_mode = data.shopping_mode
+            self.repo.update(entry)
+            self.session.commit()
+            self._sync_shopping_list()
+            return self._entry_to_response_dto(entry)
+        except SQLAlchemyError as error:
+            self.session.rollback()
+            raise ShoppingModeSaveError("Couldn't update the shopping mode") from error
 
     def cycle_shopping_mode(self, entry_id: int) -> Optional[PlannerEntryResponseDTO]:
         """

@@ -17,7 +17,7 @@ import {
   useMarkComplete,
   useMarkIncomplete,
   useToggleSaveMeal,
-  useCycleShoppingMode,
+  useSetShoppingMode,
   useReorderEntries,
   useClearCompleted,
 } from "@/hooks/api";
@@ -30,7 +30,9 @@ import { MealGridSkeleton } from "./MealPlannerSkeleton";
 import { CompletedDropdown, CompletedMealItem } from "./CompletedDropdown";
 import { SelectedMealCard } from "./meal-display/SelectedMealCard";
 import { MealCreationOverlay } from "./MealCreationOverlay";
-import { ShoppingCart } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { useMediaQuery } from "@/hooks/ui/useMediaQuery";
+import { ShoppingCart, Plus } from "lucide-react";
 
 // ============================================================================
 // MEAL PLANNER VIEW COMPONENT
@@ -60,12 +62,14 @@ export function MealPlannerView() {
   const markCompleteMutation = useMarkComplete();
   const markIncompleteMutation = useMarkIncomplete();
   const toggleSaveMutation = useToggleSaveMeal();
-  const cycleShoppingModeMutation = useCycleShoppingMode();
+  const setShoppingModeMutation = useSetShoppingMode();
   const reorderEntriesMutation = useReorderEntries();
   const clearCompletedMutation = useClearCompleted();
 
   // Local UI state — selection falls back to the first uncompleted entry
   // until the user explicitly picks one (replaces the old auto-select effect)
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const [detailOpen, setDetailOpen] = useState(false);
   const [explicitSelectedEntryId, setSelectedEntryId] = useState<number | null>(null);
   const selectedEntryId =
     explicitSelectedEntryId ?? entries.find((e) => !e.is_completed)?.id ?? null;
@@ -161,11 +165,13 @@ export function MealPlannerView() {
   // Handle grid item selection
   const handleGridItemClick = (item: MealGridItem) => {
     setSelectedEntryId(item.id);
+    setDetailOpen(true);
   };
 
   // Handle completed item selection
   const handleCompletedItemClick = (item: CompletedMealItem) => {
     setSelectedEntryId(item.id);
+    setDetailOpen(true);
   };
 
   // A meal was created (or a saved meal added) from the overlay — select it
@@ -311,16 +317,16 @@ export function MealPlannerView() {
   };
 
   // Handle cycling shopping mode for a meal: all -> produce_only -> none -> all
-  const handleCycleShoppingMode = (item: MealGridItem) => {
+  const handleSetShoppingMode = (item: MealGridItem, mode: NonNullable<MealGridItem["shoppingMode"]>) => {
     // Ignore repeated clicks on the same card while its toggle is still in flight —
     // firing overlapping requests races on the server's read of the current mode
     // and can lose an update (see issue #173).
-    if (cycleShoppingModeMutation.isPending && cycleShoppingModeMutation.variables === item.id) {
+    if (setShoppingModeMutation.isPending && setShoppingModeMutation.variables?.id === item.id) {
       return;
     }
 
     // Optimistic update handled by the hook
-    cycleShoppingModeMutation.mutate(item.id, {
+    setShoppingModeMutation.mutate({ id: item.id, mode }, {
       onError: (err) => {
         setError(err instanceof Error ? err.message : "Failed to update shopping mode");
       },
@@ -364,8 +370,9 @@ export function MealPlannerView() {
   return (
     <PageLayout
       title="Meal Planner"
-      description="Build your week in minutes. Balanced, realistic, repeatable."
-      actions={
+      description="Choose your meals, arrange the order, and shop from your plan."
+      actions={<>
+        <Button onClick={openMealCreation}><Plus className="size-4" strokeWidth={1.5} />Add meal</Button>
         <Button variant="outline" asChild>
           <Link href="/shopping-list">
             <ShoppingCart className="size-4" strokeWidth={1.5} />
@@ -377,15 +384,15 @@ export function MealPlannerView() {
             )}
           </Link>
         </Button>
-      }
+      </>}
     >
       {/* STACKED VERTICAL LAYOUT */}
-      <div className="space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* TOP: MENU SECTION (heading + grid grouped with space-y-4, matching SelectedMealCard) */}
         <div className="space-y-4">
           <div className="flex items-end gap-4">
             <h2 className="flex-1 text-lg font-semibold text-foreground">
-              This Week&apos;s Menu
+              Your menu
             </h2>
             {!isLoading && maxCapacity !== undefined && (
               <p
@@ -418,10 +425,10 @@ export function MealPlannerView() {
               selectedId={selectedEntryId}
               onItemClick={handleGridItemClick}
               onAddMealClick={openMealCreation}
-              onCycleShoppingMode={handleCycleShoppingMode}
+              onSetShoppingMode={handleSetShoppingMode}
               pendingShoppingModeId={
-                cycleShoppingModeMutation.isPending
-                  ? (cycleShoppingModeMutation.variables ?? null)
+                setShoppingModeMutation.isPending
+                  ? (setShoppingModeMutation.variables?.id ?? null)
                   : null
               }
               onReorder={handleReorder}
@@ -429,9 +436,7 @@ export function MealPlannerView() {
           )}
         </div>
 
-        {/* BOTTOM: SELECTED MEAL CARD */}
-        {selectedMealId !== null ? (
-          <SelectedMealCard
+        {isDesktop && selectedMealId !== null && <div className="sticky top-24 min-w-0">          <SelectedMealCard
             key={`meal-${selectedMealId}-${mealRefreshKey}`}
             mealId={selectedMealId}
             isCompleted={selectedEntry?.is_completed}
@@ -441,23 +446,23 @@ export function MealPlannerView() {
             onToggleSave={handleToggleSave}
             onRemove={handleRemoveFromMenu}
             onAddSide={handleAddSide}
-          />
-        ) : (
-          !isLoading && (
-            /* Empty state when no meals in planner */
-            <div className="flex flex-col items-center justify-center text-center min-h-96 px-8">
-              <div className="text-muted-foreground mb-6">
-                <p className="text-lg font-medium mb-2">No meals planned yet</p>
-                <p className="text-sm">
-                  Add a meal to your weekly menu to get started
-                </p>
-              </div>
-              <Button onClick={openMealCreation} size="default">
-                + Add Meal
-              </Button>
-            </div>
-          )
-        )}
+          /></div>}
+        {!isDesktop && <Sheet open={detailOpen && selectedMealId !== null} onOpenChange={setDetailOpen}>
+          <SheetContent side="bottom" className="h-dvh max-h-dvh overflow-y-auto">
+            <SheetHeader><SheetTitle>Meal details</SheetTitle><SheetDescription>Review recipes and update this planned meal.</SheetDescription></SheetHeader>
+            <div className="p-4">{selectedMealId !== null && <>          <SelectedMealCard
+            key={`meal-${selectedMealId}-${mealRefreshKey}`}
+            mealId={selectedMealId}
+            isCompleted={selectedEntry?.is_completed}
+            isSaved={selectedEntry?.meal_is_saved}
+            onMarkComplete={handleMarkComplete}
+            onEditMeal={handleEditMeal}
+            onToggleSave={handleToggleSave}
+            onRemove={handleRemoveFromMenu}
+            onAddSide={handleAddSide}
+          /></>}</div>
+          </SheetContent>
+        </Sheet>}
       </div>
 
       {/* Meal builder — two-panel overlay for creating and editing meals */}

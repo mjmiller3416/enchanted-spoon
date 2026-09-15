@@ -8,7 +8,7 @@ Handles only planner state - meal DTOs are in meal_dtos.py.
 from __future__ import annotations
 
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,6 +23,12 @@ class PlannerEntryCreateDTO(BaseModel):
 
     meal_id: int = Field(..., ge=1, description="ID of the meal to add")
     position: Optional[int] = Field(None, ge=0, description="Position in the planner (optional)")
+
+
+class PlannerShoppingModeDTO(BaseModel):
+    """Explicit desired shopping state; safe to repeat after a lost response."""
+
+    shopping_mode: Literal["all", "produce_only", "none"]
 
 
 class PlannerEntryUpdateDTO(BaseModel):
