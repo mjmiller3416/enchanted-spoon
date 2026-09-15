@@ -42,7 +42,7 @@ interface UseUnsavedChangesReturn {
 }
 
 // Global registry for pages with unsaved changes
-const unsavedChangesRegistry = new Map<string, () => boolean>();
+const unsavedChangesRegistry = new Map<symbol, { path: string; check: () => boolean }>();
 
 // Global flag to temporarily bypass checks (set during confirmed navigation)
 let navigationBypassActive = false;
@@ -65,8 +65,8 @@ export function setNavigationBypass(active: boolean): void {
  */
 export function hasAnyUnsavedChanges(): boolean {
   if (navigationBypassActive) return false;
-  for (const [, checkFn] of unsavedChangesRegistry) {
-    if (checkFn()) return true;
+  for (const { check } of unsavedChangesRegistry.values()) {
+    if (check()) return true;
   }
   return false;
 }
@@ -75,7 +75,7 @@ export function hasAnyUnsavedChanges(): boolean {
  * Get the check function for a specific path
  */
 export function getUnsavedChangesCheck(path: string): (() => boolean) | undefined {
-  return unsavedChangesRegistry.get(path);
+  return () => [...unsavedChangesRegistry.values()].some(entry => entry.path === path && entry.check());
 }
 
 /**
@@ -94,6 +94,7 @@ export function useUnsavedChanges({
 }: UseUnsavedChangesOptions): UseUnsavedChangesReturn {
   const router = useRouter();
   const pathname = usePathname();
+  const registryId = useRef(Symbol("unsaved-editor"));
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   
@@ -116,9 +117,10 @@ export function useUnsavedChanges({
 
   // Register this page in the global registry
   useEffect(() => {
-    unsavedChangesRegistry.set(pathname, () => isDirtyRef.current);
+    const id = registryId.current;
+    unsavedChangesRegistry.set(id, { path: pathname, check: () => isDirtyRef.current });
     return () => {
-      unsavedChangesRegistry.delete(pathname);
+      unsavedChangesRegistry.delete(id);
     };
   }, [pathname]);
 
@@ -139,7 +141,7 @@ export function useUnsavedChanges({
   // Use useLayoutEffect to push guard state synchronously before browser can handle back button
   useLayoutEffect(() => {
     if (isDirty && !historyStateAddedRef.current) {
-      window.history.pushState({ unsavedChangesGuard: true }, "", window.location.href);
+      window.history.pushState({ ...window.history.state, unsavedChangesGuard: true }, "", window.location.href);
       historyStateAddedRef.current = true;
     } else if (!isDirty && historyStateAddedRef.current) {
       // Reset ref when isDirty becomes false so guard can be re-pushed if isDirty becomes true again
@@ -158,7 +160,7 @@ export function useUnsavedChanges({
       // If dirty, intercept and show dialog
       if (isDirtyRef.current) {
         // Push state back to prevent navigation
-        window.history.pushState({ unsavedChangesGuard: true }, "", window.location.href);
+        window.history.pushState({ ...window.history.state, unsavedChangesGuard: true }, "", window.location.href);
         
         // Set pending navigation to "back" (special case)
         pendingNavigationRef.current = "__BROWSER_BACK__";

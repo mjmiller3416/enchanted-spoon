@@ -9,13 +9,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 
-import { recipeApi, ingredientApi, uploadApi, recipeGenerationApi, recipeImportApi, ApiError } from "@/lib/api";
+import { recipeApi, ingredientApi, recipeGenerationApi, recipeImportApi, ApiError } from "@/lib/api";
 import { maybeHandleAiGateError } from "@/lib/paywall";
-import { recipeQueryKeys } from "@/hooks/api/queryKeys";
+import { invalidateRecipeDependents } from "@/hooks/api/invalidateRecipeDependents";
+import { saveRecipeDraft, type RecipeSaveCheckpoint } from "@/lib/recipe-save";
+import { setNavigationBypass } from "@/hooks/ui/useUnsavedChanges";
 import { base64ToFile } from "@/lib/utils";
 import type {
   RecipeCreateDTO,
-  RecipeUpdateDTO,
   RecipeResponseDTO,
   RecipeIngredientDTO,
   NutritionFactsCreateDTO,
@@ -64,6 +65,8 @@ export function useRecipeWizard({
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const isEditMode = mode === "edit";
+  const saveCheckpoint = useRef<RecipeSaveCheckpoint>({});
+  const submittingRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // React Hook Form (replaces individual useState for recipe fields)
@@ -484,6 +487,7 @@ export function useRecipeWizard({
       setOriginalImagePath(recipe.reference_image_path);
       setOriginalBannerPath(recipe.banner_image_path);
       setRecipeIsAiGenerated(recipe.is_ai_generated);
+      setImportedSourceUrl(recipe.source_url ?? null);
       // Image provenance isn't stored separately; the recipe flag is the best
       // available approximation for the image badge in edit mode.
       setImageIsAiGenerated(recipe.is_ai_generated);
@@ -697,6 +701,7 @@ export function useRecipeWizard({
   // Reset wizard to initial state
   // ---------------------------------------------------------------------------
   const resetWizard = useCallback((): void => {
+    saveCheckpoint.current = {};
     setCurrentStep(1);
     setCreationMethod(null);
     form.reset();
@@ -728,6 +733,7 @@ export function useRecipeWizard({
   // Submit
   // ---------------------------------------------------------------------------
   const handleSubmit = useCallback(async (): Promise<void> => {
+    if (submittingRef.current) return;
     // Validate all steps before submission
     for (let step = 1; step <= LAST_STEP; step++) {
       const isValid = await validateStep(step as WizardStep);
@@ -738,6 +744,7 @@ export function useRecipeWizard({
       }
     }
 
+    submittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -788,82 +795,6 @@ export function useRecipeWizard({
         };
       }
 
-      // ===================================================================
-      // EDIT MODE — update existing recipe, then redirect to its page
-      // ===================================================================
-      if (isEditMode) {
-        if (!recipeId) {
-          throw new Error("Recipe ID is required for edit mode");
-        }
-
-        // Reference image: re-upload only if the user changed it, else keep.
-        let refPath: string | null = originalImagePath;
-        if (imageFile) {
-          try {
-            const result = await uploadApi.uploadRecipeImage(imageFile, recipeId, "reference", token);
-            refPath = result.path;
-          } catch (uploadError) {
-            console.error("Failed to upload reference image:", uploadError);
-          }
-        } else if (generatedRefData) {
-          try {
-            const result = await uploadApi.uploadBase64Image(generatedRefData, recipeId, "reference", token);
-            refPath = result.path;
-          } catch (uploadError) {
-            console.error("Failed to upload AI reference image:", uploadError);
-          }
-        }
-
-        // Banner image: same approach.
-        let bannerPath: string | null = originalBannerPath;
-        if (bannerFile) {
-          try {
-            const result = await uploadApi.uploadRecipeImage(bannerFile, recipeId, "banner", token);
-            bannerPath = result.path;
-          } catch (uploadError) {
-            console.error("Failed to upload banner image:", uploadError);
-          }
-        } else if (generatedBannerData) {
-          try {
-            const result = await uploadApi.uploadBase64Image(generatedBannerData, recipeId, "banner", token);
-            bannerPath = result.path;
-          } catch (uploadError) {
-            console.error("Failed to upload AI banner image:", uploadError);
-          }
-        }
-
-        const updatePayload: RecipeUpdateDTO = {
-          recipe_name: values.recipeName.trim(),
-          recipe_category: values.category.trim(),
-          meal_type: values.mealType.trim(),
-          diet_pref: values.dietaryPreference === "none" ? null : values.dietaryPreference,
-          description: values.description.trim() || null,
-          prep_time: prep,
-          cook_time: cook,
-          servings: values.servings || null,
-          difficulty: values.difficulty || null,
-          directions: directionsText || null,
-          notes: values.notes.trim() || null,
-          ingredients: apiIngredients,
-          reference_image_path: refPath,
-          banner_image_path: bannerPath,
-          nutrition_facts: nutritionPayload,
-        };
-
-        await recipeApi.update(recipeId, updatePayload, token);
-
-        // Invalidate caches so the detail page reflects edits (e.g. newly
-        // added nutrition facts) immediately, without a manual refresh.
-        await queryClient.invalidateQueries({ queryKey: recipeQueryKeys.detail(recipeId) });
-        queryClient.invalidateQueries({ queryKey: recipeQueryKeys.list() });
-        queryClient.invalidateQueries({ queryKey: recipeQueryKeys.cards() });
-
-        toast.success("Recipe updated successfully!");
-        onSave?.();
-        router.push(`/recipes/${recipeId}`);
-        return;
-      }
-
       const payload: RecipeCreateDTO = {
         recipe_name: values.recipeName.trim(),
         recipe_category: values.category.trim(),
@@ -882,97 +813,32 @@ export function useRecipeWizard({
         nutrition_facts: nutritionPayload,
       };
 
-      const createdRecipe = await recipeApi.create(payload, token);
-
-      // Upload images
-      let refPath: string | undefined;
-      let bannerPath: string | undefined;
-
-      // Reference image upload
-      if (imageFile) {
-        try {
-          const result = await uploadApi.uploadRecipeImage(
-            imageFile,
-            createdRecipe.id,
-            "reference",
-            token
-          );
-          refPath = result.path;
-        } catch (uploadError) {
-          console.error("Failed to upload reference image:", uploadError);
-        }
-      } else if (generatedRefData) {
-        try {
-          const result = await uploadApi.uploadBase64Image(
-            generatedRefData,
-            createdRecipe.id,
-            "reference",
-            token
-          );
-          refPath = result.path;
-        } catch (uploadError) {
-          console.error("Failed to upload AI reference image:", uploadError);
-        }
+      if (isEditMode) {
+        if (!recipeId) throw new Error("Recipe ID is required for edit mode");
+        saveCheckpoint.current.id = recipeId;
       }
-
-      // Banner image upload
-      if (bannerFile) {
-        try {
-          const result = await uploadApi.uploadRecipeImage(
-            bannerFile,
-            createdRecipe.id,
-            "banner",
-            token
-          );
-          bannerPath = result.path;
-        } catch (uploadError) {
-          console.error("Failed to upload banner image:", uploadError);
-        }
-      } else if (generatedBannerData) {
-        try {
-          const result = await uploadApi.uploadBase64Image(
-            generatedBannerData,
-            createdRecipe.id,
-            "banner",
-            token
-          );
-          bannerPath = result.path;
-        } catch (uploadError) {
-          console.error("Failed to upload AI banner image:", uploadError);
-        }
-      }
-
-      // Patch recipe with image paths if any uploaded
-      if (refPath || bannerPath) {
-        await recipeApi.update(
-          createdRecipe.id,
-          {
-            ...(refPath && { reference_image_path: refPath }),
-            ...(bannerPath && { banner_image_path: bannerPath }),
-          },
-          token
-        );
-      }
-
-      // Warn if some images failed
-      const imageFailed =
-        ((imageFile || generatedRefData) && !refPath) ||
-        ((bannerFile || generatedBannerData) && !bannerPath);
-      if (imageFailed) {
-        toast.warning(
-          "Recipe created, but some images failed to upload. You can add them later by editing the recipe."
-        );
-      }
-
-      // Invalidate lists so the new recipe appears without a manual refresh.
-      queryClient.invalidateQueries({ queryKey: recipeQueryKeys.list() });
-      queryClient.invalidateQueries({ queryKey: recipeQueryKeys.cards() });
-
-      toast.success("Recipe created successfully!");
+      const savedId = await saveRecipeDraft({
+        checkpoint: saveCheckpoint.current, payload,
+        reference: imageFile ?? generatedRefData,
+        banner: bannerFile ?? generatedBannerData,
+        originalReference: originalImagePath,
+        originalBanner: originalBannerPath,
+        token,
+      });
+      await invalidateRecipeDependents(queryClient);
+      form.reset(values);
+      setExtrasDirty(false);
+      setNavigationBypass(true);
+      toast.success(isEditMode ? "Recipe updated successfully!" : "Recipe created successfully!");
       resetWizard();
       onSave?.();
-      router.push(`/recipes/${createdRecipe.id}`);
+      router.push(`/recipes/${savedId}`);
     } catch (error) {
+      if (saveCheckpoint.current.id) {
+        await invalidateRecipeDependents(queryClient);
+        toast.error("The recipe exists, but saving is incomplete. Your draft is still open. Save again to retry the remaining work.");
+        return;
+      }
       const verb = isEditMode ? "update" : "create";
       console.error(`Failed to ${verb} recipe:`, error);
       if (error instanceof ApiError) {
@@ -986,6 +852,7 @@ export function useRecipeWizard({
         toast.error(`Failed to ${verb} recipe. Please try again.`);
       }
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   }, [

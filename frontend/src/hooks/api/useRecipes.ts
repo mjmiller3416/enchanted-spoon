@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { recipeApi } from "@/lib/api";
 import { recipeQueryKeys, plannerQueryKeys, dashboardQueryKeys } from "./queryKeys";
 import { dispatchRecipeUpdate } from "./events";
+import { invalidateRecipeDependents } from "./invalidateRecipeDependents";
 import type {
   RecipeResponseDTO,
   RecipeCardDTO,
@@ -159,7 +160,7 @@ export function useUpdateRecipe() {
       queryClient.invalidateQueries({ queryKey: recipeQueryKeys.list() });
       queryClient.invalidateQueries({ queryKey: recipeQueryKeys.cards() });
       // Invalidate planner entries as they may reference this recipe
-      queryClient.invalidateQueries({ queryKey: plannerQueryKeys.entries() });
+      void invalidateRecipeDependents(queryClient);
       dispatchRecipeUpdate();
     },
   });

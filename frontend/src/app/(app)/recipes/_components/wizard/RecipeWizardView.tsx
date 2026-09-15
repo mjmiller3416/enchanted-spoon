@@ -25,6 +25,7 @@ import { Form } from "@/components/ui/form";
 import { useCategories } from "@/hooks/api/useCategories";
 import type { RecipeGenerationResponseDTO } from "@/types/ai";
 import { useRecipeWizard } from "./useRecipeWizard";
+import { useUnsavedChanges } from "@/hooks/ui/useUnsavedChanges";
 import {
   MethodSelectionStep,
   RecipeBasicsStep,
@@ -83,6 +84,10 @@ export function RecipeWizardView({
 
   const wizard = useRecipeWizard({ onSave: handleSave, mode, recipeId, initialGenerated });
   const { currentStep, resetWizard, isEditMode, isLoadingRecipe } = wizard;
+  const leave = useUnsavedChanges({
+    isDirty: open && wizard.hasUnsavedData,
+    onConfirmLeave: () => { resetWizard(); onOpenChange(false); },
+  });
 
   // In edit mode the method-selection step (1) is skipped, so the visible
   // steps are 2–5 — re-base the counter/progress to that range.
@@ -119,6 +124,7 @@ export function RecipeWizardView({
   // Only prompt when there's actually unsaved data to lose; otherwise reset
   // and close so reopening starts fresh at the feature-select step.
   const handleRequestClose = useCallback(() => {
+    if (wizard.isSubmitting) return;
     if (wizard.hasUnsavedData) {
       setDiscardIntent("close");
       setShowDiscardConfirm(true);
@@ -126,7 +132,7 @@ export function RecipeWizardView({
     }
     resetWizard();
     onOpenChange(false);
-  }, [wizard.hasUnsavedData, resetWizard, onOpenChange]);
+  }, [wizard.hasUnsavedData, wizard.isSubmitting, resetWizard, onOpenChange]);
 
   // Radix fires onOpenChange(false) for the X button, Escape, and backdrop.
   const handleOpenChange = useCallback(
@@ -142,21 +148,24 @@ export function RecipeWizardView({
 
   // Footer "Start over" (steps 2+): wipe inputs, stay open at step 1.
   const handleStartOverClick = useCallback(() => {
+    if (wizard.isSubmitting) return;
     if (!wizard.hasUnsavedData) {
       resetWizard();
       return;
     }
     setDiscardIntent("reset");
     setShowDiscardConfirm(true);
-  }, [wizard.hasUnsavedData, resetWizard]);
+  }, [wizard.hasUnsavedData, wizard.isSubmitting, resetWizard]);
 
   const handleDiscardConfirm = useCallback(() => {
+    if (wizard.isSubmitting) return;
+    if (leave.showLeaveDialog) { leave.confirmLeave(); return; }
     setShowDiscardConfirm(false);
     resetWizard();
     if (discardIntent === "close") {
       onOpenChange(false);
     }
-  }, [discardIntent, resetWizard, onOpenChange]);
+  }, [discardIntent, resetWizard, onOpenChange, leave, wizard.isSubmitting]);
 
   return (
     <>
@@ -418,7 +427,7 @@ export function RecipeWizardView({
       </DialogContent>
     </Dialog>
 
-    <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+    <AlertDialog open={showDiscardConfirm || leave.showLeaveDialog} onOpenChange={(value) => { setShowDiscardConfirm(value); if (!value) leave.cancelLeave(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
