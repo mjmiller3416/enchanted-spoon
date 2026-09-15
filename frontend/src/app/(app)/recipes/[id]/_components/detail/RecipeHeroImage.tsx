@@ -39,18 +39,21 @@ export function RecipeHeroImage({
   return (
     <div
       className={cn(
-        "relative w-full aspect-[21/9] max-h-[500px] bg-elevated overflow-hidden",
+        "relative w-full bg-elevated overflow-hidden",
+        hasImage ? "h-64 sm:h-80" : "h-28",
         className
       )}
     >
-      <RecipeImage
+      {hasImage && <RecipeImage
         src={effectiveSrc}
         alt={alt}
         fill
+        loading="eager"
+        sizes="100vw"
         iconSize="xl"
         showLoadingState={false}
         className="w-full h-full object-cover"
-      />
+      />}
 
       {/* Gradient overlay - only shown when image is present */}
       {hasImage && (

@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { ChefHat, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RecipeCard, RecipeCardGrid } from "@/components/recipe/RecipeCard";
@@ -29,6 +30,11 @@ export function RecipeGrid({
   selectionMode = false,
   selectedIds = new Set(),
 }: RecipeGridProps) {
+  const [page, setPage] = useState(0);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const pageSize = 24;
+  const pages = Math.ceil(recipes.length / pageSize);
+  const changePage = (next: number) => { setPage(next); gridRef.current?.scrollIntoView({ block: "start" }); };
   if (recipes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -70,8 +76,10 @@ export function RecipeGrid({
   }
 
   return (
+    <div ref={gridRef} className="scroll-mt-24">
+    <p className="mb-4 text-sm text-muted-foreground" role="status">{recipes.length} {recipes.length === 1 ? "recipe" : "recipes"}{pages > 1 && ` · Page ${page + 1} of ${pages}`}</p>
     <RecipeCardGrid size="medium">
-      {recipes.map((recipe) => (
+      {recipes.slice(page * pageSize, (page + 1) * pageSize).map((recipe) => (
         <RecipeCard
           key={recipe.id}
           recipe={recipe}
@@ -83,5 +91,11 @@ export function RecipeGrid({
         />
       ))}
     </RecipeCardGrid>
+    {pages > 1 && <nav aria-label="Recipe pages" className="mt-6 flex items-center justify-center gap-4">
+      <Button variant="outline" disabled={page === 0} onClick={() => changePage(page - 1)}>Previous</Button>
+      <span className="text-sm text-muted-foreground">{page + 1} / {pages}</span>
+      <Button variant="outline" disabled={page + 1 === pages} onClick={() => changePage(page + 1)}>Next</Button>
+    </nav>}
+    </div>
   );
 }

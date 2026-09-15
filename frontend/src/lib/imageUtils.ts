@@ -78,7 +78,7 @@ export function getRecipeImageUrl(path: string | null | undefined): string | und
  * Check if a URL is a Cloudinary URL
  */
 function isCloudinaryUrl(url: string): boolean {
-  return url.includes("res.cloudinary.com");
+  try { return new URL(url).hostname === "res.cloudinary.com"; } catch { return false; }
 }
 
 /**
@@ -207,4 +207,15 @@ export function getBannerUrl(
   }
 
   return url;
+}
+
+/** Resize without cropping so card and banner aspect ratios retain their own presentation. */
+export function getResponsiveRecipeImage(src: string | null | undefined): { src?: string; srcSet?: string } {
+  if (!src) return {};
+  if (!isCloudinaryUrl(src) || !src.includes("/image/upload/") || src.includes("/s--")) return { src };
+  const widths = [320, 640, 960, 1600];
+  return {
+    src: applyCloudinaryTransformation(src, "w_960,c_limit,q_auto,f_auto"),
+    srcSet: widths.map(width => `${applyCloudinaryTransformation(src, `w_${width},c_limit,q_auto,f_auto`)} ${width}w`).join(", "),
+  };
 }
