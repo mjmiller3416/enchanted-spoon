@@ -1,3 +1,4 @@
+import { ErrorReportingUser } from "@/components/common/ErrorReportingUser";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 export default function AppGroupLayout({
@@ -5,5 +6,10 @@ export default function AppGroupLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <AppLayout>{children}</AppLayout>;
+  return (
+    <AppLayout>
+      <ErrorReportingUser />
+      {children}
+    </AppLayout>
+  );
 }
