@@ -61,9 +61,19 @@ class AdminQueryExecutionError(Exception):
 
 
 _FORBIDDEN_PATTERN = re.compile(
-    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE)\b",
+    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE"
+    r"|COPY|LOCK|VACUUM|REINDEX|CLUSTER|COMMIT|ROLLBACK|SAVEPOINT|SET|RESET|INTO|CALL|DO"
+    r"|LISTEN|NOTIFY|PREPARE|ATTACH|DETACH|PRAGMA"
+    # Side-effecting / file / session functions a READ ONLY transaction doesn't stop
+    r"|pg_terminate_backend|pg_cancel_backend|pg_sleep\w*|pg_read_\w+|pg_ls_\w+"
+    r"|lo_\w+|dblink\w*|set_config|pg_reload_conf|pg_advisory\w*)\b",
     re.IGNORECASE,
 )
+# The statement must be a single read: SELECT, or WITH ... SELECT
+_ALLOWED_START = re.compile(r"^\s*(SELECT|WITH)\b", re.IGNORECASE)
+
+# Postgres statement timeout for console queries (ms)
+QUERY_TIMEOUT_MS = 5000
 
 MAX_QUERY_ROWS = 500
 
@@ -181,13 +191,25 @@ class AdminService:
         if not stripped:
             raise AdminQueryForbiddenError("Query cannot be empty")
 
-        if _FORBIDDEN_PATTERN.search(stripped):
+        if ";" in stripped:
+            raise AdminQueryForbiddenError("Run one statement at a time.")
+        if not _ALLOWED_START.match(stripped) or _FORBIDDEN_PATTERN.search(stripped):
             raise AdminQueryForbiddenError(
                 "Only SELECT queries are allowed. "
                 "INSERT, UPDATE, DELETE, DROP, and other write operations are forbidden."
             )
 
+        # Belt and braces behind the keyword checks: run in a fresh, read-only
+        # transaction with a timeout, and always roll it back
+        dialect = self.session.get_bind().dialect.name
+        self.session.rollback()
         try:
+            if dialect == "postgresql":
+                self.session.execute(text("SET TRANSACTION READ ONLY"))
+                self.session.execute(text(f"SET LOCAL statement_timeout = {QUERY_TIMEOUT_MS}"))
+            elif dialect == "sqlite":
+                self.session.execute(text("PRAGMA query_only = ON"))
+
             start = time.perf_counter()
             result = self.session.execute(text(stripped))
             columns = list(result.keys())
@@ -203,8 +225,12 @@ class AdminService:
                 execution_time_ms=elapsed_ms,
             )
         except SQLAlchemyError as e:
+            raise AdminQueryExecutionError(str(getattr(e, "orig", e)).splitlines()[0]) from e
+        finally:
             self.session.rollback()
-            raise AdminQueryExecutionError(str(e)) from e
+            if dialect == "sqlite":
+                self.session.execute(text("PRAGMA query_only = OFF"))
+                self.session.commit()
 
     @staticmethod
     def _serialize_value(value: Any) -> Any:

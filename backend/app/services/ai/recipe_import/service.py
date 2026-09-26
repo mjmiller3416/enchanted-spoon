@@ -13,6 +13,7 @@ import ipaddress
 import json
 import logging
 import re
+import socket
 from typing import Optional
 from urllib.parse import urljoin, urlparse
 
@@ -42,6 +43,11 @@ from .config import (
     PROMPT_TEMPLATE,
     TEMPERATURE,
 )
+
+# Hostname suffixes that only ever name private/internal services
+PRIVATE_HOST_SUFFIXES = (".internal", ".local", ".localhost", ".lan", ".home.arpa", ".intranet")
+# Recipe pages are well under this; anything larger isn't worth parsing
+MAX_PAGE_BYTES = 5 * 1024 * 1024
 
 logger = logging.getLogger(__name__)
 
@@ -162,19 +168,42 @@ class RecipeImportService:
             url = f"https://{url}"
 
         parsed = urlparse(url)
-        hostname = parsed.hostname or ""
+        hostname = (parsed.hostname or "").lower().rstrip(".")
         if not hostname or "." not in hostname:
             raise RecipeImportFetchError("That doesn't look like a valid website URL")
-        if hostname.lower() in ("localhost", "localhost.localdomain"):
+        if hostname in ("localhost", "localhost.localdomain") or hostname.endswith(
+            PRIVATE_HOST_SUFFIXES
+        ):
             raise RecipeImportFetchError("That doesn't look like a valid website URL")
         try:
             ip = ipaddress.ip_address(hostname)
+        except ValueError:
+            # A domain name: it must *resolve* only to public addresses, or a
+            # name like foo.railway.internal / 127.0.0.1.nip.io would reach
+            # private services. (A DNS answer that changes between this check
+            # and the fetch is not covered; this blocks the static cases.)
+            RecipeImportService._assert_resolves_publicly(hostname)
+        else:
             if not ip.is_global:
                 raise RecipeImportFetchError("That doesn't look like a valid website URL")
-        except ValueError:
-            pass  # hostname is a domain name, not an IP literal
 
         return url
+
+    @staticmethod
+    def _assert_resolves_publicly(hostname: str) -> None:
+        try:
+            infos = socket.getaddrinfo(hostname, None)
+        except (socket.gaierror, UnicodeError) as e:
+            raise RecipeImportFetchError(
+                "Could not reach that website. Check the URL and try again."
+            ) from e
+        for info in infos:
+            address = str(info[4][0]).split("%", 1)[0]  # drop IPv6 zone id
+            try:
+                if not ipaddress.ip_address(address).is_global:
+                    raise RecipeImportFetchError("That doesn't look like a valid website URL")
+            except ValueError:
+                raise RecipeImportFetchError("That doesn't look like a valid website URL")
 
     @staticmethod
     async def _fetch_following_validated_redirects(
@@ -227,15 +256,13 @@ class RecipeImportService:
         if response.status_code == 404:
             raise RecipeImportFetchError("That page could not be found (404).")
         if response.status_code >= 400:
-            raise RecipeImportFetchError(
-                f"The website returned an error (HTTP {response.status_code})."
-            )
+            raise RecipeImportFetchError("The website returned an error. Please try again later.")
 
         content_type = response.headers.get("content-type", "")
-        if content_type and not any(
-            t in content_type for t in ("text/html", "application/xhtml", "text/plain")
-        ):
+        if not any(t in content_type for t in ("text/html", "application/xhtml", "text/plain")):
             raise RecipeImportFetchError("That URL doesn't point to a web page.")
+        if len(response.content) > MAX_PAGE_BYTES:
+            raise RecipeImportFetchError("That page is too large to import.")
 
         return response.text
 

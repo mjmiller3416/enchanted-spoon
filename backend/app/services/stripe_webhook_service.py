@@ -135,6 +135,12 @@ class StripeWebhookService:
 
     # -- Handlers ------------------------------------------------------------------------------
     def _handle_checkout_completed(self, checkout_session: Mapping[str, Any]) -> None:
+        # Only our Pro checkout (a subscription) grants Pro; a one-off payment
+        # (e.g. a Payment Link for something else) must not
+        if checkout_session.get("mode") not in (None, "subscription"):
+            logger.info("Ignoring checkout.session.completed with mode=%s", checkout_session.get("mode"))
+            return
+
         customer_id = checkout_session.get("customer")
         client_reference_id = checkout_session.get("client_reference_id")
 
@@ -167,6 +173,12 @@ class StripeWebhookService:
     def _handle_invoice_paid(self, invoice: Mapping[str, Any]) -> None:
         user = self._get_user_by_customer_id(invoice.get("customer"))
         if user is None:
+            return
+        # A late or retried invoice.paid arriving after the subscription was
+        # deleted must not re-grant Pro; a new subscription reactivates the
+        # user through checkout.session.completed / subscription.created
+        if user.subscription_status == "canceled":
+            logger.info("Ignoring invoice.paid for user %s with a canceled subscription", user.id)
             return
 
         self.repo.update_subscription(
@@ -215,7 +227,9 @@ class StripeWebhookService:
                 user = self.repo.get_by_id(int(client_reference_id))
             except (TypeError, ValueError):
                 user = None
-            if user is not None:
+            # client_reference_id can be set by whoever builds a checkout link,
+            # so only trust it when it agrees with the paying customer
+            if user is not None and user.stripe_customer_id in (None, customer_id):
                 return user
         return self._get_user_by_customer_id(customer_id)
 
