@@ -24,10 +24,11 @@ class RecipeIngredientDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     existing_ingredient_id: Optional[int] = None
-    ingredient_name: str = Field(..., min_length=1)
-    ingredient_category: str = Field(..., min_length=1)
-    quantity: Optional[float] = None
-    unit: Optional[str] = None
+    # Bounded by the shopping list columns these flow into (see ShoppingItem)
+    ingredient_name: str = Field(..., min_length=1, max_length=200)
+    ingredient_category: str = Field(..., min_length=1, max_length=100)
+    quantity: Optional[float] = Field(None, ge=0)
+    unit: Optional[str] = Field(None, max_length=50)
 
     @field_validator("ingredient_name", "ingredient_category", mode="before")
     @classmethod
@@ -134,6 +135,10 @@ class RecipeCardDTO(BaseModel):
 # ── Create DTO ──────────────────────────────────────────────────────────────────────────────────────────────
 class RecipeCreateDTO(RecipeBaseDTO):
     """DTO used to create a new recipe with ingredients."""
+    # Input-only caps (response DTOs share RecipeBaseDTO and must not reject stored rows)
+    recipe_name: str = Field(..., min_length=1, max_length=255)
+    recipe_category: str = Field(..., min_length=1, max_length=100)
+    meal_type: str = Field(default="Dinner", min_length=1, max_length=50)
     ingredients: List[RecipeIngredientDTO] = []
     is_ai_generated: bool = False
     nutrition_facts: Optional[NutritionFactsDTO] = None
@@ -144,15 +149,15 @@ class RecipeUpdateDTO(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    recipe_name: Optional[str] = Field(None, min_length=1)
-    recipe_category: Optional[str] = Field(None, min_length=1)
-    meal_type: Optional[str] = Field(None, min_length=1)
+    recipe_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    recipe_category: Optional[str] = Field(None, min_length=1, max_length=100)
+    meal_type: Optional[str] = Field(None, min_length=1, max_length=50)
     diet_pref: Optional[str] = None
     description: Optional[str] = None
     prep_time: Optional[int] = Field(None, ge=0)
     cook_time: Optional[int] = Field(None, ge=0)
     servings: Optional[int] = Field(None, ge=1)
-    difficulty: Optional[str] = None
+    difficulty: Optional[str] = Field(None, max_length=20)
     directions: Optional[str] = None
     notes: Optional[str] = None
     reference_image_path: Optional[str] = None

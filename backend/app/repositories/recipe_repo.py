@@ -6,7 +6,7 @@ related to recipes, including related ingredients and history.
 
 # ── Imports ─────────────────────────────────────────────────────────────────────────────────────────────────
 from datetime import datetime
-from typing import Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -56,6 +56,39 @@ class RecipeRepo:
             # Fallback for backward compatibility (should not be used in production)
             self.ingredient_repo = None
 
+    def _build_ingredient_links(
+        self, recipe_id: int, ingredients: List[RecipeIngredientDTO]
+    ) -> List[RecipeIngredient]:
+        """
+        Resolve ingredient DTOs to one link per distinct ingredient.
+
+        A recipe can link an ingredient only once (composite primary key), but
+        recipes routinely list the same ingredient twice ("salt" for the water
+        and "salt" to taste), and AI generation/URL import don't dedupe. Repeats
+        are merged: quantities add up when the units agree, otherwise the first
+        listing's amount is kept.
+        """
+        links: Dict[int, RecipeIngredient] = {}
+        for ing in ingredients:
+            ingredient = self.ingredient_repo.get_or_create(ing)
+            # flush so the ingredient has an ID before we link it
+            self.session.flush()
+            existing = links.get(ingredient.id)
+            if existing is None:
+                links[ingredient.id] = RecipeIngredient(
+                    recipe_id=recipe_id,
+                    ingredient_id=ingredient.id,
+                    quantity=ing.quantity,
+                    unit=ing.unit,
+                )
+                continue
+            same_unit = (existing.unit or "").strip().lower() == (ing.unit or "").strip().lower()
+            if existing.quantity is None and ing.quantity is not None:
+                existing.quantity, existing.unit = ing.quantity, ing.unit
+            elif same_unit and ing.quantity is not None:
+                existing.quantity += ing.quantity
+        return list(links.values())
+
     def persist_recipe_and_links(self, recipe_dto: RecipeCreateDTO, user_id: int) -> Recipe:
         """
         Create a new recipe with its ingredient links.
@@ -97,16 +130,7 @@ class RecipeRepo:
         # flush so recipe gets its primary key before linking ingredients
         self.session.flush()
 
-        for ing in recipe_dto.ingredients:
-            ingredient = self.ingredient_repo.get_or_create(ing)
-            # flush to ensure ingredient has an ID before creating the link row
-            self.session.flush()
-            link = RecipeIngredient(
-                recipe_id=recipe.id,
-                ingredient_id=ingredient.id,
-                quantity=ing.quantity,
-                unit=ing.unit
-            )
+        for link in self._build_ingredient_links(recipe.id, recipe_dto.ingredients):
             self.session.add(link)
 
         # Create nutrition facts if provided
@@ -263,23 +287,12 @@ class RecipeRepo:
             recipe.ingredients.clear()
             # flush to persist removal of old links before adding replacements
             self.session.flush()
-            for ing in update_data["ingredients"]:
-                ing_dto = (
-                    RecipeIngredientDTO(**ing)
-                    if isinstance(ing, dict)
-                    else ing
-                )
-                ingredient = self.ingredient_repo.get_or_create(ing_dto)
-                # flush so ingredient has an ID before we append the new link
-                self.session.flush()
-                recipe.ingredients.append(
-                    RecipeIngredient(
-                        recipe_id=recipe.id,
-                        ingredient_id=ingredient.id,
-                        quantity=ing_dto.quantity,
-                        unit=ing_dto.unit,
-                    )
-                )
+            ing_dtos = [
+                RecipeIngredientDTO(**ing) if isinstance(ing, dict) else ing
+                for ing in update_data["ingredients"]
+            ]
+            for link in self._build_ingredient_links(recipe.id, ing_dtos):
+                recipe.ingredients.append(link)
 
         # Handle nutrition_facts update
         if "nutrition_facts" in update_data:

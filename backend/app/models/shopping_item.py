@@ -79,8 +79,11 @@ class ShoppingItem(Base):
 
     @staticmethod
     def make_aggregation_key(ingredient_name: str, dimension: str) -> str:
-        """Create an aggregation key from ingredient name and dimension."""
-        return f"{ingredient_name.lower().strip()}::{dimension}"
+        """Create an aggregation key from ingredient name and dimension.
+
+        The name part is capped so the key always fits the String(255) column.
+        """
+        return f"{ingredient_name.lower().strip()[:200]}::{dimension}"
 
     def get_recipe_sources(self) -> List[str]:
         """Get list of recipe names that contribute to this item from contributions."""

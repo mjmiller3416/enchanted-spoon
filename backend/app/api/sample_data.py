@@ -20,6 +20,7 @@ from app.services.sample_data import (
     SampleDataError,
     SampleDataService,
 )
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -49,7 +50,7 @@ def add_sample_data(
     except SampleDataAlreadyPresentError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except SampleDataError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.delete("", response_model=SampleDataRemovalResultDTO)
@@ -66,4 +67,4 @@ def remove_sample_data(
     try:
         return service.remove()
     except SampleDataError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()

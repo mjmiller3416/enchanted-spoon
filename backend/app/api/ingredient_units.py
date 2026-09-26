@@ -27,6 +27,7 @@ from app.services.user_ingredient_unit_service import (
     UserIngredientUnitSaveError,
     UserIngredientUnitService,
 )
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -86,7 +87,7 @@ def create_ingredient_unit(
     except DuplicateUserIngredientUnitError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except UserIngredientUnitSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/{unit_id}", response_model=UserIngredientUnitResponseDTO)
@@ -112,7 +113,7 @@ def update_ingredient_unit(
     except BuiltInIngredientUnitError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except UserIngredientUnitSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.delete("/{unit_id}")
@@ -135,7 +136,7 @@ def delete_ingredient_unit(
     except BuiltInIngredientUnitError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except UserIngredientUnitSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/reorder", response_model=List[UserIngredientUnitResponseDTO])
@@ -153,7 +154,7 @@ def reorder_ingredient_units(
     try:
         return service.reorder_units(reorder_data)
     except UserIngredientUnitSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/bulk", response_model=List[UserIngredientUnitResponseDTO])
@@ -171,7 +172,7 @@ def bulk_update_ingredient_units(
     try:
         return service.bulk_update(bulk_data)
     except UserIngredientUnitSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.post("/reset", response_model=List[UserIngredientUnitResponseDTO])
@@ -190,4 +191,4 @@ def reset_ingredient_units(
     try:
         return service.reset_to_defaults()
     except UserIngredientUnitSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()

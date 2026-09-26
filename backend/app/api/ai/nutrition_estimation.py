@@ -12,6 +12,7 @@ from app.dtos.nutrition_dtos import (
 from app.models.user import User
 from app.services.ai.nutrition_estimation import get_nutrition_estimation_service
 from app.services.usage_service import UsageService
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -50,8 +51,6 @@ async def estimate_nutrition(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Nutrition estimation failed: {str(e)}"
-        )
+        raise internal_error("Nutrition estimation failed. Please try again.")

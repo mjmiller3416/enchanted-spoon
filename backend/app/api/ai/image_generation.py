@@ -24,6 +24,7 @@ from app.api.auth import require_within_usage_limit
 from app.database.db import get_session
 from app.models.user import User
 from app.services.usage_service import UsageService
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -112,9 +113,9 @@ async def generate_recipe_image(
         raise
     except ValueError as e:
         # Configuration errors (e.g., missing API key)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
+        raise internal_error("Image generation failed. Please try again.")
 
 
 @router.post("/banner", response_model=BannerGenerationResponseDTO)
@@ -172,6 +173,6 @@ async def generate_banner_image(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Banner generation failed: {str(e)}")
+        raise internal_error("Banner generation failed. Please try again.")

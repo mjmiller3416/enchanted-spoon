@@ -16,6 +16,32 @@ if TYPE_CHECKING:
 from .recipe_dtos import RecipeCardDTO
 
 
+# Mirrors Meal.MAX_TAGS / Meal.MAX_TAG_LENGTH (the model setter raises past these)
+MAX_TAGS = 20
+MAX_TAG_LENGTH = 50
+
+
+def _validate_tags(v):
+    """Normalize tags like the Meal model does, rejecting over-limit input with a 422."""
+    if v is None:
+        return v
+    if not isinstance(v, list):
+        raise ValueError("Tags must be a list")
+    normalized: List[str] = []
+    for tag in v:
+        if not isinstance(tag, str):
+            raise ValueError("Tags must be text")
+        tag = tag.strip().lower()
+        if not tag or tag in normalized:
+            continue
+        if len(tag) > MAX_TAG_LENGTH:
+            raise ValueError(f"Tags can be at most {MAX_TAG_LENGTH} characters")
+        normalized.append(tag)
+    if len(normalized) > MAX_TAGS:
+        raise ValueError(f"A meal can have at most {MAX_TAGS} tags")
+    return normalized
+
+
 # -- Base DTO ------------------------------------------------------------------------------------
 class MealBaseDTO(BaseModel):
     """Base DTO for meal operations."""
@@ -48,7 +74,11 @@ class MealBaseDTO(BaseModel):
 # -- Create DTO ----------------------------------------------------------------------------------
 class MealCreateDTO(MealBaseDTO):
     """DTO for creating a new meal."""
-    pass
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def validate_tags(cls, v):
+        return _validate_tags(v) or []
 
 
 # -- Update DTO ----------------------------------------------------------------------------------
@@ -62,6 +92,11 @@ class MealUpdateDTO(BaseModel):
     side_recipe_ids: Optional[List[int]] = Field(None, max_length=3)
     is_saved: Optional[bool] = None
     tags: Optional[List[str]] = None
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def validate_tags(cls, v):
+        return _validate_tags(v)
 
     @field_validator("meal_name", mode="before")
     @classmethod

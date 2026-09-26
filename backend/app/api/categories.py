@@ -27,6 +27,7 @@ from app.services.user_category_service import (
     UserCategorySaveError,
     UserCategoryService,
 )
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -85,7 +86,7 @@ def create_category(
     except DuplicateUserCategoryError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except UserCategorySaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/{category_id}", response_model=UserCategoryResponseDTO)
@@ -111,7 +112,7 @@ def update_category(
     except BuiltInCategoryError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except UserCategorySaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.delete("/{category_id}")
@@ -134,7 +135,7 @@ def delete_category(
     except BuiltInCategoryError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except UserCategorySaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/reorder", response_model=List[UserCategoryResponseDTO])
@@ -152,7 +153,7 @@ def reorder_categories(
     try:
         return service.reorder_categories(reorder_data)
     except UserCategorySaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/bulk", response_model=List[UserCategoryResponseDTO])
@@ -170,7 +171,7 @@ def bulk_update_categories(
     try:
         return service.bulk_update(bulk_data)
     except UserCategorySaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.post("/reset", response_model=List[UserCategoryResponseDTO])
@@ -189,4 +190,4 @@ def reset_categories(
     try:
         return service.reset_to_defaults()
     except UserCategorySaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()

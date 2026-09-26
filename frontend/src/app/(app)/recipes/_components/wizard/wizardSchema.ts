@@ -27,10 +27,10 @@ const wizardIngredientSchema = z
         message: "Ingredient name is required",
         path: ["ingredientName"],
       });
-    } else if (ing.ingredientName.trim().length > 255) {
+    } else if (ing.ingredientName.trim().length > 200) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Name must be at most 255 characters",
+        message: "Name must be at most 200 characters",
         path: ["ingredientName"],
       });
     }

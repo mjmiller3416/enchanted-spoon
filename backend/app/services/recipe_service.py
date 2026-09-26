@@ -33,6 +33,10 @@ from ..repositories.recipe_repo import RecipeRepo
 class RecipeSaveError(Exception):
     pass
 
+class RecipeNotFoundError(RecipeSaveError):
+    """Raised when the recipe doesn't exist or isn't owned by the user."""
+
+
 class DuplicateRecipeError(Exception):
     pass
 
@@ -299,7 +303,7 @@ class RecipeService:
         try:
             updated_recipe = self.recipe_repo.update_recipe(recipe_id, update_dto, self.user_id)
             if not updated_recipe:
-                raise RecipeSaveError(f"Recipe {recipe_id} not found.")
+                raise RecipeNotFoundError(f"Recipe {recipe_id} not found.")
             # An edited starter recipe is the user's now; "Remove sample data" keeps it
             updated_recipe.is_sample = False
             self.session.commit()

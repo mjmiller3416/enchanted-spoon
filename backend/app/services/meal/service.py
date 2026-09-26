@@ -50,6 +50,11 @@ class MealServiceCore:
 
     MAX_SIDE_RECIPES = 3
 
+    @staticmethod
+    def _normalize_side_ids(side_ids: List[int], main_recipe_id: int) -> List[int]:
+        """Drop repeats and the main recipe itself (either would double-count on the shopping list)."""
+        return [sid for sid in dict.fromkeys(side_ids) if sid != main_recipe_id]
+
     def __init__(self, session: Session, user_id: int):
         """
         Initialize the MealService with a database session and user ID.
@@ -123,7 +128,9 @@ class MealServiceCore:
                 )
 
             # Validate side recipe IDs if provided
-            side_ids = create_dto.side_recipe_ids or []
+            side_ids = self._normalize_side_ids(
+                create_dto.side_recipe_ids or [], create_dto.main_recipe_id
+            )
             if len(side_ids) > self.MAX_SIDE_RECIPES:
                 raise InvalidRecipeError(
                     f"Maximum of {self.MAX_SIDE_RECIPES} side recipes allowed"
@@ -230,7 +237,9 @@ class MealServiceCore:
 
             # Update side recipes if provided
             if update_dto.side_recipe_ids is not None:
-                side_ids = update_dto.side_recipe_ids
+                side_ids = self._normalize_side_ids(
+                    update_dto.side_recipe_ids, meal.main_recipe_id
+                )
                 if len(side_ids) > self.MAX_SIDE_RECIPES:
                     raise InvalidRecipeError(
                         f"Maximum of {self.MAX_SIDE_RECIPES} side recipes allowed"
@@ -245,6 +254,12 @@ class MealServiceCore:
                             f"Side recipe IDs {invalid_side_ids} do not exist"
                         )
                 meal.side_recipe_ids = side_ids
+
+            # A new main recipe can't also be one of the sides
+            if meal.main_recipe_id in meal.side_recipe_ids:
+                meal.side_recipe_ids = self._normalize_side_ids(
+                    meal.side_recipe_ids, meal.main_recipe_id
+                )
 
             # Update tags if provided
             if update_dto.tags is not None:

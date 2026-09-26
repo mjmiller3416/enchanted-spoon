@@ -21,9 +21,11 @@ from app.dtos.recipe_dtos import (
 )
 from app.services.recipe_service import (
     DuplicateRecipeError,
+    RecipeNotFoundError,
     RecipeSaveError,
     RecipeService,
 )
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -175,7 +177,7 @@ def create_recipe(
     except DuplicateRecipeError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except RecipeSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/{recipe_id}", response_model=RecipeResponseDTO)
@@ -190,8 +192,10 @@ def update_recipe(
     try:
         recipe = service.update_recipe(recipe_id, update_data)
         return RecipeResponseDTO.from_recipe(recipe)
-    except RecipeSaveError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except RecipeNotFoundError:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    except RecipeSaveError:
+        raise internal_error()
 
 
 @router.delete("/{recipe_id}")

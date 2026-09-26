@@ -157,7 +157,7 @@ class SyncMixin:
 
                     # Update quantity and unit
                     item.quantity = display_qty
-                    item.unit = display_unit
+                    item.unit = display_unit[:50] if display_unit else display_unit
 
                     # If quantity INCREASED, uncheck (user needs to collect more)
                     if display_qty > old_qty + 0.01:
@@ -168,11 +168,13 @@ class SyncMixin:
                     stats["items_updated"] += 1
                 else:
                     # Create new item
+                    # Clamp to the column sizes: recipe ingredient text is
+                    # unbounded, and one oversize value would fail every sync
                     item = ShoppingItem.create_from_recipe(
-                        ingredient_name=ingredient_name.capitalize(),
+                        ingredient_name=ingredient_name.capitalize()[:255],
                         quantity=display_qty,
-                        unit=display_unit,
-                        category=category,
+                        unit=display_unit[:50] if display_unit else display_unit,
+                        category=category[:100] if category else category,
                         aggregation_key=agg_key.lower().strip(),
                     )
                     self.shopping_repo.create_shopping_item(item)
