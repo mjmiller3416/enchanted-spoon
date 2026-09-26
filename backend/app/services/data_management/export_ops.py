@@ -34,7 +34,7 @@ class ExportOperationsMixin:
             Bytes of the xlsx file.
         """
         # Build query
-        query = self.session.query(Recipe)
+        query = self.session.query(Recipe).filter(Recipe.user_id == self._require_user_id())
 
         if filter_dto:
             if filter_dto.recipe_category:

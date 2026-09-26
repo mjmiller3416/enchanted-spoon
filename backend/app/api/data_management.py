@@ -205,7 +205,7 @@ async def clear_all_data(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Delete all data from the database.
+    Delete all of the current user's data.
 
     WARNING: This is a destructive operation. All recipes, ingredients,
     meal plans, and shopping lists will be permanently deleted.
@@ -226,7 +226,7 @@ async def export_full_backup(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Export all database data as JSON.
+    Export the current user's data as JSON.
 
     The frontend should call this, then add localStorage settings
     before downloading the file.

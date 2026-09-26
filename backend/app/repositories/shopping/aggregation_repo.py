@@ -65,8 +65,9 @@ class ShoppingAggregationRepo:
     # ── Recipe Ingredient Aggregation ───────────────────────────────────────────────────────────────────────
     def get_recipe_ingredients(self, recipe_ids: List[int]) -> List[RecipeIngredient]:
         """
-        Fetch all recipe ingredients for given recipe IDs.
+        Fetch all recipe ingredients for given recipe IDs owned by the current user.
         Handles duplicate recipe IDs by counting occurrences and scaling quantities.
+        IDs belonging to other users are silently dropped.
 
         Args:
             recipe_ids (List[int]): List of recipe IDs to fetch ingredients for.
@@ -82,8 +83,11 @@ class ShoppingAggregationRepo:
         recipe_counts = Counter(recipe_ids)
         unique_recipe_ids = list(recipe_counts.keys())
 
-        stmt = select(RecipeIngredient).where(
-            RecipeIngredient.recipe_id.in_(unique_recipe_ids)
+        stmt = select(RecipeIngredient).join(
+            Recipe, RecipeIngredient.recipe_id == Recipe.id
+        ).where(
+            RecipeIngredient.recipe_id.in_(unique_recipe_ids),
+            Recipe.user_id == self.user_id,
         ).options(
             joinedload(RecipeIngredient.ingredient),
             joinedload(RecipeIngredient.recipe)

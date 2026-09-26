@@ -116,24 +116,6 @@ async def upload_recipe_image(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
-@router.delete("/{public_id:path}")
-async def delete_recipe_image(
-    public_id: str,
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Delete an image from Cloudinary.
-
-    Args:
-        public_id: The Cloudinary public ID of the image to delete
-    """
-    try:
-        result = cloudinary.uploader.destroy(public_id)
-        return {"success": result.get("result") == "ok"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
-
-
 @router.post("/base64")
 async def upload_base64_image(
     image_data: str = Form(...),

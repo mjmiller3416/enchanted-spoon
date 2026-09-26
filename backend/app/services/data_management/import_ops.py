@@ -326,6 +326,7 @@ class ImportOperationsMixin:
         return (
             self.session.query(Recipe)
             .filter(
+                Recipe.user_id == self._require_user_id(),
                 func.lower(Recipe.recipe_name) == name.strip().lower(),
                 func.lower(Recipe.recipe_category) == category.strip().lower(),
             )

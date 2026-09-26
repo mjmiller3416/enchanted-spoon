@@ -73,6 +73,16 @@ class DataManagementServiceCore:
             self.recipe_repo = RecipeRepo(session, user_id=None)
 
     # -- Shared Helper Methods -------------------------------------------------------------------
+    def _require_user_id(self) -> int:
+        """Return the owning user's ID, refusing to run tenant data operations without one.
+
+        Every read, clear, and restore must be scoped to a single account; an
+        unscoped query here would reach every user's data.
+        """
+        if not self.user_id:
+            raise ValueError("DataManagementService requires a user_id for data operations")
+        return self.user_id
+
     def _get_cell_value(self, cells: List, col_map: Dict[str, int], column: str):
         """Get cell value by column name, returns None if column doesn't exist."""
         if column not in col_map:

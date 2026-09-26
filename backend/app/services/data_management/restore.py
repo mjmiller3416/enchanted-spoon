@@ -55,7 +55,9 @@ class RestoreOperationsMixin:
             warnings.append(f"Backup version {backup.version} may not be fully compatible")
 
         # Check for existing data
-        existing_recipes = self.session.query(Recipe).count()
+        existing_recipes = (
+            self.session.query(Recipe).filter(Recipe.user_id == self._require_user_id()).count()
+        )
         if existing_recipes > 0:
             warnings.append(f"Existing data ({existing_recipes} recipes) will be deleted before restore")
 
@@ -91,12 +93,14 @@ class RestoreOperationsMixin:
         Returns:
             RestoreResultDTO with counts and any errors.
         """
+        user_id = self._require_user_id()
         errors: List[str] = []
         restored_counts: Dict[str, int] = {}
 
         try:
             if clear_existing:
-                self.clear_all_data()
+                # Keep the Cloudinary images: the backup points at them
+                self.clear_all_data(delete_images=False)
 
             # Build ID mappings as we restore (old_id -> new_id)
             ingredient_id_map: Dict[int, int] = {}
@@ -108,6 +112,7 @@ class RestoreOperationsMixin:
                 new_ing = Ingredient(
                     ingredient_name=ing_dto.ingredient_name,
                     ingredient_category=ing_dto.ingredient_category,
+                    user_id=user_id,
                 )
                 self.session.add(new_ing)
                 self.session.flush()
@@ -133,11 +138,14 @@ class RestoreOperationsMixin:
                     banner_image_path=recipe_dto.banner_image_path,
                     created_at=recipe_dto.created_at,
                     is_favorite=recipe_dto.is_favorite,
+                    user_id=user_id,
                 )
                 # Preserve the stable image_key so restored recipes keep pointing
                 # at their own Cloudinary assets. Older backups without an
-                # image_key fall back to the model-generated default.
-                if recipe_dto.image_key:
+                # image_key, or whose key another recipe already holds, fall back
+                # to the model-generated default so they never write to that
+                # recipe's asset.
+                if recipe_dto.image_key and not self._image_key_in_use(recipe_dto.image_key):
                     new_recipe.image_key = recipe_dto.image_key
                 self.session.add(new_recipe)
                 self.session.flush()
@@ -167,6 +175,7 @@ class RestoreOperationsMixin:
                     new_rh = RecipeHistory(
                         recipe_id=new_recipe_id,
                         cooked_at=rh_dto.cooked_at,
+                        user_id=user_id,
                     )
                     self.session.add(new_rh)
                 else:
@@ -187,6 +196,7 @@ class RestoreOperationsMixin:
                         main_recipe_id=new_main_recipe_id,
                         is_saved=meal_dto.is_saved,
                         created_at=meal_dto.created_at,
+                        user_id=user_id,
                     )
                     new_meal.side_recipe_ids = new_side_ids
                     new_meal.tags = meal_dto.tags
@@ -209,6 +219,7 @@ class RestoreOperationsMixin:
                         scheduled_date=pe_dto.scheduled_date,
                         shopping_mode=pe_dto.shopping_mode,
                         is_cleared=pe_dto.is_cleared,
+                        user_id=user_id,
                     )
                     self.session.add(new_pe)
                 else:
@@ -227,6 +238,7 @@ class RestoreOperationsMixin:
                         source=si_dto.source,
                         have=si_dto.have,
                         flagged=si_dto.flagged,
+                        user_id=user_id,
                     )
                     self.session.add(new_si)
                     manual_items_count += 1
@@ -253,4 +265,11 @@ class RestoreOperationsMixin:
             restored_counts=restored_counts,
             errors=errors,
             settings=backup.settings,
+        )
+
+    def _image_key_in_use(self, image_key: str) -> bool:
+        """Whether any recipe (in any account) already holds this image_key."""
+        return (
+            self.session.query(Recipe.id).filter(Recipe.image_key == image_key).first()
+            is not None
         )

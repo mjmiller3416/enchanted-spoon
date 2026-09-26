@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import cloudinary.uploader
+from sqlalchemy import select
 
 from ...dtos.data_management_dtos import (
     BackupDataDTO,
@@ -32,7 +33,9 @@ from ...models import (
     ShoppingItem,
     ShoppingItemContribution,
 )
-from ..sample_data.starter_pack import starter_image_urls
+
+# Cloudinary folder recipe-owned images live under (see app/api/upload.py)
+RECIPE_IMAGE_FOLDER = "meal-genie/recipes"
 
 
 # -- Backup Operations Mixin ---------------------------------------------------------------------
@@ -61,19 +64,23 @@ class BackupOperationsMixin:
 
     def _delete_cloudinary_images(self, recipes: List[Recipe]) -> int:
         """
-        Delete all Cloudinary images for the given recipes.
+        Delete the Cloudinary images each recipe owns.
+
+        A recipe only owns assets under its own ``image_key`` folder. Anything
+        else it points at (starter-pack artwork, a shared pack image, another
+        recipe's asset via a restored backup) belongs to someone else and must
+        never be destroyed from here.
 
         Returns the count of successfully deleted images.
         """
-        # Starter-pack artwork is shared by every account; never destroy it
-        shared = starter_image_urls()
         deleted_count = 0
 
         for recipe in recipes:
+            owned_prefix = f"{RECIPE_IMAGE_FOLDER}/{recipe.image_key}/"
             for image_path in [recipe.reference_image_path, recipe.banner_image_path]:
-                if image_path and image_path not in shared:
+                if image_path:
                     public_id = self._extract_cloudinary_public_id(image_path)
-                    if public_id:
+                    if public_id and public_id.startswith(owned_prefix):
                         try:
                             result = cloudinary.uploader.destroy(public_id)
                             if result.get("result") == "ok":
@@ -85,53 +92,99 @@ class BackupOperationsMixin:
         return deleted_count
 
     # -- Clear All Data --------------------------------------------------------------------------
-    def clear_all_data(self) -> Dict[str, int]:
+    def clear_all_data(self, delete_images: bool = True) -> Dict[str, int]:
         """
-        Delete all data from all tables, including Cloudinary images.
+        Delete all of the current user's data, including their Cloudinary images.
 
-        Deletes Cloudinary images first, then tables in the correct order
-        to respect foreign key constraints.
+        Only rows owned by ``self.user_id`` are touched. Deletes Cloudinary
+        images first, then tables in the correct order to respect foreign key
+        constraints.
+
+        Args:
+            delete_images: Also destroy the recipes' owned Cloudinary images.
+                Restore passes False because the backup it is about to load
+                points at those same images.
 
         Returns:
             Dict with counts of deleted records per table.
         """
+        user_id = self._require_user_id()
         counts = {}
 
+        user_recipe_ids = select(Recipe.id).where(Recipe.user_id == user_id)
+        user_item_ids = select(ShoppingItem.id).where(ShoppingItem.user_id == user_id)
+
         # First, delete Cloudinary images before removing recipe records
-        recipes_with_images = (
-            self.session.query(Recipe)
-            .filter(
-                (Recipe.reference_image_path.isnot(None))
-                | (Recipe.banner_image_path.isnot(None))
+        if delete_images:
+            recipes_with_images = (
+                self.session.query(Recipe)
+                .filter(
+                    Recipe.user_id == user_id,
+                    (Recipe.reference_image_path.isnot(None))
+                    | (Recipe.banner_image_path.isnot(None)),
+                )
+                .all()
             )
-            .all()
-        )
-        counts["cloudinary_images"] = self._delete_cloudinary_images(recipes_with_images)
+            counts["cloudinary_images"] = self._delete_cloudinary_images(recipes_with_images)
+        else:
+            counts["cloudinary_images"] = 0
 
         # Delete in order to respect foreign key constraints
         # Shopping contributions depend on ShoppingItem
-        counts["shopping_contributions"] = self.session.query(ShoppingItemContribution).delete()
+        counts["shopping_contributions"] = (
+            self.session.query(ShoppingItemContribution)
+            .filter(ShoppingItemContribution.shopping_item_id.in_(user_item_ids))
+            .delete(synchronize_session=False)
+        )
 
         # Shopping items
-        counts["shopping_items"] = self.session.query(ShoppingItem).delete()
+        counts["shopping_items"] = (
+            self.session.query(ShoppingItem)
+            .filter(ShoppingItem.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
 
-        # Planner entries depend on Recipe
-        counts["planner_entries"] = self.session.query(PlannerEntry).delete()
+        # Planner entries depend on Meal
+        counts["planner_entries"] = (
+            self.session.query(PlannerEntry)
+            .filter(PlannerEntry.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
+
+        # Meals depend on Recipe
+        counts["meals"] = (
+            self.session.query(Meal)
+            .filter(Meal.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
 
         # Recipe ingredients depend on Recipe and Ingredient
-        counts["recipe_ingredients"] = self.session.query(RecipeIngredient).delete()
+        counts["recipe_ingredients"] = (
+            self.session.query(RecipeIngredient)
+            .filter(RecipeIngredient.recipe_id.in_(user_recipe_ids))
+            .delete(synchronize_session=False)
+        )
 
         # Recipe history depends on Recipe
-        counts["recipe_history"] = self.session.query(RecipeHistory).delete()
+        counts["recipe_history"] = (
+            self.session.query(RecipeHistory)
+            .filter(RecipeHistory.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
 
-        # Recipes
-        counts["recipes"] = self.session.query(Recipe).delete()
-
-        # Meals
-        counts["meals"] = self.session.query(Meal).delete()
+        # Recipes (nutrition facts and group links cascade at the DB level)
+        counts["recipes"] = (
+            self.session.query(Recipe)
+            .filter(Recipe.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
 
         # Ingredients (can be deleted after recipe_ingredients)
-        counts["ingredients"] = self.session.query(Ingredient).delete()
+        counts["ingredients"] = (
+            self.session.query(Ingredient)
+            .filter(Ingredient.user_id == user_id)
+            .delete(synchronize_session=False)
+        )
 
         self.session.commit()
 
@@ -140,21 +193,27 @@ class BackupOperationsMixin:
     # -- Full Backup Export ----------------------------------------------------------------------
     def export_full_backup(self) -> FullBackupDTO:
         """
-        Export all database data as a FullBackupDTO.
+        Export the current user's data as a FullBackupDTO.
 
         Settings are not included here (they come from frontend localStorage).
 
         Returns:
-            FullBackupDTO with all database data.
+            FullBackupDTO with the current user's data.
         """
-        # Query all tables
-        ingredients = self.session.query(Ingredient).all()
-        recipes = self.session.query(Recipe).all()
-        recipe_ingredients = self.session.query(RecipeIngredient).all()
-        recipe_history = self.session.query(RecipeHistory).all()
-        meals = self.session.query(Meal).all()
-        planner_entries = self.session.query(PlannerEntry).all()
-        shopping_items = self.session.query(ShoppingItem).all()
+        user_id = self._require_user_id()
+
+        ingredients = self.session.query(Ingredient).filter(Ingredient.user_id == user_id).all()
+        recipes = self.session.query(Recipe).filter(Recipe.user_id == user_id).all()
+        recipe_ingredients = (
+            self.session.query(RecipeIngredient)
+            .join(Recipe, RecipeIngredient.recipe_id == Recipe.id)
+            .filter(Recipe.user_id == user_id)
+            .all()
+        )
+        recipe_history = self.session.query(RecipeHistory).filter(RecipeHistory.user_id == user_id).all()
+        meals = self.session.query(Meal).filter(Meal.user_id == user_id).all()
+        planner_entries = self.session.query(PlannerEntry).filter(PlannerEntry.user_id == user_id).all()
+        shopping_items = self.session.query(ShoppingItem).filter(ShoppingItem.user_id == user_id).all()
 
         # Convert to DTOs
         return FullBackupDTO(
