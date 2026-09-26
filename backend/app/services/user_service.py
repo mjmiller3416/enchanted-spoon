@@ -53,16 +53,18 @@ class UserService:
         This implements the full authentication flow:
 
         1. Look up by clerk_id (fast path for returning users)
-        2. If not found, check for claimable user:
-           - Has matching email
-           - Has clerk_id == "pending_claim"
-        3. If claimable, claim the account by updating clerk_id
-        4. If still not found, create a brand new user and seed the
+        2. If not found, look up by email and relink the account to the
+           new clerk_id
+        3. If still not found, create a brand new user and seed the
            onboarding starter pack (recipes, meals, planner, shopping list)
 
-        This enables pre-provisioning users (like Maryann) with their data
-        before they actually sign up with Clerk. When they do sign in,
-        their account is automatically claimed and linked.
+        Email relinking covers two cases:
+        - Pre-provisioned users (clerk_id == "pending_claim", like Maryann)
+          claiming their data on first sign-in.
+        - Existing users arriving with a new Clerk user ID, e.g. after
+          moving from the Clerk development instance to production. Clerk
+          only issues tokens for verified emails, so the email is as
+          trustworthy as a password-reset link.
 
         Args:
             clerk_id: Clerk user ID from JWT 'sub' claim.
@@ -78,13 +80,16 @@ class UserService:
         if user:
             return user
 
-        # 2. Check for claimable user (pre-provisioned account)
-        claimable = self.repo.get_claimable_user(email)
-        if claimable:
-            # Claim the account by updating clerk_id and profile
-            self.repo.update_from_clerk(claimable, clerk_id, name, avatar_url)
+        # 2. Relink an existing account by email (pre-provisioned or new Clerk ID)
+        existing = self.repo.get_by_email(email)
+        if existing:
+            logger.info(
+                "Relinking user id=%s from clerk_id=%s to %s",
+                existing.id, existing.clerk_id, clerk_id,
+            )
+            self.repo.update_from_clerk(existing, clerk_id, name, avatar_url)
             self.session.commit()
-            return claimable
+            return existing
 
         # 3. Create new user with default settings
         user = self.repo.create(

@@ -1,13 +1,13 @@
 """app/repositories/user_repo.py
 
 Repository layer for User model. Handles all direct database interactions
-related to users, including lookup, creation, and account claiming.
+related to users, including lookup, creation, and account relinking.
 """
 
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models.user import User
@@ -51,7 +51,10 @@ class UserRepo:
 
     def get_by_email(self, email: str) -> Optional[User]:
         """
-        Get user by email address.
+        Get user by email address (case-insensitive).
+
+        Used to relink an account when a known email arrives with a new
+        Clerk ID (pre-provisioned users, or a Clerk instance migration).
 
         Args:
             email: User's email address.
@@ -59,7 +62,7 @@ class UserRepo:
         Returns:
             User if found, None otherwise.
         """
-        stmt = select(User).where(User.email == email)
+        stmt = select(User).where(func.lower(User.email) == email.lower())
         return self.session.scalars(stmt).first()
 
     def get_by_stripe_customer_id(self, stripe_customer_id: str) -> Optional[User]:
@@ -76,29 +79,6 @@ class UserRepo:
             User if found, None otherwise.
         """
         stmt = select(User).where(User.stripe_customer_id == stripe_customer_id)
-        return self.session.scalars(stmt).first()
-
-    def get_claimable_user(self, email: str) -> Optional[User]:
-        """
-        Find a user that can be claimed by a new Clerk account.
-
-        A claimable user has:
-        - Matching email address
-        - clerk_id == "pending_claim" (pre-provisioned user)
-
-        This enables the scenario where an existing user (like Maryann)
-        has data pre-loaded before they sign up with Clerk.
-
-        Args:
-            email: Email address from the Clerk JWT.
-
-        Returns:
-            User if claimable, None otherwise.
-        """
-        stmt = select(User).where(
-            User.email == email,
-            User.clerk_id == "pending_claim"
-        )
         return self.session.scalars(stmt).first()
 
     def create(
@@ -148,7 +128,8 @@ class UserRepo:
         Update user with data from Clerk token.
 
         Used for:
-        1. Claiming a pre-provisioned account (pending_claim -> real clerk_id)
+        1. Relinking an account by email (pending_claim or a previous
+           Clerk instance's ID -> current clerk_id)
         2. Syncing profile changes from Clerk
 
         Args:
