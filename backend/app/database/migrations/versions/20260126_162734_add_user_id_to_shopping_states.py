@@ -26,6 +26,11 @@ def upgrade() -> None:
     to a specific user and will be regenerated when users access their
     shopping lists.
     """
+    # On a fresh database the shopping-refactor branch (h3c4d5e6f7g8) may run
+    # first and drop shopping_states entirely; there is nothing to alter then
+    if "shopping_states" not in sa.inspect(op.get_bind()).get_table_names():
+        return
+
     # Delete existing shopping states - they will be regenerated per-user
     # This is safe because shopping states are transient data derived from planner
     op.execute("DELETE FROM shopping_states")

@@ -201,6 +201,7 @@ export function useToggleFavorite() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { errorMessage: "Couldn't update favorite" },
     scope: { id: "recipe-favorites" },
     mutationFn: async (recipeId: number) => {
       const token = await getToken();

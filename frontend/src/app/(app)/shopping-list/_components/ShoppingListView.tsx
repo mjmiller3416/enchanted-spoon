@@ -384,7 +384,7 @@ export function ShoppingListView() {
           <Button asChild>
             <Link href="/meal-planner">
               <CalendarDays className="size-4" strokeWidth={1.5} />
-              Open meal planner
+              Open menu
             </Link>
           </Button>
         </div>

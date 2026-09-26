@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import { plannerApi } from "@/lib/api";
@@ -138,6 +139,31 @@ export function useCreateMeal() {
       queryClient.invalidateQueries({ queryKey: plannerQueryKeys.savedMeals() });
     },
   });
+}
+
+/**
+ * Best-effort delete of a meal that was created only to be planned, when
+ * planning it then failed (e.g. the menu is full). Without this, every retry
+ * leaves another unsaved meal behind. Deliberately not a mutation: a failure
+ * here must not surface a second error on top of the one being shown.
+ */
+export function useDiscardMeal() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    async (mealId: number) => {
+      try {
+        await plannerApi.deleteMeal(mealId, await getToken());
+      } catch {
+        // Leave it; it's an unsaved meal and won't appear in the menu
+      } finally {
+        queryClient.invalidateQueries({ queryKey: plannerQueryKeys.meals() });
+        queryClient.invalidateQueries({ queryKey: plannerQueryKeys.savedMeals() });
+      }
+    },
+    [getToken, queryClient]
+  );
 }
 
 /**

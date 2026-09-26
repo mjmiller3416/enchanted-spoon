@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import backref, Mapped, mapped_column, relationship
 
 from ..database.base import Base
 
@@ -50,7 +50,10 @@ class Ingredient(Base):
         cascade="all, delete-orphan",
         lazy="joined",
     )
-    user: Mapped["User"] = relationship("User", backref="ingredients")
+    # Cascade so deleting a user removes their ingredients instead of nulling a NOT NULL FK
+    user: Mapped["User"] = relationship(
+        "User", backref=backref("ingredients", cascade="all, delete-orphan")
+    )
 
     # ── Helper Methods ──────────────────────────────────────────────────────────────────────────────────────
     def display_label(self) -> str:

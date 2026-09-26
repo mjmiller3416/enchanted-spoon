@@ -9,8 +9,10 @@ resolved server-side from the recipe the caller owns, which also enforces that
 a user can only upload images for their own recipes.
 """
 
-import os
 import base64
+import binascii
+import logging
+import os
 from fastapi import APIRouter, Depends, File, UploadFile, Form, HTTPException
 from sqlalchemy.orm import Session
 import cloudinary
@@ -24,6 +26,8 @@ from app.services.recipe_service import RecipeService
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 # Configure Cloudinary
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
@@ -33,6 +37,11 @@ cloudinary.config(
 )
 
 router = APIRouter()
+
+# Phone photos are typically 2-8 MB; anything past this is almost certainly a mistake
+MAX_IMAGE_BYTES = 15 * 1024 * 1024
+# base64 inflates by 4/3
+MAX_BASE64_CHARS = (MAX_IMAGE_BYTES * 4) // 3 + 4
 
 
 def _resolve_image_key(session: Session, user: User, recipe_id_raw: str) -> str:
@@ -62,7 +71,7 @@ def _resolve_image_key(session: Session, user: User, recipe_id_raw: str) -> str:
 
 
 @router.post("")
-async def upload_recipe_image(
+def upload_recipe_image(
     file: UploadFile = File(...),
     recipeId: str = Form(...),
     imageType: str = Form(default="reference"),
@@ -91,9 +100,15 @@ async def upload_recipe_image(
 
     image_key = _resolve_image_key(session, current_user, recipeId)
 
+    # Read one byte past the cap so an oversized upload is rejected without
+    # buffering the whole thing
+    contents = file.file.read(MAX_IMAGE_BYTES + 1)
+    if len(contents) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image is too large (15 MB max)")
+    if not contents:
+        raise HTTPException(status_code=400, detail="Image file is empty")
+
     try:
-        # Read file contents
-        contents = await file.read()
 
         # Upload to Cloudinary keyed by the recipe's stable image_key
         result = cloudinary.uploader.upload(
@@ -112,30 +127,13 @@ async def upload_recipe_image(
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-
-
-@router.delete("/{public_id:path}")
-async def delete_recipe_image(
-    public_id: str,
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Delete an image from Cloudinary.
-
-    Args:
-        public_id: The Cloudinary public ID of the image to delete
-    """
-    try:
-        result = cloudinary.uploader.destroy(public_id)
-        return {"success": result.get("result") == "ok"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+    except Exception:
+        logger.exception("Cloudinary upload failed for image_key=%s", image_key)
+        raise HTTPException(status_code=502, detail="Image upload failed. Please try again.")
 
 
 @router.post("/base64")
-async def upload_base64_image(
+def upload_base64_image(
     image_data: str = Form(...),
     recipeId: str = Form(...),
     imageType: str = Form(default="reference"),
@@ -161,11 +159,17 @@ async def upload_base64_image(
     if imageType not in ("reference", "banner"):
         imageType = "reference"
 
+    if len(image_data) > MAX_BASE64_CHARS:
+        raise HTTPException(status_code=413, detail="Image is too large (15 MB max)")
+
     image_key = _resolve_image_key(session, current_user, recipeId)
 
     try:
-        # Decode base64 to bytes
         image_bytes = base64.b64decode(image_data)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="Image data is not valid base64")
+
+    try:
 
         # Upload to Cloudinary keyed by the recipe's stable image_key
         result = cloudinary.uploader.upload(
@@ -184,5 +188,6 @@ async def upload_base64_image(
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+    except Exception:
+        logger.exception("Cloudinary upload failed for image_key=%s", image_key)
+        raise HTTPException(status_code=502, detail="Image upload failed. Please try again.")

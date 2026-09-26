@@ -23,6 +23,7 @@ from app.services.meal import (
     MealSaveError,
     MealService,
 )
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -107,7 +108,7 @@ def create_meal(
     except InvalidRecipeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except MealSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/{meal_id}", response_model=MealResponseDTO)
@@ -127,7 +128,7 @@ def update_meal(
     except InvalidRecipeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except MealSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.delete("/{meal_id}")
@@ -187,7 +188,7 @@ def add_side_recipe(
     except InvalidRecipeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except MealSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.delete("/{meal_id}/sides/{recipe_id}", response_model=MealResponseDTO)
@@ -205,7 +206,7 @@ def remove_side_recipe(
             raise HTTPException(status_code=404, detail="Meal not found")
         return meal
     except MealSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/{meal_id}/sides/reorder", response_model=MealResponseDTO)
@@ -229,4 +230,4 @@ def reorder_side_recipes(
     except InvalidRecipeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except MealSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()

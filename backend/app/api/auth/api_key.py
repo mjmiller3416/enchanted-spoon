@@ -55,7 +55,10 @@ def get_integration_user(
             detail="Integration API is not configured on this server",
         )
 
-    if not api_key or not secrets.compare_digest(api_key, settings.integration_api_key):
+    # Compare as bytes: compare_digest raises TypeError on non-ASCII str input
+    if not api_key or not secrets.compare_digest(
+        api_key.encode("utf-8"), settings.integration_api_key.encode("utf-8")
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",

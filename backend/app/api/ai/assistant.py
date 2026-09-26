@@ -20,6 +20,7 @@ from app.services.ai.image_generation import get_image_generation_service
 from app.services.ai.user_context_builder import UserContextBuilder
 from app.models.user import User
 from app.services.usage_service import UsageService
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -112,7 +113,7 @@ async def chat_with_assistant(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Assistant error: {str(e)}")
+        raise internal_error("Assistant error. Please try again.")
 
 
 # Keep /ask as backwards-compatible alias that routes to /chat
@@ -229,8 +230,6 @@ async def generate_recipe(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Recipe generation error: {str(e)}"
-        )
+        raise internal_error("Recipe generation error. Please try again.")

@@ -17,6 +17,7 @@ from app.services.ai.recipe_generation.service import (
 )
 from app.services.usage_service import UsageService
 from app.services.user_category_service import UserCategoryService
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -64,14 +65,8 @@ async def generate_recipe(
     except HTTPException:
         raise
     except RecipeParseError as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to parse AI response: {str(e)}"
-        )
+        raise internal_error("Failed to parse AI response. Please try again.")
     except RecipeGenerationError as e:
-        raise HTTPException(
-            status_code=500, detail=f"Recipe generation failed: {str(e)}"
-        )
+        raise internal_error("Recipe generation failed. Please try again.")
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Recipe generation failed: {str(e)}"
-        )
+        raise internal_error("Recipe generation failed. Please try again.")

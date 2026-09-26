@@ -32,7 +32,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
 @router.post("/import/preview", response_model=ImportPreviewDTO)
-async def preview_import(
+def preview_import(
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -47,14 +47,14 @@ async def preview_import(
     - Any validation errors
     """
     # Validate file type
-    if not file.filename or not file.filename.endswith(".xlsx"):
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
         raise HTTPException(
             status_code=400,
             detail="Invalid file format. Please upload an .xlsx file",
         )
 
     # Read file content
-    content = await file.read()
+    content = file.file.read()
 
     # Validate file size
     if len(content) > MAX_FILE_SIZE:
@@ -85,7 +85,7 @@ async def preview_import(
 
 
 @router.post("/import/execute", response_model=ImportResultDTO)
-async def execute_import(
+def execute_import(
     file: UploadFile = File(...),
     resolutions: str = Form(default="[]"),
     session: Session = Depends(get_session),
@@ -101,14 +101,14 @@ async def execute_import(
     - "rename": Create new recipe with a different name (requires new_name field)
     """
     # Validate file type
-    if not file.filename or not file.filename.endswith(".xlsx"):
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
         raise HTTPException(
             status_code=400,
             detail="Invalid file format. Please upload an .xlsx file",
         )
 
     # Read file content
-    content = await file.read()
+    content = file.file.read()
 
     # Validate file size
     if len(content) > MAX_FILE_SIZE:
@@ -148,7 +148,7 @@ async def execute_import(
 
 
 @router.get("/export")
-async def export_recipes(
+def export_recipes(
     recipe_category: Optional[str] = Query(None),
     meal_type: Optional[str] = Query(None),
     favorites_only: bool = Query(False),
@@ -180,7 +180,7 @@ async def export_recipes(
 
 
 @router.get("/template")
-async def download_template():
+def download_template():
     """
     Download an empty xlsx template with the correct format for importing recipes.
 
@@ -200,12 +200,12 @@ async def download_template():
 
 
 @router.delete("/clear-all")
-async def clear_all_data(
+def clear_all_data(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Delete all data from the database.
+    Delete all of the current user's data.
 
     WARNING: This is a destructive operation. All recipes, ingredients,
     meal plans, and shopping lists will be permanently deleted.
@@ -221,12 +221,12 @@ async def clear_all_data(
 
 
 @router.get("/backup/full")
-async def export_full_backup(
+def export_full_backup(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Export all database data as JSON.
+    Export the current user's data as JSON.
 
     The frontend should call this, then add localStorage settings
     before downloading the file.
@@ -239,7 +239,7 @@ async def export_full_backup(
 
 
 @router.post("/restore/preview", response_model=RestorePreviewDTO)
-async def preview_restore(
+def preview_restore(
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -251,14 +251,14 @@ async def preview_restore(
     The file should be a JSON backup file created by the export endpoint.
     """
     # Validate file type
-    if not file.filename or not file.filename.endswith(".json"):
+    if not file.filename or not file.filename.lower().endswith(".json"):
         raise HTTPException(
             status_code=400,
             detail="Invalid file format. Please upload a .json backup file",
         )
 
     # Read file content
-    content = await file.read()
+    content = file.file.read()
 
     # Validate file size (20MB max for JSON backups)
     if len(content) > 20 * 1024 * 1024:
@@ -271,10 +271,10 @@ async def preview_restore(
     try:
         backup_data = json.loads(content)
         backup = FullBackupDTO(**backup_data)
-    except (json.JSONDecodeError, ValueError) as e:
+    except (json.JSONDecodeError, ValueError):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid backup file: {str(e)}",
+            detail="This isn't a valid Enchanted Spoon backup file",
         )
 
     service = DataManagementService(session, current_user.id)
@@ -284,7 +284,7 @@ async def preview_restore(
 
 
 @router.post("/restore/execute")
-async def execute_restore(
+def execute_restore(
     file: UploadFile = File(...),
     clear_existing: bool = Query(True, description="Clear existing data before restore"),
     session: Session = Depends(get_session),
@@ -299,14 +299,14 @@ async def execute_restore(
     that the frontend should restore to localStorage.
     """
     # Validate file type
-    if not file.filename or not file.filename.endswith(".json"):
+    if not file.filename or not file.filename.lower().endswith(".json"):
         raise HTTPException(
             status_code=400,
             detail="Invalid file format. Please upload a .json backup file",
         )
 
     # Read file content
-    content = await file.read()
+    content = file.file.read()
 
     # Validate file size
     if len(content) > 20 * 1024 * 1024:
@@ -319,10 +319,10 @@ async def execute_restore(
     try:
         backup_data = json.loads(content)
         backup = FullBackupDTO(**backup_data)
-    except (json.JSONDecodeError, ValueError) as e:
+    except (json.JSONDecodeError, ValueError):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid backup file: {str(e)}",
+            detail="This isn't a valid Enchanted Spoon backup file",
         )
 
     service = DataManagementService(session, current_user.id)

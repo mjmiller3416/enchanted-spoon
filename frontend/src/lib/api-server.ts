@@ -9,7 +9,7 @@ import { auth } from "@clerk/nextjs/server";
 import { ApiError } from "@/lib/api/base";
 
 // API base URL from environment variable, defaulting to the local dev backend.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 /**
  * Server-side authenticated fetch function for server components.

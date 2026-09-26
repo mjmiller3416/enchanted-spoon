@@ -45,7 +45,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: "Home", href: "/dashboard", icon: House },
-  { name: "Planner", href: "/meal-planner", icon: CalendarDays },
+  { name: "Menu", href: "/meal-planner", icon: CalendarDays },
   { name: "Recipes", href: "/recipes", icon: BookOpen },
   { name: "Shopping", href: "/shopping-list", icon: ShoppingCart, hasBadge: true },
 ];

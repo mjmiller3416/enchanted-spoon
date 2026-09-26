@@ -16,13 +16,27 @@ from ...core.auth_config import AuthSettings, get_auth_settings
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
-from ...services.user_service import UserService
+from ...services.user_service import AccountLinkError, UserService
 from .jwks import get_clerk_jwks, _get_signing_key
 
 logger = logging.getLogger(__name__)
 
 # Security scheme for Bearer tokens
 security = HTTPBearer(auto_error=False)
+
+
+def _email_from_claims(payload: dict) -> Optional[str]:
+    """First usable email claim; tolerant of missing/empty/malformed fields."""
+    for key in ("email", "primary_email_address"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    addresses = payload.get("email_addresses")
+    if isinstance(addresses, list):
+        for entry in addresses:
+            if isinstance(entry, dict) and isinstance(entry.get("email_address"), str):
+                return entry["email_address"].strip() or None
+    return None
 
 
 # ── Authentication Dependencies ─────────────────────────────────────────────
@@ -114,11 +128,7 @@ async def get_current_user(
     # Clerk JWTs use 'sub' for user ID, and may include email in different fields
     logger.debug(f"JWT payload keys: {list(payload.keys())}")
     clerk_id = payload.get("sub")
-    email = (
-        payload.get("email")
-        or payload.get("primary_email_address")
-        or payload.get("email_addresses", [{}])[0].get("email_address")
-    )
+    email = _email_from_claims(payload)
     name = payload.get("name") or payload.get("first_name")
     avatar_url = payload.get("picture") or payload.get("image_url")
     logger.debug(f"Extracted: clerk_id={clerk_id}, email={email}, name={name}")
@@ -132,8 +142,8 @@ async def get_current_user(
         )
 
     if not email:
-        logger.error("Missing email - JWT does not contain email claim!")
-        logger.error(f"Full payload: {payload}")
+        # Never log the payload itself: it carries the user's personal data
+        logger.error("Missing email - JWT does not contain email claim (keys: %s)", sorted(payload))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token missing required claim: email",
@@ -142,12 +152,22 @@ async def get_current_user(
 
     # Get or create user from token claims
     user_service = UserService(session)
-    user = user_service.get_or_create_from_clerk(
-        clerk_id=clerk_id,
-        email=email,
-        name=name,
-        avatar_url=avatar_url,
-    )
+    try:
+        user = user_service.get_or_create_from_clerk(
+            clerk_id=clerk_id,
+            email=email,
+            name=name,
+            avatar_url=avatar_url,
+        )
+    except AccountLinkError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "An Enchanted Spoon account already uses this email address, but it "
+                "couldn't be linked to this sign-in. Please verify your email address "
+                "or contact support."
+            ),
+        )
 
     return user
 

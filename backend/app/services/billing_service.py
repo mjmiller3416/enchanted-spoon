@@ -86,6 +86,32 @@ class BillingService:
         self.session.commit()
         return customer.id
 
+    def delete_customer(self, user: User) -> None:
+        """
+        Delete the user's Stripe customer, which immediately cancels any
+        subscription so a deleted account is never billed again.
+
+        No-op when the user never became a Stripe customer. A customer Stripe
+        no longer has counts as deleted.
+
+        Raises:
+            StripeNotConfiguredError: The user has a customer but Stripe isn't configured.
+            StripeCustomerError: Stripe API call failed.
+        """
+        if not user.stripe_customer_id:
+            return
+        if not self.settings.stripe_secret_key:
+            raise StripeNotConfiguredError("Stripe is not configured; cannot cancel billing.")
+        try:
+            stripe.Customer.delete(user.stripe_customer_id)
+        except stripe.error.InvalidRequestError as e:
+            if getattr(e, "code", None) != "resource_missing":
+                logger.error(f"Stripe customer delete failed for user {user.id}: {e}")
+                raise StripeCustomerError("Failed to cancel billing.") from e
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe customer delete failed for user {user.id}: {e}")
+            raise StripeCustomerError("Failed to cancel billing.") from e
+
     def create_checkout_session(self, user: User) -> str:
         """
         Create a Stripe Checkout session for the Pro subscription.

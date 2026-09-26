@@ -295,7 +295,7 @@
    git add <files>  # if staging was requested
    git commit -m "<validated-message>
 
-   Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+   Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>"
    ```
 
 7. **Confirm success**

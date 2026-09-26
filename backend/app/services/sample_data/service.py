@@ -162,18 +162,30 @@ class SampleDataService:
         Delete untouched sample meals and recipes, their planner entries, and
         starter ingredients nothing else uses, then rebuild the shopping list.
 
-        A sample recipe that one of the user's own meals still uses is kept
-        and becomes a regular recipe, so removal never breaks their meals.
+        A sample recipe that one of the user's own meals still uses, or that
+        they've favorited, cooked, grouped, or given their own image, is kept
+        and becomes a regular recipe; a sample meal they've cooked is kept too.
 
         Raises:
             SampleDataError: If the database write fails.
         """
         try:
-            meals = self.repo.get_sample_meals()
-            for meal in meals:
+            # A cooked sample meal is part of the user's history (streak,
+            # "last cooked"): keep it as their own instead of deleting it
+            cooked = self.repo.get_cooked_sample_meal_ids()
+            meals_removed = 0
+            for meal in self.repo.get_sample_meals():
+                if meal.id in cooked:
+                    meal.is_sample = False
+                    continue
                 self.repo.delete_meal(meal)
+                meals_removed += 1
+            self.session.flush()
 
-            in_use = self.repo.get_recipe_ids_used_by_user_meals()
+            in_use = (
+                self.repo.get_recipe_ids_used_by_user_meals()
+                | self.repo.get_sample_recipe_ids_with_activity()
+            )
             removed = kept = 0
             for recipe in self.repo.get_sample_recipes():
                 if recipe.id in in_use:
@@ -194,7 +206,7 @@ class SampleDataService:
 
         return SampleDataRemovalResultDTO(
             recipes_removed=removed,
-            meals_removed=len(meals),
+            meals_removed=meals_removed,
             recipes_kept=kept,
         )
 

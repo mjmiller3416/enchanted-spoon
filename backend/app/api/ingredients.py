@@ -19,6 +19,7 @@ from app.dtos.ingredient_dtos import (
 )
 from app.models.user import User
 from app.services.ingredient_service import IngredientNotFoundError, IngredientService
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -106,7 +107,7 @@ async def create_ingredient(
         ingredient = service.create_ingredient(ingredient_data)
         return _ingredient_to_response_dto(ingredient)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.post("/bulk", response_model=List[IngredientResponseDTO], status_code=201)
@@ -121,7 +122,7 @@ async def bulk_create_ingredients(
         ingredients = service.bulk_create_ingredients(ingredients_data)
         return [_ingredient_to_response_dto(ing) for ing in ingredients]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/{ingredient_id}", response_model=IngredientResponseDTO)
@@ -139,7 +140,7 @@ async def update_ingredient(
     except IngredientNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.delete("/{ingredient_id}")
@@ -156,7 +157,7 @@ async def delete_ingredient(
     except IngredientNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.post("/search", response_model=List[IngredientResponseDTO])

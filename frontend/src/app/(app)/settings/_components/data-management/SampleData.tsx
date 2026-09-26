@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, Plus, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ function plural(count: number, noun: string): string {
  * with (keeping anything the user edited), or add it back.
  */
 export function SampleData() {
-  const { data: status, isLoading } = useSampleDataStatus();
+  const { data: status, isLoading, isError, refetch, isFetching } = useSampleDataStatus();
   const addSampleData = useAddSampleData();
   const removeSampleData = useRemoveSampleData();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -36,7 +36,7 @@ export function SampleData() {
       onSuccess: (result) => {
         const kept =
           result.recipes_kept > 0
-            ? ` Kept ${plural(result.recipes_kept, "recipe")} your own meals use.`
+            ? ` Kept ${plural(result.recipes_kept, "recipe")} you've been using.`
             : "";
         toast.success(
           `Removed ${plural(result.recipes_removed, "sample recipe")} and ${plural(result.meals_removed, "meal")}.${kept}`
@@ -69,6 +69,25 @@ export function SampleData() {
 
         {isLoading ? (
           <Skeleton className="h-10 w-full" />
+        ) : isError ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Couldn&apos;t check your sample data right now.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className="gap-2"
+            >
+              {isFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4" strokeWidth={1.5} />
+              )}
+              Try Again
+            </Button>
+          </>
         ) : hasSampleData ? (
           <>
             <p className="text-sm text-muted-foreground">
@@ -118,8 +137,8 @@ export function SampleData() {
           </DialogHeader>
 
           <p className="text-sm text-muted-foreground">
-            Sample recipes or meals you&apos;ve edited, and sample recipes used in your own
-            meals, are kept.
+            Anything you&apos;ve made your own is kept: sample recipes or meals you&apos;ve edited,
+            cooked, favorited, grouped, added a photo to, or used in your own meals.
           </p>
 
           <DialogFooter>

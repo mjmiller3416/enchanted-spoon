@@ -51,7 +51,7 @@ export const TOUR_STEPS: TourStepDefinition[] = [
     targets: ["nav-main"],
     title: "Get around",
     description:
-      "Jump between Home, the Meal Planner, Recipes, and your Shopping List from here.",
+      "Jump between Home, the Menu, Recipes, and your Shopping List from here.",
     icon: Compass,
   },
 

@@ -94,7 +94,7 @@ staging:        E -> F -> M  <-- (merge commit brings in hotfix)
    Includes:
    - fix(auth): prevent token leak in error responses
 
-   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+   Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>"
    ```
 
    > **Why merge instead of rebase?** Staging is a shared branch. Merging preserves
@@ -162,7 +162,7 @@ chore: backport hotfixes from main
 Includes:
 - <list of hotfix commits>
 
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>
 ```
 
 **Example:**
@@ -173,7 +173,7 @@ Includes:
 - fix(auth): prevent token leak in error responses
 - fix(recipes): handle null ingredient quantities
 
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>
 ```
 
 ## Error Handling

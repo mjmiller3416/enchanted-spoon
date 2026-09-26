@@ -9,6 +9,7 @@ from app.api.auth import require_within_usage_limit
 from app.database.db import get_session
 from app.models.user import User
 from app.services.usage_service import UsageService
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -44,6 +45,6 @@ async def get_cooking_tip(
     except HTTPException:
         raise
     except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Tip generation failed: {str(e)}")
+        raise internal_error("Tip generation failed. Please try again.")

@@ -3,7 +3,9 @@
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { toast } from "sonner";
 import { maybeHandleAiGateError } from "@/lib/paywall";
+import { getErrorMessage } from "@/lib/utils";
 import { SettingsProvider } from "./SettingsProvider";
 
 export function QueryProvider({ children }: { children: ReactNode }) {
@@ -23,9 +25,15 @@ function QuerySession({ children }: { children: ReactNode }) {
         // fails with a pro-required 403 or usage-limit 429 opens the paywall
         // dialog. Call-site onError handlers still run; they use
         // classifyAiGateError/maybeHandleAiGateError to skip generic toasts.
+        // Hooks without their own error UI opt into a toast via
+        // `meta: { errorMessage }` so a failed save is never silent.
         mutationCache: new MutationCache({
-          onError: (error) => {
-            maybeHandleAiGateError(error);
+          onError: (error, _variables, _context, mutation) => {
+            if (maybeHandleAiGateError(error)) return;
+            const fallback = mutation.meta?.errorMessage;
+            if (typeof fallback === "string") {
+              toast.error(getErrorMessage(error, fallback));
+            }
           },
         }),
         defaultOptions: {

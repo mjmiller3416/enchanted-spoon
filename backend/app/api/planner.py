@@ -30,6 +30,7 @@ from app.services.planner import (
 
 from app.services.planner.entry import EntryNotFoundError
 from app.services.planner.status import ShoppingModeSaveError
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -125,7 +126,7 @@ def add_meal_to_planner(
     except InvalidMealError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.post("/entries/bulk", response_model=List[PlannerEntryResponseDTO], status_code=201)
@@ -147,7 +148,7 @@ def add_meals_to_planner(
     except InvalidMealError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 # -- Update Operations ---------------------------------------------------------------------------

@@ -109,6 +109,7 @@ export function useUpdateRecipeGroup() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't rename the group" },
     mutationFn: async ({ id, data }: { id: number; data: RecipeGroupUpdateDTO }) => {
       const token = await getToken();
       return recipeGroupApi.update(id, data, token);
@@ -129,6 +130,7 @@ export function useDeleteRecipeGroup() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't delete the group" },
     mutationFn: async (id: number) => {
       const token = await getToken();
       return recipeGroupApi.delete(id, token);

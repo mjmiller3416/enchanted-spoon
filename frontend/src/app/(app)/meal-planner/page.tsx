@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { MealPlannerView } from "@/app/(app)/meal-planner/_components";
 import { MealPlannerSkeleton } from "./_components/MealPlannerSkeleton";
 
-export const metadata: Metadata = { title: "Meal Planner" };
+export const metadata: Metadata = { title: "Menu" };
 
 /**
  * Meal Planner Page

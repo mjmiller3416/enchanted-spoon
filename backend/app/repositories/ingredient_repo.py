@@ -4,7 +4,7 @@ Provides database operations for Ingredient entities.
 """
 
 # ── Imports ─────────────────────────────────────────────────────────────────────────────────────────────────
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models.ingredient import Ingredient
@@ -77,8 +77,10 @@ class IngredientRepo:
         stmt = (
             select(Ingredient)
             .where(Ingredient.user_id == self.user_id)
-            .where(Ingredient.ingredient_name.ilike(name.strip()))
-            .where(Ingredient.ingredient_category.ilike(category.strip()))
+            # Exact case-insensitive match: ilike() would treat % and _ in a
+            # name as wildcards and link the wrong ingredient
+            .where(func.lower(Ingredient.ingredient_name) == name.strip().lower())
+            .where(func.lower(Ingredient.ingredient_category) == category.strip().lower())
         )
         return self.session.execute(stmt).scalars().unique().first()
 
@@ -98,7 +100,9 @@ class IngredientRepo:
             Ingredient.ingredient_name.ilike(f"%{term.strip()}%")
         )
         if category:
-            stmt = stmt.where(Ingredient.ingredient_category.ilike(category.strip()))
+            stmt = stmt.where(
+                func.lower(Ingredient.ingredient_category) == category.strip().lower()
+            )
         return self.session.execute(stmt).scalars().unique().all()
 
     def get_distinct_names(self) -> list[str]:

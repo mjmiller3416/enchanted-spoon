@@ -71,7 +71,7 @@ venv\Scripts\activate                          # Windows
 source venv/bin/activate                       # Linux/macOS
 
 # Run development server
-python -m uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --port 8001
 
 # Database migrations
 alembic revision --autogenerate -m "description"
@@ -89,7 +89,7 @@ pytest tests/test_file.py -v
 ### Environment Variables
 
 **Frontend:**
-- `NEXT_PUBLIC_API_URL` - Frontend API URL (default: `http://localhost:8000`)
+- `NEXT_PUBLIC_API_URL` - Frontend API URL (default: `http://localhost:8001`)
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk auth (frontend)
 - `CLERK_SECRET_KEY` - Clerk auth (frontend middleware)
 

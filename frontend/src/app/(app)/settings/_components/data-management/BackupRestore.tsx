@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Download,
   AlertCircle,
@@ -34,6 +35,7 @@ import type { RestorePreview, RestoreResult } from "@/types/common";
 export function BackupRestore() {
   const { getToken } = useAuth();
   const { settings, updateMultipleSections } = useSettings();
+  const queryClient = useQueryClient();
 
   // Full backup state
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
@@ -79,8 +81,11 @@ export function BackupRestore() {
   const handleRestoreFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.name.endsWith(".json")) {
+      if (!file.name.toLowerCase().endsWith(".json")) {
         toast.error("Please select a .json backup file");
+        // Don't leave a previously chosen file silently armed for restore
+        setRestoreFile(null);
+        e.target.value = "";
         return;
       }
       setRestoreFile(file);
@@ -114,7 +119,8 @@ export function BackupRestore() {
       const token = await getToken();
       const result = await dataManagementApi.executeRestore(restoreFile, true, token);
 
-      if (result.settings) {
+      // A failed restore is rolled back server-side; never half-apply its settings
+      if (result.success && result.settings) {
         updateMultipleSections(result.settings);
       }
 
@@ -122,10 +128,17 @@ export function BackupRestore() {
       setShowRestorePreviewDialog(false);
       setShowRestoreResultDialog(true);
 
-      if (result.success) {
-        toast.success("Restore completed successfully");
+      if (!result.success) {
+        toast.error("Restore failed — your existing data was not changed");
+      } else if (result.errors.length > 0) {
+        toast.warning("Restore completed, but some items were skipped");
       } else {
-        toast.warning("Restore completed with some errors");
+        toast.success("Restore completed successfully");
+      }
+
+      if (result.success) {
+        // Every cached list (recipes, menu, shopping, sample status…) is now stale
+        await queryClient.invalidateQueries();
       }
     } catch (error) {
       toast.error(getErrorMessage(error, "Failed to restore backup"));

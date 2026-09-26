@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/input-otp";
 import { Logo } from "@/components/layout/Logo";
 import { appConfig } from "@/lib/config";
+import { getPostAuthRedirect } from "@/lib/authRedirect";
 
 type SignUpStep = "details" | "verification";
 
@@ -44,7 +45,7 @@ export function SignUpForm() {
       await signUp.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/dashboard",
+        redirectUrlComplete: getPostAuthRedirect(),
       });
     } catch (err) {
       setError("Failed to start Google sign-up. Please try again.");
@@ -97,7 +98,13 @@ export function SignUpForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        router.push("/dashboard");
+        router.push(getPostAuthRedirect());
+      } else {
+        // e.g. missing_requirements: a field Clerk requires that this form doesn't collect
+        setError(
+          "Your email is verified, but your account needs one more step we can't finish here. " +
+            `Please contact ${appConfig.supportEmail}.`
+        );
       }
     } catch (err: unknown) {
       const clerkError = err as { errors?: Array<{ message: string }> };

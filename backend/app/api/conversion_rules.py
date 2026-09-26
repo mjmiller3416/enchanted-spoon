@@ -24,6 +24,7 @@ from app.services.unit_conversion_service import (
     UnitConversionService,
 )
 from app.utils.unit_conversion import MASS_UNITS, VOLUME_UNITS, COUNT_UNITS
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -133,7 +134,7 @@ async def create_rule(
         rule = service.create_rule(rule_data)
         return _rule_to_response_dto(rule)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/{rule_id}", response_model=UnitConversionRuleResponseDTO)
@@ -151,7 +152,7 @@ async def update_rule(
     except ConversionRuleNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.delete("/{rule_id}")
@@ -168,4 +169,4 @@ async def delete_rule(
     except ConversionRuleNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()

@@ -104,6 +104,7 @@ export function useAddManualItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't add the item" },
     mutationFn: async (data: ManualItemCreateDTO) => {
       const token = await getToken();
       return shoppingApi.addItem(data, token);
@@ -152,6 +153,7 @@ export function useClearManualItems() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't clear your items" },
     mutationFn: async () => {
       const token = await getToken();
       return shoppingApi.clearManual(token);

@@ -3,10 +3,12 @@
 // ============================================
 const CHANGELOG_MD = `
 ## 2026-09-26 - New Features
+- Menu (formerly Meal Planner): tap a planned meal to open its details in a panel docked beside your menu — sides, cook times, and Genie's suggestions without leaving the page. The open meal stays open when you reload
 - Guided onboarding tour: an 11-step walkthrough of Home, Recipes, Meal Planner, Shopping List and Settings. It starts on its own for new accounts and you can replay it from Settings
 - New accounts start with a sample kitchen: 10 recipes with photos, 4 saved meals, 3 planned meals and the shopping list they produce. Sample items show a "Sample" badge and can be removed or re-added in Settings > Data Management
 
 ## 2026-09-26 - Improvements
+- "Meal Planner" is now called "Menu" throughout the app
 - Recipe Browser fits more on screen, shows better images and has easier navigation into recipe details
 - Page headers and editors now look the same across the app, and headers no longer overflow on small screens
 - Meal Planner makes it clearer which meal is selected, and the Shopping List shows item state more clearly
@@ -15,6 +17,8 @@ const CHANGELOG_MD = `
 - The back and forward buttons in your browser now keep your place
 
 ## 2026-09-26 - Bug Fixes
+- The selected meal card no longer gets cut off on desktop, and the detail panel scrolls when it's taller than your screen
+- Tightened account data isolation — Delete All Data, backups, restores and recipe exports now only ever touch your own account
 - Recipe drafts are protected: an interrupted save picks up where it left off without creating a duplicate
 - Settings changes save reliably, even when you make several quickly
 - Signing in recovers an existing session or a Google/OAuth sign-in instead of getting stuck

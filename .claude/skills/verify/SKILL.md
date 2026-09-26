@@ -12,7 +12,7 @@ Backend (auth bypassed; local recipes belong to user_id 2):
 ```powershell
 Set-Location backend
 $env:AUTH_DISABLED='true'; $env:DEV_USER_ID='2'
-venv\Scripts\python.exe -m uvicorn app.main:app --port 8000
+venv\Scripts\python.exe -m uvicorn app.main:app --port 8001
 ```
 
 `load_dotenv()` does not override already-set env vars, so setting them

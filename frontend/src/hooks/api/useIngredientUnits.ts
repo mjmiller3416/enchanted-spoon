@@ -105,6 +105,7 @@ export function useCreateIngredientUnit() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't add the unit" },
     mutationFn: async (data: UserIngredientUnitCreateDTO) => {
       const token = await getToken();
       return ingredientUnitApi.create(data, token);
@@ -125,6 +126,7 @@ export function useUpdateIngredientUnit() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't update the unit" },
     mutationFn: async ({
       id,
       data,
@@ -154,6 +156,7 @@ export function useDeleteIngredientUnit() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't delete the unit" },
     mutationFn: async (id: number) => {
       const token = await getToken();
       return ingredientUnitApi.delete(id, token);
@@ -175,6 +178,7 @@ export function useReorderIngredientUnits() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't save the new order" },
     mutationFn: async (data: UserIngredientUnitReorderDTO) => {
       const token = await getToken();
       return ingredientUnitApi.reorder(data, token);
@@ -236,6 +240,7 @@ export function useBulkUpdateIngredientUnits() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't update units" },
     mutationFn: async (data: UserIngredientUnitBulkUpdateDTO) => {
       const token = await getToken();
       return ingredientUnitApi.bulkUpdate(data, token);
@@ -256,6 +261,7 @@ export function useResetIngredientUnits() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't reset units" },
     mutationFn: async () => {
       const token = await getToken();
       return ingredientUnitApi.reset(token);

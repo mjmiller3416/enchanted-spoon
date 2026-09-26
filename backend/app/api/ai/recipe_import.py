@@ -19,6 +19,7 @@ from app.services.ai.recipe_import.service import (
 )
 from app.services.usage_service import UsageService
 from app.services.user_category_service import UserCategoryService
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -67,10 +68,8 @@ async def import_recipe(
     except RecipeImportNotFoundError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except RecipeImportParseError as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to parse imported recipe: {str(e)}"
-        )
+        raise internal_error("Failed to parse imported recipe. Please try again.")
     except RecipeImportError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Recipe import failed: {str(e)}")
+        raise internal_error("Recipe import failed. Please try again.")

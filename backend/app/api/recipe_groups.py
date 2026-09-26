@@ -24,6 +24,7 @@ from app.services.recipe_group_service import (
     RecipeGroupSaveError,
     RecipeGroupService,
 )
+from app.api.errors import internal_error
 
 router = APIRouter()
 
@@ -73,7 +74,7 @@ def create_group(
     except DuplicateRecipeGroupError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except RecipeGroupSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.put("/{group_id}", response_model=RecipeGroupResponseDTO)
@@ -96,7 +97,7 @@ def update_group(
     except DuplicateRecipeGroupError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except RecipeGroupSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.delete("/{group_id}")
@@ -117,7 +118,7 @@ def delete_group(
     except RecipeGroupNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except RecipeGroupSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.get("/by-recipe/{recipe_id}", response_model=List[RecipeGroupResponseDTO])
@@ -147,7 +148,7 @@ def assign_recipe_to_groups(
     try:
         return service.assign_recipe_to_groups(recipe_id, assignment_data)
     except RecipeGroupSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.post("/{group_id}/recipes/{recipe_id}", response_model=RecipeGroupResponseDTO)
@@ -164,7 +165,7 @@ def add_recipe_to_group(
     except RecipeGroupNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except RecipeGroupSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()
 
 
 @router.delete("/{group_id}/recipes/{recipe_id}", response_model=RecipeGroupResponseDTO)
@@ -181,4 +182,4 @@ def remove_recipe_from_group(
     except RecipeGroupNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except RecipeGroupSaveError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error()

@@ -25,6 +25,21 @@ from ...services.unit_conversion_service import UnitConversionService
 from ...utils.unit_conversion import to_display_unit
 
 
+# -- Helpers -------------------------------------------------------------------------------------
+def discard_cached_shopping_rows(session) -> None:
+    """
+    Drop shopping items/contributions from the session's identity map.
+
+    Call after a committed delete whose FK cascades removed shopping rows at the
+    database level (recipe -> meal -> planner entry -> contribution): the session
+    still holds those dead rows, and on SQLite (which reuses row ids) the sync's
+    fresh inserts would collide with them. The sync reloads what it needs.
+    """
+    for obj in list(session.identity_map.values()):
+        if isinstance(obj, (ShoppingItem, ShoppingItemContribution)) and obj in session:
+            session.expunge(obj)
+
+
 # -- Sync Mixin ----------------------------------------------------------------------------------
 class SyncMixin:
     """Mixin providing planner synchronization methods."""
@@ -157,7 +172,7 @@ class SyncMixin:
 
                     # Update quantity and unit
                     item.quantity = display_qty
-                    item.unit = display_unit
+                    item.unit = display_unit[:50] if display_unit else display_unit
 
                     # If quantity INCREASED, uncheck (user needs to collect more)
                     if display_qty > old_qty + 0.01:
@@ -168,11 +183,13 @@ class SyncMixin:
                     stats["items_updated"] += 1
                 else:
                     # Create new item
+                    # Clamp to the column sizes: recipe ingredient text is
+                    # unbounded, and one oversize value would fail every sync
                     item = ShoppingItem.create_from_recipe(
-                        ingredient_name=ingredient_name.capitalize(),
+                        ingredient_name=ingredient_name.capitalize()[:255],
                         quantity=display_qty,
-                        unit=display_unit,
-                        category=category,
+                        unit=display_unit[:50] if display_unit else display_unit,
+                        category=category[:100] if category else category,
                         aggregation_key=agg_key.lower().strip(),
                     )
                     self.shopping_repo.create_shopping_item(item)

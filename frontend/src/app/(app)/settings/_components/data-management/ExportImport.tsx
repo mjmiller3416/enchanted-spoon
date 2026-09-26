@@ -131,8 +131,11 @@ export function ExportImport() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.name.endsWith(".xlsx")) {
+      if (!file.name.toLowerCase().endsWith(".xlsx")) {
         toast.error("Please select an .xlsx file");
+        // Don't leave a previously chosen file silently armed for import
+        setImportFile(null);
+        e.target.value = "";
         return;
       }
       setImportFile(file);

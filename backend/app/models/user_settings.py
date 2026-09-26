@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy import DateTime, ForeignKey, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import backref, Mapped, mapped_column, relationship
 
 from ..database.base import Base
 
@@ -56,7 +56,10 @@ class UserSettings(Base):
     )
 
     # ── Relationship ────────────────────────────────────────────────────────
-    user: Mapped["User"] = relationship("User", backref="settings", uselist=False)
+    # Cascade so deleting a user removes their settings row (user_id is its primary key)
+    user: Mapped["User"] = relationship(
+        "User", backref=backref("settings", uselist=False, cascade="all, delete-orphan")
+    )
 
     # ── Properties ──────────────────────────────────────────────────────────
     @property

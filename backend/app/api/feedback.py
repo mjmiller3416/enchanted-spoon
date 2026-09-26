@@ -24,7 +24,7 @@ def submit_feedback(
         issue_url = service.create_issue(
             category=feedback.category,
             message=feedback.message,
-            user_email=current_user.email,
+            user_ref=f"user #{current_user.id}",
             metadata=feedback.metadata,
         )
         return FeedbackResponseDTO(

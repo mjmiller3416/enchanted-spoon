@@ -6,6 +6,7 @@ Pydantic DTOs for data management operations (import/export).
 # ── Imports ─────────────────────────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -13,6 +14,9 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .recipe_dtos import RecipeIngredientDTO
+
+# Recipe.image_key is always uuid4().hex
+_IMAGE_KEY_RE = re.compile(r"[0-9a-f]{32}")
 
 
 # ── Enums ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -164,6 +168,20 @@ class RecipeBackupDTO(BaseModel):
     image_key: Optional[str] = None
     created_at: datetime
     is_favorite: bool = False
+    # Added after the first backup format; optional so older backups still load
+    description: Optional[str] = None
+    difficulty: Optional[str] = Field(default=None, max_length=20)
+    is_ai_generated: bool = False
+    is_sample: bool = False
+    source_url: Optional[str] = Field(default=None, max_length=2048)
+
+    @field_validator("image_key", mode="before")
+    @classmethod
+    def validate_image_key(cls, v):
+        """Keys become Cloudinary folder names; drop anything not shaped like one."""
+        if isinstance(v, str) and _IMAGE_KEY_RE.fullmatch(v):
+            return v
+        return None
 
 
 class RecipeIngredientBackupDTO(BaseModel):
@@ -198,6 +216,7 @@ class MealBackupDTO(BaseModel):
     side_recipe_ids: List[int] = []
     tags: List[str] = []
     is_saved: bool = False
+    is_sample: bool = False
     created_at: datetime
 
 
@@ -246,6 +265,35 @@ class ShoppingStateBackupDTO(BaseModel):
     flagged: bool = False
 
 
+class NutritionFactsBackupDTO(BaseModel):
+    """Per-recipe nutrition facts for full backup."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    recipe_id: int
+    calories: Optional[int] = None
+    protein_g: Optional[float] = None
+    total_fat_g: Optional[float] = None
+    saturated_fat_g: Optional[float] = None
+    trans_fat_g: Optional[float] = None
+    cholesterol_mg: Optional[float] = None
+    sodium_mg: Optional[float] = None
+    total_carbs_g: Optional[float] = None
+    dietary_fiber_g: Optional[float] = None
+    total_sugars_g: Optional[float] = None
+    is_ai_estimated: bool = False
+
+
+class RecipeGroupBackupDTO(BaseModel):
+    """Recipe group and its member recipe ids for full backup."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str = Field(max_length=255)
+    recipe_ids: List[int] = []
+
+
 class BackupDataDTO(BaseModel):
     """Container for all backup data."""
 
@@ -261,6 +309,9 @@ class BackupDataDTO(BaseModel):
     # shopping_states kept for backwards compatibility with older backups
     # New backups will have an empty list, state is now stored on ShoppingItem
     shopping_states: List[ShoppingStateBackupDTO] = []
+    # Added after the first backup format; empty for older backups
+    nutrition_facts: List[NutritionFactsBackupDTO] = []
+    recipe_groups: List[RecipeGroupBackupDTO] = []
 
 
 class FullBackupDTO(BaseModel):

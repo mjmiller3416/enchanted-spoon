@@ -212,4 +212,5 @@ class PlannerEntryRepo:
             .where(PlannerEntry.user_id == user_id)
         )
         max_pos = self.session.execute(stmt).scalar()
-        return (max_pos or -1) + 1
+        # `max_pos or -1` would treat an existing position 0 as "no entries"
+        return 0 if max_pos is None else max_pos + 1

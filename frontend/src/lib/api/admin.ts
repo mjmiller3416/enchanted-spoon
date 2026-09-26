@@ -16,6 +16,12 @@ export const adminApi = {
   getCurrentUser: (token?: string | null): Promise<CurrentUserDTO> =>
     fetchApi<CurrentUserDTO>("/api/users/me", undefined, token),
 
+  /** Permanently delete the signed-in account: cancels billing, removes all data and the sign-in. */
+  deleteCurrentUser: (
+    token?: string | null,
+  ): Promise<{ deleted: boolean; sign_in_deleted: boolean }> =>
+    fetchApi("/api/users/me?confirm=true", { method: "DELETE" }, token),
+
   // ── User Management ───────────────────────────────────────────────────────
 
   listUsers: (

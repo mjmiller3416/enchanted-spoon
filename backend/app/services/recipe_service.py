@@ -33,6 +33,10 @@ from ..repositories.recipe_repo import RecipeRepo
 class RecipeSaveError(Exception):
     pass
 
+class RecipeNotFoundError(RecipeSaveError):
+    """Raised when the recipe doesn't exist or isn't owned by the user."""
+
+
 class DuplicateRecipeError(Exception):
     pass
 
@@ -154,6 +158,8 @@ class RecipeService:
         updated_recipe = self.recipe_repo.toggle_favorite(recipe_id, self.user_id)
         if not updated_recipe:
             return None
+        # Favoriting a starter recipe makes it the user's; "Remove sample data" keeps it
+        updated_recipe.is_sample = False
         # persist the change
         try:
             self.session.commit()
@@ -235,11 +241,29 @@ class RecipeService:
 
             self.recipe_repo.delete_recipe(recipe)
             self.session.commit()
-            return True
         except Exception as e:
             self.session.rollback()
             logger.error(f"Failed to delete recipe {recipe_id}: {e}")
             raise
+
+        # The recipe may have fed planned meals; drop its shopping items now
+        self._resync_shopping_list()
+        return True
+
+    def _resync_shopping_list(self) -> None:
+        """Best-effort shopping sync after a committed change (never fails the request)."""
+        from .shopping import ShoppingService
+        from .shopping.sync import discard_cached_shopping_rows
+
+        # The delete cascaded (at the DB level) through meals, planner entries and
+        # shopping contributions the session still holds; start the sync clean
+        # so those dead rows can't collide with the ones it writes
+        discard_cached_shopping_rows(self.session)
+        try:
+            ShoppingService(self.session, self.user_id).sync_shopping_list()
+        except Exception:
+            self.session.rollback()
+            logger.exception("Shopping sync failed for user %s", self.user_id)
 
     def get_recipe_deletion_impact(self, recipe_id: int) -> RecipeDeletionImpactDTO:
         """
@@ -299,7 +323,7 @@ class RecipeService:
         try:
             updated_recipe = self.recipe_repo.update_recipe(recipe_id, update_dto, self.user_id)
             if not updated_recipe:
-                raise RecipeSaveError(f"Recipe {recipe_id} not found.")
+                raise RecipeNotFoundError(f"Recipe {recipe_id} not found.")
             # An edited starter recipe is the user's now; "Remove sample data" keeps it
             updated_recipe.is_sample = False
             self.session.commit()

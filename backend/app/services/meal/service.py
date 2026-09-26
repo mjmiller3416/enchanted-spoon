@@ -7,6 +7,7 @@ Handles creation, basic reads, updates, deletion, and DTO conversion.
 # -- Imports -------------------------------------------------------------------------------------
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,6 +25,7 @@ from ...repositories.meal_repo import MealRepo
 from ...repositories.planner import PlannerRepo
 from ...repositories.recipe_repo import RecipeRepo
 
+logger = logging.getLogger(__name__)
 
 # -- Exceptions ----------------------------------------------------------------------------------
 class MealSaveError(Exception):
@@ -49,6 +51,11 @@ class MealServiceCore:
     """Core meal service with CRUD operations and business logic."""
 
     MAX_SIDE_RECIPES = 3
+
+    @staticmethod
+    def _normalize_side_ids(side_ids: List[int], main_recipe_id: int) -> List[int]:
+        """Drop repeats and the main recipe itself (either would double-count on the shopping list)."""
+        return [sid for sid in dict.fromkeys(side_ids) if sid != main_recipe_id]
 
     def __init__(self, session: Session, user_id: int):
         """
@@ -123,7 +130,9 @@ class MealServiceCore:
                 )
 
             # Validate side recipe IDs if provided
-            side_ids = create_dto.side_recipe_ids or []
+            side_ids = self._normalize_side_ids(
+                create_dto.side_recipe_ids or [], create_dto.main_recipe_id
+            )
             if len(side_ids) > self.MAX_SIDE_RECIPES:
                 raise InvalidRecipeError(
                     f"Maximum of {self.MAX_SIDE_RECIPES} side recipes allowed"
@@ -230,7 +239,9 @@ class MealServiceCore:
 
             # Update side recipes if provided
             if update_dto.side_recipe_ids is not None:
-                side_ids = update_dto.side_recipe_ids
+                side_ids = self._normalize_side_ids(
+                    update_dto.side_recipe_ids, meal.main_recipe_id
+                )
                 if len(side_ids) > self.MAX_SIDE_RECIPES:
                     raise InvalidRecipeError(
                         f"Maximum of {self.MAX_SIDE_RECIPES} side recipes allowed"
@@ -245,6 +256,12 @@ class MealServiceCore:
                             f"Side recipe IDs {invalid_side_ids} do not exist"
                         )
                 meal.side_recipe_ids = side_ids
+
+            # A new main recipe can't also be one of the sides
+            if meal.main_recipe_id in meal.side_recipe_ids:
+                meal.side_recipe_ids = self._normalize_side_ids(
+                    meal.side_recipe_ids, meal.main_recipe_id
+                )
 
             # Update tags if provided
             if update_dto.tags is not None:
@@ -315,10 +332,24 @@ class MealServiceCore:
         try:
             result = self.repo.delete(meal_id, self.user_id)
             self.session.commit()
-            return result
         except SQLAlchemyError:
             self.session.rollback()
             return False
+
+        if result:
+            # Its planner entries cascaded away; drop their shopping items too
+            from ..shopping import ShoppingService
+            from ..shopping.sync import discard_cached_shopping_rows
+
+            # Planner entries and contributions cascaded at the DB level; drop
+            # the session's stale copies before the sync rewrites them
+            discard_cached_shopping_rows(self.session)
+            try:
+                ShoppingService(self.session, self.user_id).sync_shopping_list()
+            except Exception:
+                self.session.rollback()
+                logger.exception("Shopping sync failed after deleting meal %s", meal_id)
+        return result
 
     # -- Helper Methods --------------------------------------------------------------------------
     def _meal_to_response_dto(self, meal: Meal) -> MealResponseDTO:

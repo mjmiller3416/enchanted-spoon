@@ -83,7 +83,10 @@ function AddMealCard({ onClick }: AddMealCardProps) {
 
 /**
  * Grid display of meals with an "Add Meal" placeholder.
- * Responsive: 2 columns on mobile, 3 on tablet, 4 on desktop.
+ * Columns follow the grid's own width (container queries), not the viewport,
+ * since the desktop detail pane can take 30rem beside it: 2 columns by default,
+ * 3 from 42rem (~672px), 4 from 72rem (~1152px). E.g. a ~1000px grid beside
+ * the open pane shows 3, the full-width grid on a 1366px+ window shows 4.
  */
 export function MealGrid({
   items: propItems,
@@ -156,7 +159,7 @@ export function MealGrid({
   const activeItem = activeId != null ? items.find((i) => i.id === activeId) : null;
 
   return (
-    <div className={className}>
+    <div className={cn("@container", className)}>
       {/* Grid */}
       <DndContext
         sensors={sensors}
@@ -169,7 +172,7 @@ export function MealGrid({
           items={items.map((item) => item.id)}
           strategy={rectSortingStrategy}
         >
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-4 auto-rows-fr">
+          <div className="grid grid-cols-2 @2xl:grid-cols-3 @6xl:grid-cols-4 gap-4 auto-rows-fr">
             {items.map((item) => (
               <MealGridCard
                 key={item.id}
