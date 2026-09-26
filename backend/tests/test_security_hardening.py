@@ -1,8 +1,9 @@
 """SSRF guard for recipe import, read-only admin SQL console, Stripe webhook trust."""
 
 import socket
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpcore
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -57,6 +58,43 @@ class TestRecipeImportSsrf:
             side_effect=socket.gaierror("nope"),
         ), pytest.raises(RecipeImportFetchError):
             RecipeImportService._validate_url("https://no-such-host.example/")
+
+
+class TestRecipeImportConnectionPinning:
+    """The fetch re-resolves at connect time and dials only checked public IPs."""
+
+    @pytest.mark.anyio
+    async def test_rebinding_to_private_ip_is_refused_at_connect(self):
+        """A name that passed validation but now resolves privately never connects."""
+        inner_connect = AsyncMock()
+        with _resolves_to("127.0.0.1"), patch(
+            "httpcore.AnyIOBackend.connect_tcp", inner_connect
+        ), pytest.raises(RecipeImportFetchError):
+            await RecipeImportService._fetch_html("https://rebind.example/recipe")
+        inner_connect.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_connects_to_the_checked_address(self):
+        inner_connect = AsyncMock(side_effect=httpcore.ConnectError("refused"))
+        with _resolves_to("93.184.216.34"), patch(
+            "httpcore.AnyIOBackend.connect_tcp", inner_connect
+        ), pytest.raises(RecipeImportFetchError, match="Could not reach"):
+            await RecipeImportService._fetch_html("https://example.com/recipe")
+        assert inner_connect.await_args.args[0] == "93.184.216.34"
+        assert inner_connect.await_args.args[1] == 443
+
+    @pytest.mark.anyio
+    async def test_image_download_is_pinned_too(self):
+        inner_connect = AsyncMock()
+        with _resolves_to("10.0.0.8"), patch(
+            "app.services.ai.recipe_import.service.RecipeImportService._validate_url",
+            side_effect=lambda url: url,
+        ), patch("httpcore.AnyIOBackend.connect_tcp", inner_connect):
+            result = await RecipeImportService._download_image(
+                "https://cdn.example/photo.jpg", "https://example.com/recipe"
+            )
+        assert result is None
+        inner_connect.assert_not_called()
 
 
 @pytest.fixture()
