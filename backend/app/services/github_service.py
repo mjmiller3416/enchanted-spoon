@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from typing import Optional
 
 import httpx
@@ -14,6 +15,22 @@ CATEGORY_TO_LABEL = {
     "General Feedback": "feedback",
     "Question": "question",
 }
+
+
+# Only these context keys are published, each capped, so a client can't use
+# the metadata dict to push arbitrary content into the (public) issue tracker
+ALLOWED_METADATA_KEYS = ("page_url", "viewport", "user_agent", "app_version")
+MAX_METADATA_VALUE_LENGTH = 200
+
+
+def _neutralize_mentions(text: str) -> str:
+    """Stop @user / @org/team in user text from pinging anyone on GitHub."""
+    return re.sub(r"@(?=[A-Za-z0-9])", "@\u200b", text)
+
+
+def _as_plain_text_block(text: str) -> str:
+    """Render user text verbatim: no links, images, or markdown in the issue."""
+    return "~~~text\n" + text.replace("~~~", "~ ~ ~") + "\n~~~"
 
 
 class GitHubIssueError(Exception):
@@ -37,11 +54,15 @@ class GitHubService:
         self,
         category: str,
         message: str,
-        user_email: str,
+        user_ref: str,
         metadata: Optional[dict] = None,
     ) -> Optional[str]:
         """
         Create a GitHub issue from user feedback.
+
+        The issue tracker may be public, so the submitter is identified only
+        by ``user_ref`` (an opaque internal id), never their email, and the
+        message is published as a plain-text block.
 
         Returns the issue URL on success, or None if GitHub is not configured.
 
@@ -53,22 +74,28 @@ class GitHubService:
             return None
 
         label = CATEGORY_TO_LABEL.get(category, "feedback")
-        title = f"[{category}] {message[:80]}"
+        summary = " ".join(message.split())[:80]
+        title = _neutralize_mentions(f"[{category}] {summary}")
 
         body_parts = [
             f"**Category:** {category}",
-            f"**Submitted by:** {user_email}",
+            f"**Submitted by:** {user_ref}",
             "",
             "---",
             "",
-            message,
+            _as_plain_text_block(_neutralize_mentions(message)),
         ]
 
-        if metadata:
+        context = [
+            (key, " ".join(str(metadata[key]).split())[:MAX_METADATA_VALUE_LENGTH])
+            for key in ALLOWED_METADATA_KEYS
+            if metadata and metadata.get(key) is not None
+        ]
+        if context:
             body_parts.extend(["", "---", "", "**Context:**"])
-            for key, value in metadata.items():
-                if value is not None:
-                    body_parts.append(f"- **{key}:** {value}")
+            for key, value in context:
+                safe_value = value.replace("`", "'")
+                body_parts.append(f"- **{key}:** `{safe_value}`")
 
         body = "\n".join(body_parts)
 
