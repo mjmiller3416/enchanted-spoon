@@ -36,7 +36,7 @@ jobs:
       run:
         working-directory: frontend
     env:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL: http://localhost:8001
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       # Publishable keys are public by design (embedded in the client bundle),
       # so a Clerk test key here is not a secret. Override with a repo variable
