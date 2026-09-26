@@ -34,6 +34,9 @@ import type {
 import type { AutocompleteIngredient } from "@/components/forms/IngredientAutocomplete";
 import { wizardFormSchema, WIZARD_STEP_FIELDS, type WizardFormValues } from "./wizardSchema";
 
+// Mirrors MAX_IMAGE_BYTES in backend/app/api/upload.py
+const MAX_IMAGE_UPLOAD_BYTES = 15 * 1024 * 1024;
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -316,6 +319,11 @@ export function useRecipeWizard({
     (e: React.ChangeEvent<HTMLInputElement>): void => {
       const file = e.target.files?.[0];
       if (!file) return;
+      if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+        toast.error("That photo is too large. Please choose an image under 15 MB.");
+        e.target.value = "";
+        return;
+      }
 
       setExtrasDirty(true);
       setImageFile(file);

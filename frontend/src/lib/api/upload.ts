@@ -1,4 +1,4 @@
-import { API_BASE, ApiError } from "./base";
+import { API_BASE, toApiError } from "./base";
 
 export const uploadApi = {
   /**
@@ -32,11 +32,7 @@ export const uploadApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to upload image",
-        response.status
-      );
+      throw await toApiError(response, "Failed to upload image");
     }
 
     return response.json();
@@ -74,11 +70,7 @@ export const uploadApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to upload image",
-        response.status
-      );
+      throw await toApiError(response, "Failed to upload image");
     }
 
     return response.json();
