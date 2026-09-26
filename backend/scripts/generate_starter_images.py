@@ -31,6 +31,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -43,10 +44,23 @@ from app.services.sample_data.starter_pack import IMAGE_MANIFEST_PATH, STARTER_R
 
 REVIEW_DIR = Path(__file__).parent / "starter_review"
 CLOUDINARY_FOLDER = "meal-genie/starter-pack"
+# Each image usually takes 20-60s; anything past this is treated as a hang
+GENERATION_TIMEOUT_SECONDS = 180
 
 
 def slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+async def timed(label: str, call) -> dict:
+    """Await an image call with a timeout, printing how long it took."""
+    started = time.monotonic()
+    try:
+        result = await asyncio.wait_for(call, GENERATION_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        result = {"success": False, "error": f"timed out after {GENERATION_TIMEOUT_SECONDS}s"}
+    print(f"         ({label}: {time.monotonic() - started:.0f}s)")
+    return result
 
 
 def review_path(recipe_name: str, image_type: str) -> Path:
@@ -70,10 +84,10 @@ async def generate(custom_prompt: str | None) -> None:
         if ref_path.exists():
             print(f"  [SKIP] {ref_path.name} already exists")
         else:
-            print(f"  [GEN]  {name} reference...")
-            result = await service.generate_recipe_image(
+            print(f"  [GEN]  {name} reference (usually 20-60s)...", flush=True)
+            result = await timed("reference", service.generate_recipe_image(
                 name, custom_prompt=custom_prompt, aspect_ratio="1:1", image_size="2K"
-            )
+            ))
             if not result["success"]:
                 print(f"  [FAIL] {result['error']}")
                 failures += 1
@@ -85,8 +99,10 @@ async def generate(custom_prompt: str | None) -> None:
         if banner_path.exists():
             print(f"  [SKIP] {banner_path.name} already exists")
             continue
-        print(f"  [GEN]  {name} banner (from reference)...")
-        result = await service.generate_banner_from_reference(name, ref_path.read_bytes())
+        print(f"  [GEN]  {name} banner (from reference)...", flush=True)
+        result = await timed(
+            "banner", service.generate_banner_from_reference(name, ref_path.read_bytes())
+        )
         if not result["success"]:
             print(f"  [FAIL] {result['error']}")
             failures += 1
