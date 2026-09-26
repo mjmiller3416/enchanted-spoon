@@ -8,9 +8,10 @@ Covers:
 - GET /api/users/me/usage — the settings usage-meter endpoint: counters and
   per-tier limits for the signed-in user.
 
-TestClient dispatches on a worker thread, so these tests use MagicMock
-sessions (same pattern as the route tests in test_admin_usage.py) rather
-than the thread-bound in-memory SQLite fixture.
+TestClient dispatches on a worker thread, so the gated-route tests use the
+file-backed `file_db` fixture (the reservation is a real conditional UPDATE)
+and the usage-endpoint tests use MagicMock sessions, rather than the
+thread-bound in-memory SQLite fixture.
 """
 
 from unittest.mock import MagicMock
@@ -63,8 +64,8 @@ def _session_returning(usage: UserUsage) -> MagicMock:
     return session
 
 
-def _gated_app(user: User, usage: UserUsage) -> TestClient:
-    """Mount a route gated by require_within_usage_limit with overrides."""
+def _gated_app(user: User, usage: UserUsage, file_db) -> TestClient:
+    """Mount a route gated by require_within_usage_limit against a real DB."""
     app = FastAPI()
 
     @app.post("/gated")
@@ -75,8 +76,17 @@ def _gated_app(user: User, usage: UserUsage) -> TestClient:
     ):
         return {"ok": True}
 
+    usage.month = UserUsage.get_current_month()
+    with file_db() as session:
+        session.add(usage)
+        session.commit()
+
+    def _session():
+        with file_db() as session:
+            yield session
+
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_session] = lambda: _session_returning(usage)
+    app.dependency_overrides[get_session] = _session
     return TestClient(app)
 
 
@@ -85,13 +95,13 @@ def _gated_app(user: User, usage: UserUsage) -> TestClient:
 # ---------------------------------------------------------------------------
 
 class TestFreeUserMetering:
-    def test_free_user_under_cap_is_allowed(self):
-        client = _gated_app(_user(), _usage(ai_images_generated=0))
+    def test_free_user_under_cap_is_allowed(self, file_db):
+        client = _gated_app(_user(), _usage(ai_images_generated=0), file_db)
 
         assert client.post("/gated").status_code == 200
 
-    def test_free_user_at_cap_gets_structured_429(self):
-        client = _gated_app(_user(), _usage(ai_images_generated=FREE_IMAGE_CAP))
+    def test_free_user_at_cap_gets_structured_429(self, file_db):
+        client = _gated_app(_user(), _usage(ai_images_generated=FREE_IMAGE_CAP), file_db)
 
         response = client.post("/gated")
 
@@ -102,23 +112,23 @@ class TestFreeUserMetering:
         assert detail["current"] == FREE_IMAGE_CAP
         assert detail["limit"] == FREE_IMAGE_CAP
 
-    def test_free_user_is_not_403_blocked(self):
+    def test_free_user_is_not_403_blocked(self, file_db):
         """The old binary pro gate must not fire — free users are metered."""
-        client = _gated_app(_user(), _usage(ai_images_generated=FREE_IMAGE_CAP))
+        client = _gated_app(_user(), _usage(ai_images_generated=FREE_IMAGE_CAP), file_db)
 
         assert client.post("/gated").status_code != 403
 
 
 class TestProUserMetering:
-    def test_pro_user_over_free_cap_is_allowed(self):
+    def test_pro_user_over_free_cap_is_allowed(self, file_db):
         user = _user(subscription_tier="pro", subscription_status="active")
-        client = _gated_app(user, _usage(ai_images_generated=FREE_IMAGE_CAP + 1))
+        client = _gated_app(user, _usage(ai_images_generated=FREE_IMAGE_CAP + 1), file_db)
 
         assert client.post("/gated").status_code == 200
 
-    def test_pro_user_at_pro_cap_gets_429(self):
+    def test_pro_user_at_pro_cap_gets_429(self, file_db):
         user = _user(subscription_tier="pro", subscription_status="active")
-        client = _gated_app(user, _usage(ai_images_generated=PRO_IMAGE_CAP))
+        client = _gated_app(user, _usage(ai_images_generated=PRO_IMAGE_CAP), file_db)
 
         response = client.post("/gated")
 
@@ -127,9 +137,9 @@ class TestProUserMetering:
 
 
 class TestAdminExemption:
-    def test_admin_is_never_capped(self):
+    def test_admin_is_never_capped(self, file_db):
         user = _user(is_admin=True)
-        client = _gated_app(user, _usage(ai_images_generated=999_999))
+        client = _gated_app(user, _usage(ai_images_generated=999_999), file_db)
 
         assert client.post("/gated").status_code == 200
 

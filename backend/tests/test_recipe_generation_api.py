@@ -7,7 +7,7 @@ Covers:
 - POST /api/ai/wizard-generation — service returns success=False
 - Auth: requires pro access
 - Request validation (missing prompt, prompt too long, invalid servings)
-- Usage tracking silent failure
+- Usage reservation: counted once on success, refunded on failure, 429 at cap
 - User category injection
 """
 
@@ -125,8 +125,7 @@ class TestRecipeGenerationEndpoint:
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
-    @patch("app.api.ai.recipe_generation.UsageService")
-    def test_successful_generation(self, mock_usage_cls, mock_get_service, mock_cat_cls):
+    def test_successful_generation(self, mock_get_service, mock_cat_cls):
         """Successful generation returns 200 with recipe data."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -153,8 +152,7 @@ class TestRecipeGenerationEndpoint:
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
-    @patch("app.api.ai.recipe_generation.UsageService")
-    def test_minimal_request(self, mock_usage_cls, mock_get_service, mock_cat_cls):
+    def test_minimal_request(self, mock_get_service, mock_cat_cls):
         """Request with only prompt (no preferences) returns 200."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -174,8 +172,7 @@ class TestRecipeGenerationEndpoint:
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
-    @patch("app.api.ai.recipe_generation.UsageService")
-    def test_user_categories_injected(self, mock_usage_cls, mock_get_service, mock_cat_cls):
+    def test_user_categories_injected(self, mock_get_service, mock_cat_cls):
         """User's enabled categories are injected into the request."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -214,8 +211,7 @@ class TestRecipeGenerationErrors:
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
-    @patch("app.api.ai.recipe_generation.UsageService")
-    def test_service_returns_failure(self, mock_usage_cls, mock_get_service, mock_cat_cls):
+    def test_service_returns_failure(self, mock_get_service, mock_cat_cls):
         """Service returning success=False raises 500."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -239,8 +235,7 @@ class TestRecipeGenerationErrors:
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
-    @patch("app.api.ai.recipe_generation.UsageService")
-    def test_recipe_generation_error(self, mock_usage_cls, mock_get_service, mock_cat_cls):
+    def test_recipe_generation_error(self, mock_get_service, mock_cat_cls):
         """RecipeGenerationError from service returns 500."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -262,8 +257,7 @@ class TestRecipeGenerationErrors:
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
-    @patch("app.api.ai.recipe_generation.UsageService")
-    def test_recipe_parse_error(self, mock_usage_cls, mock_get_service, mock_cat_cls):
+    def test_recipe_parse_error(self, mock_get_service, mock_cat_cls):
         """RecipeParseError from service returns 500."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -285,8 +279,7 @@ class TestRecipeGenerationErrors:
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
-    @patch("app.api.ai.recipe_generation.UsageService")
-    def test_unexpected_exception(self, mock_usage_cls, mock_get_service, mock_cat_cls):
+    def test_unexpected_exception(self, mock_get_service, mock_cat_cls):
         """Unhandled exception returns 500."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -406,162 +399,120 @@ class TestRecipeGenerationAuth:
 
 
 # ---------------------------------------------------------------------------
-# Tests — usage tracking
+# Tests — usage tracking and monthly limit enforcement (real database)
 # ---------------------------------------------------------------------------
 
-class TestRecipeGenerationUsageTracking:
-    """Tests for usage tracking behavior."""
+def _usage_app(file_db, user) -> FastAPI:
+    """Mount the router against a real DB so reservations actually persist."""
+    from app.api.auth import get_current_user
+    from app.database.db import get_session
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/ai/wizard-generation")
+
+    def _session():
+        with file_db() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session
+    app.dependency_overrides[get_current_user] = lambda: user
+    return app
+
+
+def _seed_usage(file_db, count: int) -> None:
+    from app.models.user_usage import UserUsage
+
+    with file_db() as session:
+        session.add(UserUsage(
+            user_id=1,
+            month=UserUsage.get_current_month(),
+            ai_suggestions_requested=count,
+        ))
+        session.commit()
+
+
+def _suggestions_used(file_db) -> int:
+    from app.models.user_usage import UserUsage
+
+    with file_db() as session:
+        usage = session.query(UserUsage).filter_by(user_id=1).first()
+        return usage.ai_suggestions_requested if usage else 0
+
+
+class TestRecipeGenerationUsage:
+    """require_within_usage_limit reserves before the call, refunds on failure."""
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
-    @patch("app.api.ai.recipe_generation.UsageService")
-    def test_usage_tracking_failure_is_silent(self, mock_usage_cls, mock_get_service, mock_cat_cls):
-        """Usage tracking failure doesn't break the response."""
-        user = _make_pro_user()
-        app = _create_test_app(user)
-        client = TestClient(app)
-
+    def test_usage_counted_once_on_success(self, mock_get_service, mock_cat_cls, file_db):
         mock_service = MagicMock()
         mock_service.generate = AsyncMock(return_value=_make_success_response())
         mock_get_service.return_value = mock_service
 
-        mock_usage_instance = MagicMock()
-        mock_usage_instance.increment.side_effect = RuntimeError("DB error")
-        mock_usage_cls.return_value = mock_usage_instance
-
-        response = client.post(
-            "/api/ai/wizard-generation",
-            json=_valid_request_body(),
-        )
+        client = TestClient(_usage_app(file_db, _make_pro_user()))
+        response = client.post("/api/ai/wizard-generation", json=_valid_request_body())
 
         assert response.status_code == 200
-        assert response.json()["success"] is True
+        assert _suggestions_used(file_db) == 1
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
-    @patch("app.api.ai.recipe_generation.UsageService")
-    def test_usage_tracked_on_success(self, mock_usage_cls, mock_get_service, mock_cat_cls):
-        """Usage is incremented on successful generation."""
-        user = _make_pro_user()
-        app = _create_test_app(user)
-        client = TestClient(app)
-
+    def test_failed_generation_is_refunded(self, mock_get_service, mock_cat_cls, file_db):
         mock_service = MagicMock()
-        mock_service.generate = AsyncMock(return_value=_make_success_response())
+        mock_service.generate = AsyncMock(side_effect=RecipeGenerationError("boom"))
         mock_get_service.return_value = mock_service
+        _seed_usage(file_db, 4)
 
-        mock_usage_instance = MagicMock()
-        mock_usage_cls.return_value = mock_usage_instance
+        client = TestClient(_usage_app(file_db, _make_pro_user()))
+        response = client.post("/api/ai/wizard-generation", json=_valid_request_body())
 
-        response = client.post(
-            "/api/ai/wizard-generation",
-            json=_valid_request_body(),
-        )
+        assert response.status_code == 500
+        assert _suggestions_used(file_db) == 4
 
-        assert response.status_code == 200
-        mock_usage_instance.increment.assert_called_once_with("ai_suggestions_requested")
-
-
-# ---------------------------------------------------------------------------
-# Tests — monthly usage limit enforcement
-# ---------------------------------------------------------------------------
-
-class TestRecipeGenerationUsageLimit:
-    """Tests for require_within_usage_limit gating this endpoint."""
-
-    def test_over_cap_returns_429(self):
+    @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
+    def test_over_cap_returns_429(self, mock_get_service, file_db):
         """A user at their monthly cap gets 429 before the AI service runs."""
-        from app.api.auth import get_current_user
-        from app.database.db import get_session
-        from app.models.user_usage import UserUsage
+        _seed_usage(file_db, 300)  # at the "pro" tier cap
 
-        user = _make_pro_user()
-        app = FastAPI()
-        app.include_router(router, prefix="/api/ai/wizard-generation")
-
-        maxed_usage = UserUsage(user_id=user.id, month="2026-08")
-        maxed_usage.ai_suggestions_requested = 300  # at the "pro" tier cap
-
-        mock_session = MagicMock()
-        mock_session.query.return_value.filter.return_value.first.return_value = maxed_usage
-        app.dependency_overrides[get_session] = lambda: mock_session
-        app.dependency_overrides[get_current_user] = lambda: user
-
-        client = TestClient(app)
-        response = client.post(
-            "/api/ai/wizard-generation",
-            json=_valid_request_body(),
-        )
+        client = TestClient(_usage_app(file_db, _make_pro_user()))
+        response = client.post("/api/ai/wizard-generation", json=_valid_request_body())
 
         assert response.status_code == 429
         assert response.json()["detail"]["field"] == "ai_suggestions_requested"
+        assert response.json()["detail"]["current"] == 300
+        mock_get_service.assert_not_called()
+        assert _suggestions_used(file_db) == 300
 
-    def test_admin_bypasses_cap(self):
-        """Admins skip the usage-limit check entirely, even over cap."""
-        from app.api.auth import get_current_user
-        from app.database.db import get_session
-        from app.models.user_usage import UserUsage
-
+    @patch("app.api.ai.recipe_generation.UserCategoryService")
+    @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
+    def test_admin_bypasses_cap_but_is_counted(self, mock_get_service, mock_cat_cls, file_db):
         admin = MagicMock(spec=User)
-        admin.id = 2
+        admin.id = 1
         admin.is_admin = True
         admin.has_pro_access = True
+        mock_service = MagicMock()
+        mock_service.generate = AsyncMock(return_value=_make_success_response())
+        mock_get_service.return_value = mock_service
+        _seed_usage(file_db, 999_999)
 
-        app = FastAPI()
-        app.include_router(router, prefix="/api/ai/wizard-generation")
-
-        maxed_usage = UserUsage(user_id=admin.id, month="2026-08")
-        maxed_usage.ai_suggestions_requested = 999999
-
-        mock_session = MagicMock()
-        mock_session.query.return_value.filter.return_value.first.return_value = maxed_usage
-        app.dependency_overrides[get_session] = lambda: mock_session
-        app.dependency_overrides[get_current_user] = lambda: admin
-
-        with patch("app.api.ai.recipe_generation.UserCategoryService"), \
-                patch("app.api.ai.recipe_generation.get_recipe_generation_service") as mock_get_service, \
-                patch("app.api.ai.recipe_generation.UsageService"):
-            mock_service = MagicMock()
-            mock_service.generate = AsyncMock(return_value=_make_success_response())
-            mock_get_service.return_value = mock_service
-
-            client = TestClient(app)
-            response = client.post(
-                "/api/ai/wizard-generation",
-                json=_valid_request_body(),
-            )
+        client = TestClient(_usage_app(file_db, admin))
+        response = client.post("/api/ai/wizard-generation", json=_valid_request_body())
 
         assert response.status_code == 200
+        assert _suggestions_used(file_db) == 1_000_000
 
-    def test_under_cap_proceeds(self):
-        """A user under their monthly cap is allowed through to the AI service."""
-        from app.api.auth import get_current_user
-        from app.database.db import get_session
-        from app.models.user_usage import UserUsage
+    @patch("app.api.ai.recipe_generation.UserCategoryService")
+    @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
+    def test_last_unit_under_cap_proceeds(self, mock_get_service, mock_cat_cls, file_db):
+        mock_service = MagicMock()
+        mock_service.generate = AsyncMock(return_value=_make_success_response())
+        mock_get_service.return_value = mock_service
+        _seed_usage(file_db, 299)
 
-        user = _make_pro_user()
-        app = FastAPI()
-        app.include_router(router, prefix="/api/ai/wizard-generation")
+        client = TestClient(_usage_app(file_db, _make_pro_user()))
+        first = client.post("/api/ai/wizard-generation", json=_valid_request_body())
+        second = client.post("/api/ai/wizard-generation", json=_valid_request_body())
 
-        low_usage = UserUsage(user_id=user.id, month="2026-08")
-        low_usage.ai_suggestions_requested = 1
-
-        mock_session = MagicMock()
-        mock_session.query.return_value.filter.return_value.first.return_value = low_usage
-        app.dependency_overrides[get_session] = lambda: mock_session
-        app.dependency_overrides[get_current_user] = lambda: user
-
-        with patch("app.api.ai.recipe_generation.UserCategoryService"), \
-                patch("app.api.ai.recipe_generation.get_recipe_generation_service") as mock_get_service, \
-                patch("app.api.ai.recipe_generation.UsageService"):
-            mock_service = MagicMock()
-            mock_service.generate = AsyncMock(return_value=_make_success_response())
-            mock_get_service.return_value = mock_service
-
-            client = TestClient(app)
-            response = client.post(
-                "/api/ai/wizard-generation",
-                json=_valid_request_body(),
-            )
-
-        assert response.status_code == 200
+        assert first.status_code == 200
+        assert second.status_code == 429
+        assert _suggestions_used(file_db) == 300

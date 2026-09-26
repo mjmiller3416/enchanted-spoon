@@ -90,9 +90,8 @@ async def chat_with_assistant(
 
         # Track usage (silent fail - don't break AI feature for tracking issues)
         try:
+            # The assistant message itself was counted by require_within_usage_limit
             usage_service = UsageService(session, current_user.id)
-            # Always track the assistant message
-            usage_service.increment("ai_assistant_messages")
             # Track recipe creation if a recipe was generated
             if recipe:
                 usage_service.increment("recipes_created")
@@ -171,6 +170,11 @@ async def generate_recipe(
         )
 
         if result.get("type") == "error":
+            # Failure reported in the body rather than raised: refund by hand
+            try:
+                UsageService(session, current_user.id).release("ai_assistant_messages")
+            except Exception:
+                pass
             return AssistantRecipeResponseDTO(
                 success=False,
                 error=result.get("error", "Failed to generate recipe"),
@@ -206,9 +210,8 @@ async def generate_recipe(
 
         # Track usage (silent fail - don't break AI feature for tracking issues)
         try:
+            # The assistant message itself was counted by require_within_usage_limit
             usage_service = UsageService(session, current_user.id)
-            # Always track the assistant message
-            usage_service.increment("ai_assistant_messages")
             # Track recipe creation if a recipe was generated
             if recipe:
                 usage_service.increment("recipes_created")

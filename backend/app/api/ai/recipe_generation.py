@@ -15,7 +15,6 @@ from app.services.ai.recipe_generation.service import (
     RecipeGenerationError,
     RecipeParseError,
 )
-from app.services.usage_service import UsageService
 from app.services.user_category_service import UserCategoryService
 from app.api.errors import internal_error
 
@@ -53,12 +52,6 @@ async def generate_recipe(
             raise HTTPException(
                 status_code=500, detail=result.error or "Recipe generation failed"
             )
-
-        # Track usage (silent fail)
-        try:
-            UsageService(session, current_user.id).increment("ai_suggestions_requested")
-        except Exception:
-            pass
 
         return result
 

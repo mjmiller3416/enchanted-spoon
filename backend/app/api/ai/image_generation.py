@@ -23,7 +23,6 @@ from app.services.ai.image_generation.config import (
 from app.api.auth import require_within_usage_limit
 from app.database.db import get_session
 from app.models.user import User
-from app.services.usage_service import UsageService
 from app.api.errors import internal_error
 
 router = APIRouter()
@@ -96,12 +95,6 @@ async def generate_recipe_image(
             reference_data = None
             banner_data = banner_result["image_data"]
 
-        # Track usage (silent fail - don't break AI feature for tracking issues)
-        try:
-            UsageService(session, current_user.id).increment("ai_images_generated")
-        except Exception:
-            pass
-
         return ImageGenerationResponseDTO(
             success=True,
             reference_image_data=reference_data,
@@ -157,12 +150,6 @@ async def generate_banner_image(
                 status_code=500,
                 detail=result.get("error") or "Banner generation failed",
             )
-
-        # Track usage (silent fail - don't break AI feature for tracking issues)
-        try:
-            UsageService(session, current_user.id).increment("ai_images_generated")
-        except Exception:
-            pass
 
         return BannerGenerationResponseDTO(
             success=True,

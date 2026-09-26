@@ -183,3 +183,29 @@ def sample_nutrition_data() -> dict:
         "total_sugars_g": 4.5,
         "is_ai_estimated": False,
     }
+
+
+# ---------------------------------------------------------------------------
+# Thread-safe database (TestClient routes, concurrency tests)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def file_db(tmp_path):
+    """Sessionmaker for a fresh file-backed SQLite DB usable across threads.
+
+    The in-memory `db_session` is bound to one connection and one thread, and
+    its outer transaction is undone by a `session.rollback()`; code that
+    commits/rolls back for real or runs under TestClient needs this instead.
+    Seeds user id 1.
+    """
+    eng = create_engine(
+        f"sqlite:///{tmp_path / 'test.db'}",
+        connect_args={"check_same_thread": False, "timeout": 30},
+    )
+    Base.metadata.create_all(eng)
+    factory = sessionmaker(bind=eng, expire_on_commit=False)
+    with factory() as session:
+        session.add(User(id=1, clerk_id="file_db_user_1", email="u1@example.com"))
+        session.commit()
+    yield factory
+    eng.dispose()

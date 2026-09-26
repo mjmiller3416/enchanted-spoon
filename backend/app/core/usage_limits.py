@@ -4,7 +4,7 @@ Monthly usage caps for Gemini-backed AI features, keyed by subscription tier.
 
 Kept separate from `UsageService` so a metered free tier (see Phase 1 of the
 public release roadmap) can add/adjust tier caps here without touching the
-enforcement logic in `UsageService.check_limit` or the routes that call it.
+enforcement logic in `UsageService.reserve` or the routes gated by it.
 """
 
 from typing import Optional

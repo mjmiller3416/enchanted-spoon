@@ -63,8 +63,7 @@ class TestNutritionEstimationEndpoint:
     """Tests for POST /api/ai/nutrition-estimation."""
 
     @patch("app.api.ai.nutrition_estimation.get_nutrition_estimation_service")
-    @patch("app.api.ai.nutrition_estimation.UsageService")
-    def test_successful_estimation(self, mock_usage_cls, mock_get_service):
+    def test_successful_estimation(self, mock_get_service):
         """Successful estimation returns 200 with nutrition data."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -100,8 +99,7 @@ class TestNutritionEstimationEndpoint:
         assert data["nutrition_facts"]["is_ai_estimated"] is True
 
     @patch("app.api.ai.nutrition_estimation.get_nutrition_estimation_service")
-    @patch("app.api.ai.nutrition_estimation.UsageService")
-    def test_service_returns_error(self, mock_usage_cls, mock_get_service):
+    def test_service_returns_error(self, mock_get_service):
         """Service returning success=False raises 500."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -125,8 +123,7 @@ class TestNutritionEstimationEndpoint:
         assert response.status_code == 500
 
     @patch("app.api.ai.nutrition_estimation.get_nutrition_estimation_service")
-    @patch("app.api.ai.nutrition_estimation.UsageService")
-    def test_service_raises_exception(self, mock_usage_cls, mock_get_service):
+    def test_service_raises_exception(self, mock_get_service):
         """Unhandled exception in the service returns 500."""
         user = _make_pro_user()
         app = _create_test_app(user)
@@ -191,38 +188,6 @@ class TestNutritionEstimationEndpoint:
         )
 
         assert response.status_code == 422
-
-    @patch("app.api.ai.nutrition_estimation.get_nutrition_estimation_service")
-    @patch("app.api.ai.nutrition_estimation.UsageService")
-    def test_usage_tracking_failure_is_silent(self, mock_usage_cls, mock_get_service):
-        """Usage tracking failure doesn't break the response."""
-        user = _make_pro_user()
-        app = _create_test_app(user)
-        client = TestClient(app)
-
-        mock_service = MagicMock()
-        mock_service.estimate.return_value = NutritionEstimationResponseDTO(
-            success=True,
-            nutrition_facts=NutritionFactsDTO(calories=100),
-        )
-        mock_get_service.return_value = mock_service
-
-        # Make usage tracking throw
-        mock_usage_instance = MagicMock()
-        mock_usage_instance.increment.side_effect = RuntimeError("DB error")
-        mock_usage_cls.return_value = mock_usage_instance
-
-        response = client.post(
-            "/api/ai/nutrition-estimation",
-            json={
-                "recipe_name": "Test",
-                "ingredients": [{"ingredient_name": "Flour"}],
-            },
-        )
-
-        # Should still succeed
-        assert response.status_code == 200
-        assert response.json()["success"] is True
 
     def test_no_auth_returns_401(self):
         """An unauthenticated request is rejected before the AI service runs.

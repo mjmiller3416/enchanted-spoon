@@ -8,7 +8,6 @@ from app.services.ai.cooking_tips import get_cooking_tip_service
 from app.api.auth import require_within_usage_limit
 from app.database.db import get_session
 from app.models.user import User
-from app.services.usage_service import UsageService
 from app.api.errors import internal_error
 
 router = APIRouter()
@@ -33,12 +32,6 @@ async def get_cooking_tip(
             raise HTTPException(
                 status_code=500, detail=result.error or "Tip generation failed"
             )
-
-        # Track usage (silent fail - don't break AI feature for tracking issues)
-        try:
-            UsageService(session, current_user.id).increment("ai_suggestions_requested")
-        except Exception:
-            pass
 
         return result
 
