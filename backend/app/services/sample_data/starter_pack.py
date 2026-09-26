@@ -7,13 +7,17 @@ Values use the same slugs the app stores (meal types, recipe categories,
 ingredient categories, dietary preferences) and only built-in units, so the
 content filters, groups, and converts exactly like user-entered data.
 
-Images: set ``reference_image_path`` / ``banner_image_path`` on a recipe to a
-hosted URL (e.g. Cloudinary ``secure_url``) to give it artwork. Recipes left
-without one show the standard placeholder. Seeded recipes each get their own
-``image_key``, so a user uploading a new image never touches the shared asset.
+Images: ``starter_images.json`` (written by ``scripts/generate_starter_images.py``)
+maps recipe names to shared Cloudinary URLs. Recipes missing from it show the
+standard placeholder. Seeded recipes each get their own ``image_key``, so a user
+uploading a new image never touches the shared asset.
 """
 
+import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict
+
+IMAGE_MANIFEST_PATH = Path(__file__).with_name("starter_images.json")
 
 # (name, quantity, unit, ingredient_category)
 IngredientSpec = Tuple[str, Optional[float], Optional[str], str]
@@ -394,3 +398,17 @@ def starter_image_urls() -> set[str]:
 def recipe_fields(recipe: StarterRecipe) -> Dict[str, Any]:
     """Recipe-level fields of a starter recipe (everything but ingredients/favorite)."""
     return {k: v for k, v in recipe.items() if k not in ("ingredients", "is_favorite")}
+
+
+def _apply_image_manifest() -> None:
+    """Fill each recipe's image paths from the generated manifest, if present."""
+    if not IMAGE_MANIFEST_PATH.exists():
+        return
+    manifest: Dict[str, Dict[str, str]] = json.loads(IMAGE_MANIFEST_PATH.read_text())
+    for recipe in STARTER_RECIPES:
+        images = manifest.get(recipe["recipe_name"], {})
+        recipe.setdefault("reference_image_path", images.get("reference"))
+        recipe.setdefault("banner_image_path", images.get("banner"))
+
+
+_apply_image_manifest()
