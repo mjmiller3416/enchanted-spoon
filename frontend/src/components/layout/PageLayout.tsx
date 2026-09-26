@@ -38,6 +38,8 @@ interface PageLayoutProps {
   fillViewport?: boolean;
   /** When true, action buttons pin into the TopNav bar when the header scrolls out of view (desktop only) */
   pinActionsToNav?: boolean;
+  /** When true, header and content drop the max-w-7xl cap at lg+ (horizontal padding is kept) */
+  fullWidth?: boolean;
 }
 
 /**
@@ -49,6 +51,8 @@ interface PageLayoutProps {
  * 3. Hero mode - Hero section at top, sticky subheader for filters/sort
  *
  * For sticky sidebars, use CSS `position: sticky` on child elements.
+ * Pass `fullWidth` to let the standard modes span their container at lg+
+ * (used by the Menu page, which docks a detail pane beside the layout).
  *
  * @example
  * // Standard page with title, description, and actions
@@ -95,6 +99,7 @@ export function PageLayout(props: PageLayoutProps) {
     stickyHeader,
     fillViewport = false,
     pinActionsToNav = false,
+    fullWidth = false,
   } = props;
 
   const headerRef = useRef<HTMLDivElement>(null);
@@ -130,7 +135,7 @@ export function PageLayout(props: PageLayoutProps) {
   const hasHeader = !!(headerContent || title || actions || onBackClick);
   const headerElement = hasHeader ? (
     <div ref={pinActionsToNav ? headerRef : undefined}>
-      <PageHeader>
+      <PageHeader fullWidth={fullWidth}>
         {headerContent ? (
           headerContent
         ) : (
@@ -195,7 +200,7 @@ export function PageLayout(props: PageLayoutProps) {
     return (
       <div className={cn("page-fill-viewport flex flex-col bg-background", className)}>
         {headerElement}
-        <div className={cn("flex-1 lg:min-h-0 max-w-7xl mx-auto w-full px-4 md:px-6 py-6", contentClassName)}>
+        <div className={cn("flex-1 lg:min-h-0 max-w-7xl mx-auto w-full px-4 md:px-6 py-6", fullWidth && "lg:max-w-none", contentClassName)}>
           {children}
         </div>
       </div>
@@ -206,7 +211,7 @@ export function PageLayout(props: PageLayoutProps) {
   return (
     <div className={cn("min-h-0 bg-background", className)}>
       {headerElement}
-      <div className={cn("max-w-7xl mx-auto px-4 md:px-6 py-6", contentClassName)}>
+      <div className={cn("max-w-7xl mx-auto px-4 md:px-6 py-6", fullWidth && "lg:max-w-none", contentClassName)}>
         {children}
       </div>
     </div>

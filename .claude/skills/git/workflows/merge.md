@@ -74,7 +74,7 @@ Merges your current feature branch directly into staging. This is the **primary 
    - Fix edge case in item removal
 
    Squashed from: feature/shopping-list (4 commits)
-   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+   Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>"
    ```
 
    > **Why squash merge?** It keeps staging history clean -- one commit per feature
@@ -139,7 +139,7 @@ feat: shopping list sync and filtering
 - Fix edge case in item quantity merging
 
 Squashed from: feature/shopping-list (4 commits)
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>
 ```
 
 ## Error Handling

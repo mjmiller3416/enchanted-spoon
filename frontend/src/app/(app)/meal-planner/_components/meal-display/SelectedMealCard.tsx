@@ -126,9 +126,6 @@ export function SelectedMealCard({
 
   return (
     <div className={cn("space-y-4", className)}>
-      {/* Section Header */}
-      <h2 className="text-lg font-semibold text-foreground">Selected Meal</h2>
-
       {/* Horizontal when the card is wide (full-width); stacked in the desktop
           side column and the mobile sheet. Keyed off the card's own width via
           container queries, since the desktop column is only half the viewport. */}

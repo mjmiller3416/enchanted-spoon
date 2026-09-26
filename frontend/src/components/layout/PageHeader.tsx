@@ -4,12 +4,14 @@ import { cn } from "@/lib/utils";
 interface PageHeaderProps {
   children: React.ReactNode;
   className?: string;
+  /** When true, drops the max-w-7xl cap at lg+ so the header spans its container */
+  fullWidth?: boolean;
 }
 
-export function PageHeader({ children, className }: PageHeaderProps) {
+export function PageHeader({ children, className, fullWidth = false }: PageHeaderProps) {
   return (
     <div className={cn("bg-background", className)}>
-      <div className="pt-6 lg:pt-8 px-4 mx-auto max-w-7xl md:px-6">
+      <div className={cn("pt-6 lg:pt-8 px-4 mx-auto max-w-7xl md:px-6", fullWidth && "lg:max-w-none")}>
         {children}
       </div>
     </div>
