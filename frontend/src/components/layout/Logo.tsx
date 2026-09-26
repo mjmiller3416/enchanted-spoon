@@ -6,14 +6,15 @@ interface LogoProps {
 /**
  * Enchanted Spoon brand mark — the spoon-and-sparkle icon.
  *
- * Renders the shared `/logo.svg` so the in-app logo always tracks the
- * source brand asset (edit the SVG and every placement updates). The mark uses
- * a fixed multi-color brand palette that reads on both light and dark themes,
- * so it intentionally does not tint with the surrounding text color.
+ * The artwork is inlined (a copy of `public/logo.svg`) so the mark renders
+ * anywhere the component does — including outside the Next.js app, e.g. the
+ * claude.ai/design system — without depending on a `/public` URL. Keep the
+ * two in sync when the brand asset changes. The mark uses a fixed multi-color
+ * brand palette that reads on both light and dark themes, so it intentionally
+ * does not tint with the surrounding text color.
  *
  * The artwork is taller than it is wide, so size it by height and let the width
- * follow (e.g. `h-8 w-auto`). Avoid forcing a square box (`w-8 h-8`), which an
- * <img> would stretch.
+ * follow (e.g. `h-8 w-auto`).
  *
  * TODO(rebrand): the raster brand assets are still the legacy whisk art and
  * need regenerating from this spoon mark — favicon (`src/app/favicon.ico`),
@@ -22,12 +23,34 @@ interface LogoProps {
  */
 export function Logo({ className }: LogoProps) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- static brand vector from /public; next/image adds no value for an inline SVG mark
-    <img
-      src="/logo.svg"
-      alt=""
+    <svg
+      viewBox="0 0 513 570"
+      xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
+      focusable="false"
       className={className}
-    />
+      style={{ fillRule: "evenodd", clipRule: "evenodd" }}
+    >
+      <path
+        d="M282.01,460.048c0.702,29.142 1.449,57.792 2.062,86.445c0.214,9.976 -4.748,17.781 -12.982,21.1c-8.927,3.597 -19.264,1.431 -25.897,-5.31c-4.601,-4.676 -5.432,-10.43 -5.236,-16.618c0.728,-22.981 1.412,-45.964 2.052,-68.948c0.71,-25.485 1.101,-50.981 2.114,-76.453c0.719,-18.067 -6.251,-30.999 -22.539,-39.342c-19.114,-9.79 -31.012,-26.372 -38.104,-45.894c-19.036,-52.401 -12.245,-101.8 20.841,-146.707c13.713,-18.612 32.978,-29.695 56.703,-30.284c27.612,-0.685 47.903,13.088 63.341,34.8c15.249,21.445 22.671,45.95 25.49,71.755c3.063,28.047 -0.992,55.178 -13.705,80.664c-8.115,16.268 -20.14,28.762 -36.158,37.539c-12.618,6.915 -19.102,17.927 -19.029,32.286c0.109,21.494 0.67,42.985 1.047,64.968Z"
+        fill="#7239da"
+        fillRule="nonzero"
+      />
+      <path
+        d="M413.469,60.657c-48.913,-32.908 -102.515,-48.006 -160.839,-42.409c-105.199,10.094 -189.436,81.137 -209.356,189.962c-15.673,85.623 14.784,155.777 78.65,212.436c26.317,23.347 57.824,37.15 92.249,44.123c3.447,0.698 4.665,1.703 4.569,5.367c-0.331,12.652 -0.253,25.314 -0.351,37.972c-0.01,1.294 -0.163,2.588 -0.351,5.414c-13.508,-3.429 -26.727,-5.966 -39.406,-10.14c-62.675,-20.637 -110.322,-59.963 -143.183,-117.095c-22.861,-39.746 -35.274,-82.473 -35.449,-128.53c-0.231,-60.657 19.005,-114.66 56.988,-161.623c40.767,-50.405 93.255,-82.269 157.467,-92.573c77.039,-12.362 145.52,7.572 204.911,58.323c0.885,0.756 1.747,1.551 2.534,2.405c0.309,0.335 0.384,0.885 -0.004,2.163c-2.711,-1.863 -5.422,-3.727 -8.431,-5.794Z"
+        fill="#733bda"
+        fillRule="nonzero"
+      />
+      <path
+        d="M467.265,380.126c-33.894,68.315 -87.651,111.261 -161.747,129.954l0,-43.927c49.916,-9.015 91.482,-32.977 124.858,-70.833c33.159,-37.609 50.923,-82.413 59.269,-131.472c2.767,40.686 -5.384,79.145 -22.38,116.278Z"
+        fill="#743cda"
+        fillRule="nonzero"
+      />
+      <path
+        d="M450.771,186.634c-3.954,-9.525 -11.004,-14.922 -20.382,-17.388c-5.787,-1.522 -11.732,-2.457 -17.485,-4.086c-1.744,-0.494 -3.081,-2.426 -4.604,-3.699c1.459,-1.175 2.746,-2.92 4.409,-3.424c6.838,-2.072 13.861,-3.54 20.683,-5.656c9.094,-2.822 14.994,-9.114 17.702,-18.187c1.997,-6.69 3.449,-13.544 5.471,-20.226c0.538,-1.777 2.28,-3.19 3.47,-4.77c1.147,1.617 2.789,3.081 3.345,4.88c1.469,4.76 2.716,9.62 3.608,14.521c2.775,15.258 12.554,23.219 27.018,26.419c4.061,0.899 8.259,1.298 12.208,2.527c2.24,0.697 4.102,2.612 6.134,3.978c-1.995,1.362 -3.815,3.327 -6.02,3.967c-5.416,1.574 -11.09,2.255 -16.515,3.806c-10.796,3.087 -18.514,9.614 -21.578,20.811c-1.579,5.771 -2.9,11.621 -4.7,17.32c-0.505,1.598 -2.296,2.79 -3.497,4.168c-1.316,-1.44 -3.32,-2.674 -3.828,-4.358c-2.013,-6.675 -3.559,-13.491 -5.437,-20.605Z"
+        fill="#1cafbb"
+        fillRule="nonzero"
+      />
+    </svg>
   );
 }

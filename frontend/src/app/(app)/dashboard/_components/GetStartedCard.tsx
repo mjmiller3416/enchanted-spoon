@@ -34,7 +34,7 @@ export function GetStartedCard({ recipesDone, planDone }: GetStartedCardProps) {
   const { openAssistant } = useAssistantDialog();
 
   return (
-    <Card className="gap-0 p-6 shadow-raised md:p-8">
+    <Card className="gap-0 p-6 shadow-raised md:p-8" data-tour="home-get-started">
       <h3 className="text-xl font-semibold text-foreground">
         Welcome to {appConfig.appName} ✨
       </h3>

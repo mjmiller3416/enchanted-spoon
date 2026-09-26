@@ -54,10 +54,17 @@ export * from "@/components/common/ScrollableCardList";
 export * from "@/components/common/ScrollToTopButton";
 export * from "@/components/common/StatCard";
 export * from "@/components/forms/QuantityInput";
+export * from "@/components/common/QueryError";
 export * from "@/components/layout/Logo";
+export * from "@/components/layout/EditorDialogContent";
 export * from "@/components/layout/PageHeader";
 export * from "@/components/layout/PageLayout";
+export * from "@/components/layout/SectionHeader";
+export * from "@/components/layout/SectionNav";
 export * from "@/components/recipe/RecipeBadge";
 export * from "@/components/recipe/RecipeBannerImage";
 export * from "@/components/recipe/RecipeFilters";
 export * from "@/components/recipe/RecipeImage";
+
+// ── onboarding (presentational only; TourProvider stays app-side) ──────────
+export * from "@/components/onboarding";

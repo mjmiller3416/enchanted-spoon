@@ -61,7 +61,7 @@ export function RecipeGrid({
           </Button>
         ) : (
           (onAddRecipe || onGenerateRecipe) && (
-            <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-center gap-3" data-tour="recipes-add-empty">
               {onAddRecipe && (
                 <Button onClick={onAddRecipe}>
                   <Plus className="size-4" strokeWidth={1.5} />

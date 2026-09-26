@@ -8,19 +8,78 @@
   "tsconfig": "tsconfig.json",
   "buildCmd": "cd frontend && node ../.ds-sync/node_modules/@tailwindcss/cli/dist/index.mjs -i ../.design-sync/tailwind-input.css -o .ds-tailwind.css",
   "cssEntry": ".ds-tailwind.css",
-  "extraFonts": ["../.design-sync/fonts/geist.css"],
+  "extraFonts": [
+    "../.design-sync/fonts/geist.css"
+  ],
   "readmeHeader": ".design-sync/conventions.md",
   "overrides": {
-    "Dialog": { "cardMode": "single", "primaryStory": "ConfirmDelete", "viewport": "760x520" },
-    "Select": { "cardMode": "single", "primaryStory": "Default", "viewport": "760x520" },
-    "DropdownMenu": { "cardMode": "single", "primaryStory": "Default", "viewport": "760x520" },
-    "Popover": { "cardMode": "single", "primaryStory": "Default", "viewport": "760x520" },
-    "Tooltip": { "cardMode": "single", "primaryStory": "Default", "viewport": "760x420" },
-    "MultiSelect": { "cardMode": "single", "primaryStory": "Default", "viewport": "760x520" },
-    "Sheet": { "cardMode": "single", "primaryStory": "Default", "viewport": "900x700" },
-    "ChangelogPopover": { "cardMode": "single", "primaryStory": "OpenPanel", "viewport": "560x620" },
-    "Pagination": { "cardMode": "column" },
-    "PageHeader": { "cardMode": "column" }
+    "Dialog": {
+      "cardMode": "single",
+      "primaryStory": "ConfirmDelete",
+      "viewport": "760x520"
+    },
+    "Select": {
+      "cardMode": "single",
+      "primaryStory": "Default",
+      "viewport": "760x520"
+    },
+    "DropdownMenu": {
+      "cardMode": "single",
+      "primaryStory": "Default",
+      "viewport": "760x520"
+    },
+    "Popover": {
+      "cardMode": "single",
+      "primaryStory": "Default",
+      "viewport": "760x520"
+    },
+    "Tooltip": {
+      "cardMode": "single",
+      "primaryStory": "Default",
+      "viewport": "760x420"
+    },
+    "MultiSelect": {
+      "cardMode": "single",
+      "primaryStory": "Default",
+      "viewport": "760x520"
+    },
+    "Sheet": {
+      "cardMode": "single",
+      "primaryStory": "Default",
+      "viewport": "900x700"
+    },
+    "ChangelogPopover": {
+      "cardMode": "single",
+      "primaryStory": "OpenPanel",
+      "viewport": "560x620"
+    },
+    "Pagination": {
+      "cardMode": "column"
+    },
+    "PageHeader": {
+      "cardMode": "column"
+    },
+    "Logo": {
+      "cardMode": "column"
+    },
+    "EditorDialogContent": {
+      "cardMode": "single",
+      "primaryStory": "RecipeEditor",
+      "viewport": "1100x700"
+    },
+    "SectionNav": {
+      "cardMode": "single",
+      "primaryStory": "Default",
+      "viewport": "1100x520"
+    },
+    "TourSpotlight": {
+      "cardMode": "single",
+      "primaryStory": "HighlightTarget",
+      "viewport": "1100x620"
+    },
+    "TourStepCard": {
+      "cardMode": "column"
+    }
   },
   "componentSrcMap": {
     "Accordion": "src/components/ui/accordion.tsx",
@@ -66,7 +125,6 @@
     "ScrollableCardList": "src/components/common/ScrollableCardList.tsx",
     "ScrollToTopButton": "src/components/common/ScrollToTopButton.tsx",
     "StatCard": "src/components/common/StatCard.tsx",
-    "ThemeToggle": "src/components/common/ThemeToggle.tsx",
     "QuantityInput": "src/components/forms/QuantityInput.tsx",
     "Logo": "src/components/layout/Logo.tsx",
     "PageHeader": "src/components/layout/PageHeader.tsx",
@@ -74,6 +132,16 @@
     "RecipeBadge": "src/components/recipe/RecipeBadge.tsx",
     "RecipeBannerImage": "src/components/recipe/RecipeBannerImage.tsx",
     "RecipeFilters": "src/components/recipe/RecipeFilters.tsx",
-    "RecipeImage": "src/components/recipe/RecipeImage.tsx"
+    "RecipeImage": "src/components/recipe/RecipeImage.tsx",
+    "QueryError": "src/components/common/QueryError.tsx",
+    "SectionHeader": "src/components/layout/SectionHeader.tsx",
+    "SectionNav": "src/components/layout/SectionNav.tsx",
+    "EditorDialogContent": "src/components/layout/EditorDialogContent.tsx",
+    "TourStepCard": "src/components/onboarding/TourStepCard.tsx",
+    "TourSpotlight": "src/components/onboarding/TourSpotlight.tsx",
+    "TourWelcomeCard": "src/components/onboarding/TourWelcomeCard.tsx"
+  },
+  "libOverrides": {
+    "story-imports.mjs": "skip policy resolve for node_modules importers (lucide-react barrel made preview compiles ~45s each and deadlocked esbuild)"
   }
 }

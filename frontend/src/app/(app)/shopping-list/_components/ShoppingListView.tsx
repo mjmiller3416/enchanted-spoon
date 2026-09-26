@@ -371,7 +371,7 @@ export function ShoppingListView() {
         {/* Add manual item form - also available when list is empty */}
         <QuickAddForm variant="inline" />
 
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex flex-col items-center justify-center py-16 text-center" data-tour="shopping-list">
           <div className="p-4 mb-4 rounded-full bg-elevated">
             <ShoppingCart className="w-12 h-12 text-muted-foreground" />
           </div>
@@ -467,7 +467,7 @@ export function ShoppingListView() {
       {/* Two-column layout: Main content + Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main content column */}
-        <div className="min-w-0 lg:col-span-3">
+        <div className="min-w-0 lg:col-span-3" data-tour="shopping-list">
           {/* Active filter indicator */}
           {filterRecipeName && (
             <div className="flex items-center gap-2 px-3 py-2.5 mb-4 rounded-lg bg-primary/10 border border-primary/30">

@@ -73,15 +73,18 @@
 - QuantityInput requires onChange (pass noop); static `value` renders formatted fractions.
 
 ## Upstream component quirks noticed while authoring (not preview bugs)
-- NumberStepper `hasError` is visually inert: adds `border-destructive` to an inner Input that has
-  `border-0` — no red border renders in the app either. Fix candidate in
-  frontend/src/components/ui/numeric-stepper.tsx.
+- NumberStepper `hasError` now renders a red border (fixed upstream in the 2026-09 stepper rework).
 - Toggle `default` vs `lg` sizes differ only by padding (both h-10) — only `sm` reads differently.
 - Badge `success` variant is a deliberately quiet `bg-success/20 text-white` pill.
 - RecipeBadge doc comments name inverted colors ("category: teal", "mealType: purple") vs the
   rendered theme (--primary purple, --secondary teal) — trust tokens, not comments.
 
 ## Known render warns (triaged legitimate)
+- **TourSpotlight sheet shows the overlay but NO step card.** package-capture freezes the page clock
+  (`page.clock.setFixedTime`), so framer-motion never advances the card fade-in (opacity 0). Real
+  render verified with `.design-sync/.cache/probe-tour.mjs <Story>` (plain Chrome, waits 2s; gitignored
+  scratch — recreate if missing) — grade from that probe, not the sheet. Any future framer-motion
+  entrance animation hits the same trap.
 - (none standing — the first-build RENDER_BLANK/THIN set was resolved by authored previews; the
   GRID_OVERFLOW pair (Pagination, PageHeader) was fixed with cardMode "column" overrides)
 
@@ -100,7 +103,7 @@
   frontend/.next/dev/static after a dev run.
 - **Tailwind CLI (v4.3.x in .ds-sync) vs app tailwindcss (4.1.x)** — compatible today; if compiled
   output ever looks off, pin @tailwindcss/cli to the app's minor.
-- **Partially verified by design:** the 20 floor-card components were render-checked but never
+- **Partially verified by design:** the 16 floor-card components were render-checked but never
   visually graded (no authored previews). ChangelogPopover preview inlines the app's changelog
   data at compile time — it refreshes on every rebuild, but a very stale bundle shows old entries.
 - **Environment assumptions:** system Chrome at `C:/Program Files/Google/Chrome/Application/
@@ -114,3 +117,27 @@
   Label, ScrollArea, Separator, Toaster, ToggleGroup, ChangelogDialog, CircularImage,
   FavoriteButton, InlineGroupCreator, RecipeIcon, ScrollToTopButton, ThemeToggle, PageLayout,
   RecipeBannerImage, RecipeFilters — standing offer for incremental authoring on any re-sync.
+
+## 2026-09-25 re-sync
+- The pinned project was only visible after re-running /design-login with the right account (the
+  first login saw an empty project list and a 404 on the pinned id). The project is still named
+  "Meal Genie UI"; the name is cosmetic because the pin is by id. User may rename it in claude.ai/design.
+- **Preview compiles hung → forked lib/story-imports.mjs** (.design-sync/overrides, declared in
+  cfg.libOverrides). The ds-import-policy onResolve round-tripped EVERY import, including
+  lucide-react 0.561's ~1600 per-icon modules: ~45s per icon-importing preview, and on the 2nd run
+  esbuild deadlocked (node idle, log stuck right after the "previews:" line). The fork returns null
+  for importers inside node_modules; builds now take seconds. On re-sync, diff the fork against the
+  bundled lib and re-apply the one-line fast path if upstream changed. A build stuck after
+  "previews:" with an idle node process = check this first.
+- ThemeToggle was deleted from the app (theme model unification) → removed from componentSrcMap.
+- Added: QueryError, SectionHeader, SectionNav, EditorDialogContent, and the onboarding
+  presentational trio TourStepCard / TourSpotlight / TourWelcomeCard (barrel exports
+  "@/components/onboarding"). TourProvider/useTour stay app-side because they need the router.
+- **Logo was app-asset coupled**: it had become <img src="/logo.svg">, which breaks outside Next's
+  /public. Logo.tsx now inlines the SVG paths (a copy of public/logo.svg); keep them in sync when
+  the brand art changes. Logo is fixed-palette (no currentColor) and sized by height (h-8 w-auto).
+- Viewport-responsive components (SectionNav: lg breakpoint) need cardMode "single" with a
+  viewport >= 1024px wide, or the capture shows the mobile branch.
+- The TourSpotlight preview measures its target relative to the preview root, because the card
+  frame is the fixed overlay's containing block (raw viewport rects land ~24px off). Apps pass
+  viewport rects directly.

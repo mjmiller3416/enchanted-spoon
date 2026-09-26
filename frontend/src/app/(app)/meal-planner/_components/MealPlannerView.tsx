@@ -372,7 +372,7 @@ export function MealPlannerView() {
       title="Meal Planner"
       description="Choose your meals, arrange the order, and shop from your plan."
       actions={<>
-        <Button onClick={openMealCreation}><Plus className="size-4" strokeWidth={1.5} />Add meal</Button>
+        <Button onClick={openMealCreation} data-tour="planner-add-meal"><Plus className="size-4" strokeWidth={1.5} />Add meal</Button>
         <Button variant="outline" asChild>
           <Link href="/shopping-list">
             <ShoppingCart className="size-4" strokeWidth={1.5} />
@@ -389,7 +389,7 @@ export function MealPlannerView() {
       {/* STACKED VERTICAL LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* TOP: MENU SECTION (heading + grid grouped with space-y-4, matching SelectedMealCard) */}
-        <div className="space-y-4">
+        <div className="space-y-4" data-tour="planner-menu">
           <div className="flex items-end gap-4">
             <h2 className="flex-1 text-lg font-semibold text-foreground">
               Your menu

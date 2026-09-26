@@ -17,6 +17,7 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  Compass,
   MessageSquarePlus,
   Sparkles,
   Shield,
@@ -56,6 +57,7 @@ import { useShoppingList, useRefreshShoppingList, useCurrentUser } from "@/hooks
 import { useTheme } from "@/hooks/ui";
 import { useNavActions } from "@/lib/providers/NavActionsProvider";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
+import { useTour } from "@/lib/providers/TourProvider";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TopNavLink — Inline navigation link for the top nav bar
@@ -210,6 +212,7 @@ function TopNavAddMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
+          data-tour="nav-add"
           className={cn(
             "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium",
             "transition-colors duration-200",
@@ -254,6 +257,7 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
   const { signOut } = useClerk();
   const router = useRouter();
   const { isAdmin } = useCurrentUser();
+  const { startTour, isActive: tourActive } = useTour();
 
   const handleSignOut = async () => {
     await signOut();
@@ -371,6 +375,15 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
         >
           <Sparkles className="h-4 w-4" />
           Ask the Genie
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={startTour}
+          disabled={tourActive}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <Compass className="h-4 w-4" strokeWidth={1.5} />
+          Take the tour
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -513,6 +526,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
             size="icon"
             className="xl:hidden ml-1"
             aria-label="Open navigation menu"
+            data-tour="nav-main nav-add"
             onClick={() => setSheetOpen(true)}
           >
             <Menu className="size-5" strokeWidth={1.5} />
@@ -520,7 +534,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
         </div>
 
         {/* Center section: Inline nav links — hidden below xl */}
-        <nav className="hidden xl:flex items-center gap-1.5 flex-1" aria-label="Main navigation">
+        <nav className="hidden xl:flex items-center gap-1.5 flex-1" aria-label="Main navigation" data-tour="nav-main">
           {navigation.map((item) => (
             <TopNavLink
               key={item.href}
@@ -561,6 +575,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
                 variant="ghost"
                 size="icon"
                 aria-label="Open the Genie"
+                data-tour="genie-trigger"
                 onClick={onOpenAssistant}
               >
                 <Sparkles className="size-5" strokeWidth={1.5} />

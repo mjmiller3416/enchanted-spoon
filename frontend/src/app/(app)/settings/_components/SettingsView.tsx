@@ -23,6 +23,7 @@ import { FeedbackSection } from "./sections/FeedbackSection";
 import { AIFeaturesSection } from "./sections/AIFeaturesSection";
 import { RecipePreferencesSection } from "./sections/RecipePreferencesSection";
 import { ShoppingListSection } from "./sections/ShoppingListSection";
+import { TourReplayCard } from "./TourReplayCard";
 
 export function SettingsView() {
   const searchParams = useSearchParams();
@@ -173,11 +174,15 @@ export function SettingsView() {
           {/* Left Sidebar - Category Navigation */}
           <div className="lg:col-span-1">
             <div className="sticky top-24">
-                  <CategoryNav
-                    categories={CATEGORIES}
-                    activeCategory={activeCategory}
-                    onCategoryChange={setActiveCategory}
-                  />
+              <div data-tour="settings-nav">
+                <CategoryNav
+                  categories={CATEGORIES}
+                  activeCategory={activeCategory}
+                  onCategoryChange={setActiveCategory}
+                />
+              </div>
+
+              <TourReplayCard className="mt-4" />
 
               {/* Version Info */}
               <div className="hidden lg:block mt-4 px-4 py-3 text-center">

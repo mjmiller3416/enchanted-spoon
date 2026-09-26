@@ -144,7 +144,10 @@ export function HomeView() {
           )}
 
           {/* Tonight hero + shopping status */}
-          <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3 lg:gap-6">
+          <div
+            className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3 lg:gap-6"
+            data-tour={dataReady ? "home-overview" : undefined}
+          >
             <div className="lg:col-span-2">
               {plannerError && <div className="mb-4"><QueryError title="Couldn’t refresh your meal plan" onRetry={() => void refetchPlanner()} retrying={plannerFetching} /></div>}
               {(!plannerError || plannerEntries) && <TonightCard entry={tonight} isLoading={plannerLoading} />}

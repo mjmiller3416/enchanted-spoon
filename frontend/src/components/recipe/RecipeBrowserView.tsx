@@ -116,60 +116,63 @@ function HeroSection({
           {displayDescription}
         </p>
 
-        <div className="relative max-w-2xl mx-auto mb-4">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            aria-label="Search saved recipes, ingredients, and tags"
-            placeholder="Search saved recipes, ingredients, tags..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="pl-12 pr-20 text-base bg-elevated/90 backdrop-blur-sm shadow-sm border-border text-foreground/80 placeholder:text-muted-foreground focus:border-primary"
-          />
-          {searchTerm.length > 0 && (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                onClick={() => onSearchChange("")}
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-primary"
-                onClick={onSearch}
-                aria-label="Search"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </div>
+        {/* Search + quick filters (onboarding tour target) */}
+        <div className="max-w-2xl mx-auto" data-tour="recipes-search">
+          <div className="relative max-w-2xl mx-auto mb-4">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              aria-label="Search saved recipes, ingredients, and tags"
+              placeholder="Search saved recipes, ingredients, tags..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="pl-12 pr-20 text-base bg-elevated/90 backdrop-blur-sm shadow-sm border-border text-foreground/80 placeholder:text-muted-foreground focus:border-primary"
+            />
+            {searchTerm.length > 0 && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => onSearchChange("")}
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-primary"
+                  onClick={onSearch}
+                  aria-label="Search"
+                >
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
 
-        <div className="max-w-2xl mx-auto flex flex-wrap items-center gap-2">
-          <FilterBar
-            options={quickFilterOptions}
-            activeIds={activeQuickFilters}
-            onToggle={onQuickFilterToggle}
-            variant="glass"
-            align="start"
-            className="flex-1"
-          />
-          {onGenerateRecipe && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onGenerateRecipe}
-              className="gap-1.5 font-medium rounded-xl bg-elevated/90 backdrop-blur-sm shadow-sm border border-primary/40 text-primary hover:text-primary hover:border-primary hover:bg-primary/10"
-            >
-              <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-              Generate a recipe
-            </Button>
-          )}
+          <div className="max-w-2xl mx-auto flex flex-wrap items-center gap-2">
+            <FilterBar
+              options={quickFilterOptions}
+              activeIds={activeQuickFilters}
+              onToggle={onQuickFilterToggle}
+              variant="glass"
+              align="start"
+              className="flex-1"
+            />
+            {onGenerateRecipe && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onGenerateRecipe}
+                className="gap-1.5 font-medium rounded-xl bg-elevated/90 backdrop-blur-sm shadow-sm border border-primary/40 text-primary hover:text-primary hover:border-primary hover:bg-primary/10"
+              >
+                <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                Generate a recipe
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -743,7 +746,11 @@ export function RecipeBrowserView({
       {filterSlidePanel}
 
       {/* Static filter/sort row (scrolls with page, observed for nav pinning) */}
-      <div ref={mode === "browse" ? sortControlsRef : undefined} className="mb-6 scroll-mt-20">
+      <div
+        ref={mode === "browse" ? sortControlsRef : undefined}
+        className="mb-6 scroll-mt-20"
+        data-tour={mode === "browse" ? "recipes-filters" : undefined}
+      >
         <RecipeSortControls
           sortBy={sortBy}
           sortDirection={sortDirection}
