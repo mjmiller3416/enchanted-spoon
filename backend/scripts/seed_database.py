@@ -1614,6 +1614,18 @@ Examples:
     SessionLocal, models = get_db_and_models()
     session = SessionLocal()
 
+    # This script bulk-deletes tables for EVERY user and seeds single-user
+    # demo data. It is only for a local SQLite dev database; refuse to run
+    # against anything else (e.g. a Railway Postgres URL left in the env).
+    dialect = session.get_bind().dialect.name
+    if dialect != "sqlite":
+        session.close()
+        print(
+            f"Refusing to run: SQLALCHEMY_DATABASE_URL points at a {dialect} database.\n"
+            "The seeder wipes all users' data and is only meant for local SQLite dev databases."
+        )
+        sys.exit(1)
+
     try:
         # Handle clear-only mode
         if args.clear_only:

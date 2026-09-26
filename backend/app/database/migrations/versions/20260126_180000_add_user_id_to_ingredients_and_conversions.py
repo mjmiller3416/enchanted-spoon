@@ -79,37 +79,39 @@ def upgrade() -> None:
 
     # --- Ingredients ---
     if is_sqlite:
-        # For SQLite, we need batch mode to handle constraint changes
-        with op.batch_alter_table('ingredients', recreate='always') as batch_op:
-            # Add user_id column (with default for existing rows)
-            batch_op.add_column(sa.Column('user_id', sa.Integer(), nullable=False, server_default='1'))
+        # A fresh database may already have the column from an earlier revision
+        if not column_exists('ingredients', 'user_id'):
+            # For SQLite, we need batch mode to handle constraint changes
+            with op.batch_alter_table('ingredients', recreate='always') as batch_op:
+                # Add user_id column (with default for existing rows)
+                batch_op.add_column(sa.Column('user_id', sa.Integer(), nullable=False, server_default='1'))
 
-            # Create index for fast user lookups
-            batch_op.create_index('ix_ingredients_user_id', ['user_id'], unique=False)
+                # Create index for fast user lookups
+                batch_op.create_index('ix_ingredients_user_id', ['user_id'], unique=False)
 
-            # Add foreign key to users table
-            batch_op.create_foreign_key(
-                'fk_ingredients_user_id',
-                'users',
-                ['user_id'],
-                ['id'],
-                ondelete='CASCADE'
-            )
+                # Add foreign key to users table
+                batch_op.create_foreign_key(
+                    'fk_ingredients_user_id',
+                    'users',
+                    ['user_id'],
+                    ['id'],
+                    ondelete='CASCADE'
+                )
 
-            # Drop old unique constraint and create new one that includes user_id
-            # Try known constraint names
-            old_constraint = get_unique_constraint_name('ingredients', ['ingredient_name', 'ingredient_category'])
-            if old_constraint:
-                batch_op.drop_constraint(old_constraint, type_='unique')
+                # Drop old unique constraint and create new one that includes user_id
+                # Try known constraint names
+                old_constraint = get_unique_constraint_name('ingredients', ['ingredient_name', 'ingredient_category'])
+                if old_constraint:
+                    batch_op.drop_constraint(old_constraint, type_='unique')
 
-            batch_op.create_unique_constraint(
-                'uq_ingredient_user_name_category',
-                ['user_id', 'ingredient_name', 'ingredient_category']
-            )
+                batch_op.create_unique_constraint(
+                    'uq_ingredient_user_name_category',
+                    ['user_id', 'ingredient_name', 'ingredient_category']
+                )
 
-        # Remove the server default after migration (not needed for new rows)
-        with op.batch_alter_table('ingredients') as batch_op:
-            batch_op.alter_column('user_id', server_default=None)
+            # Remove the server default after migration (not needed for new rows)
+            with op.batch_alter_table('ingredients') as batch_op:
+                batch_op.alter_column('user_id', server_default=None)
     else:
         # PostgreSQL - use native ALTER TABLE operations
         # All operations are idempotent to handle partial migration state
@@ -151,25 +153,27 @@ def upgrade() -> None:
 
     # --- Unit Conversion Rules ---
     if is_sqlite:
-        with op.batch_alter_table('unit_conversion_rules', recreate='always') as batch_op:
-            # Add user_id column (with default for existing rows)
-            batch_op.add_column(sa.Column('user_id', sa.Integer(), nullable=False, server_default='1'))
+        # A fresh database may already have the column from an earlier revision
+        if not column_exists('unit_conversion_rules', 'user_id'):
+            with op.batch_alter_table('unit_conversion_rules', recreate='always') as batch_op:
+                # Add user_id column (with default for existing rows)
+                batch_op.add_column(sa.Column('user_id', sa.Integer(), nullable=False, server_default='1'))
 
-            # Create index for fast user lookups
-            batch_op.create_index('ix_unit_conversion_rules_user_id', ['user_id'], unique=False)
+                # Create index for fast user lookups
+                batch_op.create_index('ix_unit_conversion_rules_user_id', ['user_id'], unique=False)
 
-            # Add foreign key to users table
-            batch_op.create_foreign_key(
-                'fk_unit_conversion_rules_user_id',
-                'users',
-                ['user_id'],
-                ['id'],
-                ondelete='CASCADE'
-            )
+                # Add foreign key to users table
+                batch_op.create_foreign_key(
+                    'fk_unit_conversion_rules_user_id',
+                    'users',
+                    ['user_id'],
+                    ['id'],
+                    ondelete='CASCADE'
+                )
 
-        # Remove the server default after migration
-        with op.batch_alter_table('unit_conversion_rules') as batch_op:
-            batch_op.alter_column('user_id', server_default=None)
+            # Remove the server default after migration
+            with op.batch_alter_table('unit_conversion_rules') as batch_op:
+                batch_op.alter_column('user_id', server_default=None)
     else:
         # PostgreSQL - use native ALTER TABLE operations
         # All operations are idempotent to handle partial migration state
