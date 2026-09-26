@@ -19,6 +19,48 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Build an ApiError from a failed response without ever throwing a parse
+ * error of its own. Proxies (Railway 502/504, 413) answer with HTML, and
+ * FastAPI's `detail` can be a string, a structured object (e.g.
+ * usage_limit_exceeded 429s carry {error, field, current, limit, message}),
+ * or a 422 validation array — none of which may leak into the UI as
+ * "Unexpected token '<'" or "[object Object]".
+ */
+export async function toApiError(response: Response, fallback: string): Promise<ApiError> {
+  let errorData: Record<string, unknown> | undefined;
+  try {
+    errorData = await response.json();
+  } catch {
+    // Non-JSON body (HTML error page, empty response)
+  }
+
+  const detail = errorData?.detail;
+  let message: string | undefined;
+  if (typeof detail === "string") {
+    message = detail;
+  } else if (Array.isArray(detail)) {
+    message = detail
+      .map((d) => (typeof d?.msg === "string" ? d.msg.replace(/^Value error, /, "") : null))
+      .filter(Boolean)
+      .join("; ");
+  } else if (detail && typeof detail === "object") {
+    const nested = (detail as { message?: unknown }).message;
+    if (typeof nested === "string") message = nested;
+  }
+  if (!message && typeof errorData?.message === "string") {
+    message = errorData.message;
+  }
+  if (!message && response.status === 413) {
+    message = "That file is too large to upload.";
+  }
+  if (!message && response.status >= 500) {
+    message = `${fallback}. The server had a problem — please try again in a moment.`;
+  }
+
+  return new ApiError(message || fallback, response.status, errorData);
+}
+
 export async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit,
@@ -57,25 +99,7 @@ export async function fetchApi<T>(
   }
 
   if (!response.ok) {
-    let errorMessage = `API Error: ${response.status}`;
-    let details: Record<string, unknown> | undefined;
-
-    try {
-      const errorData = await response.json();
-      // `detail` may be a structured object (e.g. usage_limit_exceeded 429s
-      // carry {error, field, current, limit, message}) — never let an object
-      // become the Error message.
-      const detail = errorData.detail;
-      errorMessage =
-        (typeof detail === "string" ? detail : detail?.message) ||
-        errorData.message ||
-        errorMessage;
-      details = errorData;
-    } catch {
-      // Ignore JSON parse errors
-    }
-
-    throw new ApiError(errorMessage, response.status, details);
+    throw await toApiError(response, `API Error: ${response.status}`);
   }
 
   // Handle empty responses

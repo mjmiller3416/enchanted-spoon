@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useQueryClient } from "@tanstack/react-query";
 import { Trash2, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { getErrorMessage } from "@/lib/utils";
 
 export function DeleteData() {
   const { getToken } = useAuth();
+  const queryClient = useQueryClient();
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -34,6 +36,8 @@ export function DeleteData() {
         );
         toast.success(`All data deleted (${totalDeleted} records removed)`);
         setShowDeleteConfirmDialog(false);
+        // Every cached list (recipes, menu, shopping badge, sample status…) is now stale
+        await queryClient.invalidateQueries();
       }
     } catch (error) {
       toast.error(getErrorMessage(error, "Failed to delete data"));

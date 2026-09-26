@@ -7,7 +7,7 @@ import type {
   RestorePreview,
   RestoreResult,
 } from "@/types/common";
-import { API_BASE, ApiError, buildQueryString } from "./base";
+import { API_BASE, buildQueryString, toApiError } from "./base";
 
 export const dataManagementApi = {
   /**
@@ -32,11 +32,7 @@ export const dataManagementApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to preview import",
-        response.status
-      );
+      throw await toApiError(response, "Failed to preview import");
     }
 
     return response.json();
@@ -70,11 +66,7 @@ export const dataManagementApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to execute import",
-        response.status
-      );
+      throw await toApiError(response, "Failed to execute import");
     }
 
     return response.json();
@@ -97,11 +89,7 @@ export const dataManagementApi = {
     const response = await fetch(`${API_BASE}/api/data-management/export${query}`, { headers });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to export recipes",
-        response.status
-      );
+      throw await toApiError(response, "Failed to export recipes");
     }
 
     return response.blob();
@@ -121,11 +109,7 @@ export const dataManagementApi = {
     const response = await fetch(`${API_BASE}/api/data-management/template`, { headers });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to download template",
-        response.status
-      );
+      throw await toApiError(response, "Failed to download template");
     }
 
     return response.blob();
@@ -148,11 +132,7 @@ export const dataManagementApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to clear data",
-        response.status
-      );
+      throw await toApiError(response, "Failed to clear data");
     }
 
     return response.json();
@@ -172,11 +152,7 @@ export const dataManagementApi = {
     const response = await fetch(`${API_BASE}/api/data-management/backup/full`, { headers });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to export backup",
-        response.status
-      );
+      throw await toApiError(response, "Failed to export backup");
     }
 
     return response.json();
@@ -204,11 +180,7 @@ export const dataManagementApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to preview restore",
-        response.status
-      );
+      throw await toApiError(response, "Failed to preview restore");
     }
 
     return response.json();
@@ -244,11 +216,7 @@ export const dataManagementApi = {
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new ApiError(
-        error.detail || "Failed to execute restore",
-        response.status
-      );
+      throw await toApiError(response, "Failed to execute restore");
     }
 
     return response.json();

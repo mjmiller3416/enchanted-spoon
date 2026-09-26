@@ -5,6 +5,7 @@ Handles xlsx parsing, import preview, and import execution.
 """
 
 # -- Imports -------------------------------------------------------------------------------------
+import logging
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
 
@@ -23,6 +24,8 @@ from ...dtos.data_management_dtos import (
 )
 from ...dtos.recipe_dtos import RecipeCreateDTO, RecipeIngredientDTO, RecipeUpdateDTO
 from ...models import Recipe
+
+logger = logging.getLogger(__name__)
 
 
 # -- Import Operations Mixin ---------------------------------------------------------------------
@@ -50,7 +53,7 @@ class ImportOperationsMixin:
         except Exception as e:
             errors.append(
                 ValidationErrorDTO(
-                    row_number=0, field="file", message=f"Invalid xlsx file: {str(e)}"
+                    row_number=0, field="file", message="This file could not be read as an .xlsx workbook"
                 )
             )
             return recipes, errors
@@ -114,6 +117,14 @@ class ImportOperationsMixin:
         workbook.close()
         return recipes, errors
 
+    @staticmethod
+    def _read_headers(sheet: Worksheet) -> List[str]:
+        """Normalized header names; empty for a blank sheet, tolerant of non-text cells."""
+        first_row = next(sheet.iter_rows(min_row=1, max_row=1), None)
+        if first_row is None:
+            return []
+        return [str(cell.value).lower().strip() if cell.value is not None else "" for cell in first_row]
+
     def _parse_recipes_sheet(
         self, sheet: Worksheet
     ) -> Tuple[List[Dict], List[ValidationErrorDTO]]:
@@ -122,8 +133,7 @@ class ImportOperationsMixin:
         errors: List[ValidationErrorDTO] = []
 
         # Get header row
-        headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
-        headers = [h.lower().strip() if h else "" for h in headers]
+        headers = self._read_headers(sheet)
 
         # Validate required columns
         if "recipe_name" not in headers or "recipe_category" not in headers:
@@ -208,8 +218,7 @@ class ImportOperationsMixin:
         errors: List[ValidationErrorDTO] = []
 
         # Get header row
-        headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
-        headers = [h.lower().strip() if h else "" for h in headers]
+        headers = self._read_headers(sheet)
 
         # Validate required columns
         required = ["recipe_name", "recipe_category", "ingredient_name", "ingredient_category"]
@@ -366,44 +375,54 @@ class ImportOperationsMixin:
                 recipe.recipe_name, recipe.recipe_category
             )
 
+            resolution = resolution_map.get(key)
+            if existing and (resolution is None or resolution.action == DuplicateAction.SKIP):
+                skipped_count += 1
+                continue
+            if (
+                existing
+                and resolution.action == DuplicateAction.RENAME
+                and not resolution.new_name
+            ):
+                errors.append(f"No new name provided for '{recipe.recipe_name}'")
+                skipped_count += 1
+                continue
+
+            # Each row gets its own savepoint so one bad row doesn't discard
+            # the rows already imported before it
+            savepoint = self.session.begin_nested()
             try:
-                if existing:
-                    resolution = resolution_map.get(key)
-                    if resolution is None or resolution.action == DuplicateAction.SKIP:
-                        skipped_count += 1
-                        continue
-                    elif resolution.action == DuplicateAction.UPDATE:
-                        self._update_existing_recipe(existing, recipe)
-                        updated_count += 1
-                    elif resolution.action == DuplicateAction.RENAME:
-                        if not resolution.new_name:
-                            errors.append(
-                                f"No new name provided for '{recipe.recipe_name}'"
-                            )
-                            skipped_count += 1
-                            continue
-                        self._create_recipe(recipe, new_name=resolution.new_name)
-                        created_count += 1
+                if existing and resolution.action == DuplicateAction.UPDATE:
+                    self._update_existing_recipe(existing, recipe)
+                    savepoint.commit()
+                    updated_count += 1
+                elif existing:
+                    self._create_recipe(recipe, new_name=resolution.new_name)
+                    savepoint.commit()
+                    created_count += 1
                 else:
                     self._create_recipe(recipe)
+                    savepoint.commit()
                     created_count += 1
+            except Exception:
+                savepoint.rollback()
+                logger.exception("xlsx import row failed: %r", recipe.recipe_name)
+                errors.append(
+                    f"Couldn't import '{recipe.recipe_name}' — check its values and try again."
+                )
+                skipped_count += 1
 
-            except Exception as e:
-                errors.append(f"Error importing '{recipe.recipe_name}': {str(e)}")
-                # Rollback to clear the failed transaction so we can continue
-                self.session.rollback()
-
-        # Commit all changes
         try:
             self.session.commit()
-        except Exception as e:
+        except Exception:
             self.session.rollback()
+            logger.exception("xlsx import commit failed for user %s", self.user_id)
             return ImportResultDTO(
                 success=False,
                 created_count=0,
                 updated_count=0,
                 skipped_count=len(recipes),
-                errors=[f"Database error: {str(e)}"],
+                errors=["The import could not be saved. No recipes were changed."],
             )
 
         return ImportResultDTO(
@@ -433,7 +452,7 @@ class ImportOperationsMixin:
             notes=recipe.notes,
             ingredients=recipe.ingredients,
         )
-        return self.recipe_repo.persist_recipe_and_links(create_dto)
+        return self.recipe_repo.persist_recipe_and_links(create_dto, self._require_user_id())
 
     def _update_existing_recipe(
         self, existing: Recipe, recipe: RecipeImportRowDTO
@@ -452,4 +471,4 @@ class ImportOperationsMixin:
             notes=recipe.notes,
             ingredients=recipe.ingredients,
         )
-        return self.recipe_repo.update_recipe(existing.id, update_dto)
+        return self.recipe_repo.update_recipe(existing.id, update_dto, self._require_user_id())
