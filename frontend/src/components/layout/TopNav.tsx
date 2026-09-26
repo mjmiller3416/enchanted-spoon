@@ -412,7 +412,7 @@ const getServerSnapshot = () => false;
 
 const navigation = [
   { name: "Home", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Meal Planner", href: "/meal-planner", icon: CalendarDays },
+  { name: "Menu", href: "/meal-planner", icon: CalendarDays },
   { name: "Recipes", href: "/recipes", icon: BookOpen },
   { name: "Shopping List", href: "/shopping-list", icon: ShoppingCart, hasBadge: true },
 ];

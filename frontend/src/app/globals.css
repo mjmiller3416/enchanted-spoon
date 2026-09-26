@@ -1562,6 +1562,19 @@ input[type="number"] {
   height: calc(100dvh - env(safe-area-inset-top, 0px) - 2rem);
 }
 
+/* Sticky side panel below the top nav that scrolls internally when taller
+   than the viewport, so its bottom is never stranded off-screen. The padding
+   (offset by negative margin) keeps child card shadows from being clipped. */
+@utility sticky-panel {
+  position: sticky;
+  top: 5.5rem;
+  max-height: calc(100dvh - 6.5rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 0.5rem;
+  margin: -0.5rem;
+}
+
 /* Image zoom on hover - wrapper for recipe images */
 @utility noise-texture {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");

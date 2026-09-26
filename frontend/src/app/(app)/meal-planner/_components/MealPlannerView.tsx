@@ -365,12 +365,12 @@ export function MealPlannerView() {
     });
   };
 
-  if (loadError && !entries.length) return <PageLayout title="Meal Planner"><QueryError title="Couldn’t load your meal plan" onRetry={() => void refetch()} retrying={isFetching} /></PageLayout>;
+  if (loadError && !entries.length) return <PageLayout title="Menu"><QueryError title="Couldn’t load your menu" onRetry={() => void refetch()} retrying={isFetching} /></PageLayout>;
 
   return (
     <PageLayout
-      title="Meal Planner"
-      description="Choose your meals, arrange the order, and shop from your plan."
+      title="Menu"
+      description="Choose your meals, arrange the order, and shop from your menu."
       actions={<>
         <Button onClick={openMealCreation} data-tour="planner-add-meal"><Plus className="size-4" strokeWidth={1.5} />Add meal</Button>
         <Button variant="outline" asChild>
@@ -392,7 +392,7 @@ export function MealPlannerView() {
         <div className="space-y-4" data-tour="planner-menu">
           <div className="flex items-end gap-4">
             <h2 className="flex-1 text-lg font-semibold text-foreground">
-              Your menu
+              Planned meals
             </h2>
             {!isLoading && maxCapacity !== undefined && (
               <p
@@ -436,7 +436,7 @@ export function MealPlannerView() {
           )}
         </div>
 
-        {isDesktop && selectedMealId !== null && <div className="sticky top-24 min-w-0">          <SelectedMealCard
+        {isDesktop && selectedMealId !== null && <div className="sticky-panel min-w-0">          <SelectedMealCard
             key={`meal-${selectedMealId}-${mealRefreshKey}`}
             mealId={selectedMealId}
             isCompleted={selectedEntry?.is_completed}

@@ -43,10 +43,10 @@ interface SelectedMealCardProps {
 
 function SelectedMealSkeleton({ className }: { className?: string }) {
   return (
-    <Card className={cn("p-0 overflow-hidden", className)}>
-      <div className="flex flex-col lg:flex-row">
+    <Card className={cn("p-0 overflow-hidden @container", className)}>
+      <div className="flex flex-col @3xl:flex-row">
         {/* Image skeleton */}
-        <div className="w-full lg:w-64 h-48 lg:h-auto animate-pulse bg-muted flex-shrink-0" />
+        <div className="w-full @3xl:w-64 h-48 @3xl:h-auto animate-pulse bg-muted flex-shrink-0" />
 
         {/* Content skeleton */}
         <div className="flex-1 p-6 space-y-4">
@@ -59,7 +59,7 @@ function SelectedMealSkeleton({ className }: { className?: string }) {
         </div>
 
         {/* Actions skeleton */}
-        <div className="w-full lg:w-80 p-6 space-y-4 border-t lg:border-t-0 lg:border-l border-border">
+        <div className="w-full @3xl:w-80 p-6 space-y-4 border-t @3xl:border-t-0 @3xl:border-l border-border">
           <div className="h-32 animate-pulse bg-muted rounded-xl" />
           <div className="grid grid-cols-2 gap-3">
             <div className="h-12 animate-pulse bg-muted rounded-lg" />
@@ -129,12 +129,14 @@ export function SelectedMealCard({
       {/* Section Header */}
       <h2 className="text-lg font-semibold text-foreground">Selected Meal</h2>
 
-      {/* Horizontal Card */}
-      <Card className={cn("p-0 overflow-hidden", isCompleted && "opacity-60")}>
-        <div className="flex flex-col lg:flex-row">
+      {/* Horizontal when the card is wide (full-width); stacked in the desktop
+          side column and the mobile sheet. Keyed off the card's own width via
+          container queries, since the desktop column is only half the viewport. */}
+      <Card className={cn("p-0 overflow-hidden @container", isCompleted && "opacity-60")}>
+        <div className="flex flex-col @3xl:flex-row">
           {/* LEFT: Image Section */}
           <Button variant="ghost" aria-label={`View ${mainRecipe.recipe_name}`}
-            className="rounded-none p-0 group/image relative w-full lg:w-64 h-48 lg:h-auto flex-shrink-0 cursor-pointer overflow-hidden bg-elevated"
+            className="rounded-none p-0 group/image relative w-full @3xl:w-64 h-48 @3xl:h-auto flex-shrink-0 cursor-pointer overflow-hidden bg-elevated"
             onClick={() => handleRecipeClick(mainRecipe.id)}
           >
             {/* Transform wrapper - handles the zoom animation (matches MealGridCard) */}
@@ -160,7 +162,7 @@ export function SelectedMealCard({
           </Button>
 
           {/* MIDDLE: Details Section */}
-          <div className="flex-1 p-6 border-r border-border">
+          <div className="flex-1 min-w-0 p-6 border-b @3xl:border-b-0 @3xl:border-r border-border">
             {/* Title & Metadata */}
             <div className="mb-4">
               <h3 className="text-section-header mb-2"><Button variant="link" className="h-auto whitespace-normal p-0 text-left text-inherit" onClick={() => handleRecipeClick(mainRecipe.id)}>{mainRecipe.recipe_name}</Button></h3>
@@ -218,7 +220,8 @@ export function SelectedMealCard({
           </div>
 
           {/* RIGHT: Stats & Actions Section */}
-          <div className="w-full lg:w-80 flex-shrink-0 p-6 space-y-4">
+          {/* Stats and actions sit side by side in the stacked layout when there's room */}
+          <div className="w-full @3xl:w-80 flex-shrink-0 p-6 space-y-4 @xl:grid @xl:grid-cols-2 @xl:gap-4 @xl:space-y-0 @3xl:block @3xl:space-y-4">
             {/* Recipe Stats */}
             <RecipeStats
               cookTime={meal.total_cook_time ?? null}
@@ -230,7 +233,7 @@ export function SelectedMealCard({
 
             {/* Action Buttons */}
             {!isCompleted ? (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 content-start gap-3">
                 <Button onClick={onMarkComplete}>
                   Mark Complete
                 </Button>
