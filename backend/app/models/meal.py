@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database.base import Base
@@ -59,6 +59,11 @@ class Meal(Base):
 
     # Saved flag - transient meals are deleted when they leave the planner
     is_saved: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Starter-pack meal seeded for a new account; cleared once the user edits it
+    is_sample: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False, index=True
+    )
 
     # Tags stored as JSON array of strings
     _tags_json: Mapped[Optional[str]] = mapped_column(

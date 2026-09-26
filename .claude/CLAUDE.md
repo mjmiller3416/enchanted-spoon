@@ -80,6 +80,9 @@ alembic downgrade -1
 # Seed sample data
 python scripts/seed_database.py --mode replace
 
+# Add/remove the onboarding starter pack for an existing account
+python scripts/seed_sample_data.py --user-id 1 [--remove]
+
 # Run tests
 pytest
 pytest tests/test_file.py -v
@@ -97,6 +100,7 @@ pytest tests/test_file.py -v
 - `SQLALCHEMY_DATABASE_URL` - Backend DB URL (default: SQLite)
 - `AUTH_DISABLED` - Bypass JWT for local dev (`true`/`false`)
 - `DEV_USER_ID` - User ID when auth disabled (default: 1)
+- `SEED_STARTER_CONTENT` - Seed the onboarding starter pack (sample recipes, meals, planner, shopping list) into new accounts on first sign-in (default: `true`; set `false` to disable)
 - `CLERK_PUBLISHABLE_KEY` - Used to derive JWKS URL
 - `INTEGRATION_API_KEY` - Shared secret for trusted first-party apps (X-API-Key header on `/api/shopping/external/*` and `/api/hearth/*`)
 - `INTEGRATION_USER_ID` - User account all integration traffic reads from and writes to

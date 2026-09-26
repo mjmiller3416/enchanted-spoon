@@ -245,6 +245,29 @@ export interface DashboardStatsDTO {
 }
 
 // ============================================================================
+// Sample Data (onboarding starter pack)
+// ============================================================================
+
+export interface SampleDataStatusDTO {
+  has_sample_data: boolean;
+  recipe_count: number;
+  meal_count: number;
+}
+
+export interface SampleDataSeedResultDTO {
+  recipes_created: number;
+  meals_created: number;
+  planner_entries_created: number;
+}
+
+export interface SampleDataRemovalResultDTO {
+  recipes_removed: number;
+  meals_removed: number;
+  /** Sample recipes kept because one of the user's own meals uses them */
+  recipes_kept: number;
+}
+
+// ============================================================================
 // Re-export RecipeSourceDTO for backward compatibility in backup types
 // ============================================================================
 

@@ -166,6 +166,13 @@ export function RecipeHeaderCard({
               <TooltipContent>View original recipe</TooltipContent>
             </Tooltip>
           )}
+          {recipe.is_sample && (
+            <RecipeBadge
+              label="Sample"
+              type="sample"
+              size="md"
+            />
+          )}
         </RecipeBadgeGroup>
 
         {/* Quick Stats */}

@@ -81,6 +81,7 @@ class RecipeCardDTO(BaseModel):
     recipe_name: str
     is_favorite: bool = False
     is_ai_generated: bool = False
+    is_sample: bool = False
     source_url: Optional[str] = None
     reference_image_path: Optional[str] = None
     banner_image_path: Optional[str] = None
@@ -113,6 +114,7 @@ class RecipeCardDTO(BaseModel):
             recipe_name=recipe.recipe_name,
             is_favorite=recipe.is_favorite,
             is_ai_generated=recipe.is_ai_generated,
+            is_sample=bool(recipe.is_sample),
             source_url=recipe.source_url,
             reference_image_path=recipe.reference_image_path,
             banner_image_path=recipe.banner_image_path,
@@ -191,6 +193,7 @@ class RecipeResponseDTO(RecipeBaseDTO):
     total_time: Optional[int] = None
     is_favorite: bool = False
     is_ai_generated: bool = False
+    is_sample: bool = False
     created_at: Optional[str] = None  # ISO format datetime string
     ingredients: List["RecipeIngredientResponseDTO"] = []
     group_ids: List[int] = []  # IDs of recipe groups this recipe belongs to
@@ -234,6 +237,7 @@ class RecipeResponseDTO(RecipeBaseDTO):
             source_url=recipe.source_url,
             is_favorite=recipe.is_favorite,
             is_ai_generated=recipe.is_ai_generated,
+            is_sample=bool(recipe.is_sample),
             created_at=recipe.created_at.isoformat() if recipe.created_at else None,
             ingredients=ingredients,
             group_ids=group_ids,

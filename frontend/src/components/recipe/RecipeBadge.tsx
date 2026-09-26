@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { RecipeGroupResponseDTO } from "@/types/recipe";
 
-type BadgeType = "category" | "mealType" | "dietary" | "group" | "ai" | "difficulty" | "imported";
+type BadgeType = "category" | "mealType" | "dietary" | "group" | "ai" | "difficulty" | "imported" | "sample";
 type BadgeSize = "sm" | "md" | "lg";
 type BadgeVariant = "overlay" | "inline" | "outline";
 
@@ -37,6 +37,7 @@ interface RecipeBadgeProps {
  *   - "group": Muted color for recipe groups
  *   - "ai": Chart-6 for AI-generated recipes
  *   - "imported": Chart-5 for recipes imported from a website
+ *   - "sample": Muted color for onboarding starter-pack recipes
  * @param size - Badge size: sm, md, lg
  * @param variant - "overlay" for floating on images, "inline" for content areas, "outline" for bordered style
  * @param className - Additional classes
@@ -59,6 +60,7 @@ export function RecipeBadge({
     ai: "bg-chart-6 text-primary-foreground",
     difficulty: "bg-chart-4 text-primary-foreground",
     imported: "bg-chart-5 text-primary-foreground",
+    sample: "bg-muted text-muted-foreground",
   };
 
   // Outline variant uses border + text color instead of filled background
@@ -70,6 +72,7 @@ export function RecipeBadge({
     ai: "bg-transparent border-2 border-chart-6 text-chart-6",
     difficulty: "bg-transparent border-2 border-chart-4 text-chart-4",
     imported: "bg-transparent border-2 border-chart-5 text-chart-5",
+    sample: "bg-transparent border-2 border-border text-muted-foreground",
   };
 
   // Size variants

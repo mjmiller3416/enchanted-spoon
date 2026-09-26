@@ -300,6 +300,8 @@ class RecipeService:
             updated_recipe = self.recipe_repo.update_recipe(recipe_id, update_dto, self.user_id)
             if not updated_recipe:
                 raise RecipeSaveError(f"Recipe {recipe_id} not found.")
+            # An edited starter recipe is the user's now; "Remove sample data" keeps it
+            updated_recipe.is_sample = False
             self.session.commit()
 
             # Sync shopping list if recipe's ingredients changed and it's in planner

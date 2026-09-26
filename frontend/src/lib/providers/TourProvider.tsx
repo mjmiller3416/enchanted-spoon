@@ -22,6 +22,7 @@ import {
 } from "@/components/onboarding";
 import { Logo } from "@/components/layout/Logo";
 import { useOnboardingTour } from "@/hooks/persistence/useOnboardingTour";
+import { useSampleDataStatus } from "@/hooks/api/useSampleData";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
 import { useAssistantDialog } from "@/lib/providers/AssistantProvider";
 import { TOUR_STEPS } from "@/lib/tourSteps";
@@ -137,8 +138,8 @@ interface TargetResolution {
  * the target scrolled into view and re-measured, makes the rest of the page
  * inert while a step is shown, and persists completion via
  * `useOnboardingTour`. Auto-starts once for brand-new accounts: only on Home,
- * only once the Get Started card has rendered, and never over the recipe
- * wizard, the Genie, or another open dialog.
+ * only once the Get Started card (or Home with starter content) has rendered,
+ * and never over the recipe wizard, the Genie, or another open dialog.
  */
 export function TourProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -150,6 +151,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
     markCompleted,
     markDismissed,
   } = useOnboardingTour();
+  // New accounts are seeded with starter content, so Home skips the empty-state
+  // Get Started card; unseen sample data marks them as first-run instead.
+  const { data: sampleData } = useSampleDataStatus(tourStoreLoaded && !hasSeenTour);
+  const hasSampleData = sampleData?.has_sample_data ?? false;
   const { isOpen: wizardOpen } = useRecipeWizardDialog();
   const { isOpen: assistantOpen } = useAssistantDialog();
 
@@ -245,9 +250,11 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const startedAt = Date.now();
     let timer = 0;
     const check = () => {
-      // The Get Started card only renders for accounts with no recipes and no
-      // plan, after Home's data has loaded — i.e. a genuinely new user.
-      const firstRunVisible = findTarget(["home-get-started"]) !== null;
+      // A genuinely new user sees either the Get Started card (no recipes and
+      // no plan) or Home filled with their onboarding starter content.
+      const firstRunVisible =
+        findTarget(["home-get-started"]) !== null ||
+        (hasSampleData && findTarget(["home-overview"]) !== null);
       const dialogOpen = document.querySelector('[role="dialog"], [role="alertdialog"]') !== null;
       if (firstRunVisible && !dialogOpen) {
         setReturnPath("/dashboard");
@@ -260,7 +267,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     };
     timer = window.setTimeout(check, AUTO_START_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [canAutoStart]);
+  }, [canAutoStart, hasSampleData]);
 
   // ── Stay on the step's page ───────────────────────────────────────────────
   // If the user leaves mid-step (browser back/forward), steer back once the

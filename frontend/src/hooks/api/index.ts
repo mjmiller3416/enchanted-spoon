@@ -157,6 +157,13 @@ export {
   useResetIngredientUnits,
 } from "./useIngredientUnits";
 
+// Sample Data Hooks (onboarding starter pack)
+export {
+  useSampleDataStatus,
+  useAddSampleData,
+  useRemoveSampleData,
+} from "./useSampleData";
+
 // Unit Conversion Hooks
 export { useUnits } from "./useUnits";
 

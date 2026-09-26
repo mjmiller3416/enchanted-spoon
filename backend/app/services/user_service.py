@@ -4,12 +4,21 @@ Service layer for User operations.
 Handles business logic for user lookup, creation, and account claiming.
 """
 
+import logging
+import os
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from ..models.user import User
 from ..repositories.user_repo import UserRepo
+
+logger = logging.getLogger(__name__)
+
+
+def starter_content_enabled() -> bool:
+    """New accounts get the onboarding starter pack unless SEED_STARTER_CONTENT=false."""
+    return os.getenv("SEED_STARTER_CONTENT", "true").strip().lower() not in ("false", "0", "no")
 
 
 class UserService:
@@ -48,7 +57,8 @@ class UserService:
            - Has matching email
            - Has clerk_id == "pending_claim"
         3. If claimable, claim the account by updating clerk_id
-        4. If still not found, create a brand new user
+        4. If still not found, create a brand new user and seed the
+           onboarding starter pack (recipes, meals, planner, shopping list)
 
         This enables pre-provisioning users (like Maryann) with their data
         before they actually sign up with Clerk. When they do sign in,
@@ -84,4 +94,18 @@ class UserService:
             avatar_url=avatar_url,
         )
         self.session.commit()
+        self._seed_starter_content(user)
         return user
+
+    def _seed_starter_content(self, user: User) -> None:
+        """Best-effort: a seeding failure must never block sign-in."""
+        if not starter_content_enabled():
+            return
+
+        from .sample_data import SampleDataService
+
+        try:
+            SampleDataService(self.session, user.id).seed()
+        except Exception:
+            self.session.rollback()
+            logger.exception("Failed to seed starter content for user %s", user.id)

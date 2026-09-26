@@ -5,6 +5,7 @@ import { SectionHeader } from "../SectionHeader";
 import { BackupRestore } from "../data-management/BackupRestore";
 import { ExportImport } from "../data-management/ExportImport";
 import { DeleteData } from "../data-management/DeleteData";
+import { SampleData } from "../data-management/SampleData";
 
 export function DataManagementSection() {
   return (
@@ -20,6 +21,8 @@ export function DataManagementSection() {
           <BackupRestore />
           <Separator />
           <ExportImport />
+          <Separator />
+          <SampleData />
           <Separator />
           <DeleteData />
         </div>

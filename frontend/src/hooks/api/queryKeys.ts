@@ -52,6 +52,11 @@ export const adminQueryKeys = {
     [...adminQueryKeys.all, "usage", month ?? "current"] as const,
 };
 
+export const sampleDataQueryKeys = {
+  all: ["sample-data"] as const,
+  status: () => [...sampleDataQueryKeys.all, "status"] as const,
+};
+
 export const currentUserQueryKeys = {
   all: ["currentUser"] as const,
   usage: () => [...currentUserQueryKeys.all, "usage"] as const,

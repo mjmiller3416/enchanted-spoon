@@ -18,6 +18,7 @@ export { dataManagementApi } from "./data-management";
 export { feedbackApi } from "./feedback";
 export { unitConversionApi } from "./units";
 export { settingsApi } from "./settings";
+export { sampleDataApi } from "./sample-data";
 export { recipeGroupApi } from "./recipe-groups";
 export { categoryApi } from "./categories";
 export { ingredientCategoryApi } from "./ingredient-categories";
