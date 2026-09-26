@@ -36,20 +36,40 @@ tracker, a server-side file-write route in the frontend, and silent AI quota spe
 Backend tests: 382 → 451, all passing. Frontend: tsc, lint, vitest (31), and
 `next build` pass.
 
+### Follow-up pass (2026-09-26, same day)
+
+Closed the code items from "Known issues left for later" and one new finding
+from checking the Railway config. Committed directly to `staging`.
+
+| Commit | Area | Highlights |
+|---|---|---|
+| `fix: enforce AI usage caps atomically` | Cost | The gate now reserves one unit with a conditional `UPDATE … WHERE count < cap` before the route runs and refunds it if the route raises. Verified on Postgres: 20 concurrent requests on a cap of 3 → exactly 3. Admins stay uncapped but are counted. |
+| `fix: pin recipe-import connections…` | Security | Recipe page/photo fetches resolve DNS inside the connection and dial only the checked public IP (TLS still verifies the hostname), so DNS rebinding can't reach internal services. |
+| `feat: include categories, units and conversion rules in backups` | Data | Backups now carry recipe/ingredient categories, units and conversion rules; restore merges them by slug in the same transaction. Empty recipe groups were already handled (now tested). |
+| `fix: make the dev seeder work with per-user data` | Dev | `seed_database.py` seeds one account (`--user-id`, created if missing) and clears only that account. |
+| `fix: treat Railway production as production in the startup guard` | Ops | The production backend had **no `ENVIRONMENT` variable**, so the auth/Clerk/SQLite startup guard never ran there. It now also keys off Railway's injected `RAILWAY_ENVIRONMENT_NAME`. |
+
+Backend tests: 451 → 464, all passing. No frontend changes.
+
 ## Manual steps before inviting testers (not code)
 
 1. **Clerk dashboard → disable "Allow users to delete their accounts".** The app now
    hides Clerk's delete control and runs its own deletion (which cancels billing
    first); the dashboard switch closes the door completely.
-2. **Confirm `CLERK_SECRET_KEY` is set on the backend service** (staging and prod).
-   Email relinking fails closed without it: a user whose Clerk ID changed would get
-   a 403 "couldn't be linked" instead of their account. Production startup already
-   requires it.
-3. **Scrub existing `user-feedback` issues** in the public repo — older ones contain
-   a tester's email address. Or point `GITHUB_REPO` at a private repo.
-4. **Confirm the staging Railway service has `ENVIRONMENT=production`** (or
-   `AUTH_DISABLED=false`). The startup guard only enforces auth when
-   `ENVIRONMENT=production`.
+2. ~~**Confirm `CLERK_SECRET_KEY` is set on the backend service.**~~ Checked
+   2026-09-26: present on the production backend (the Railway project has only a
+   `production` environment — there is no staging environment to check). Email
+   relinking fails closed without it.
+3. **Scrub existing `user-feedback` issues** in the public repo — all 15 (#135–#190,
+   all closed) have a `Submitted by: <email>` line. Editing the body isn't enough on
+   its own: GitHub keeps the edit history visible, so delete the old revision from
+   each issue's "edited" menu too (or delete the issues). Or point `GITHUB_REPO` at
+   a private repo.
+4. ~~**Confirm `ENVIRONMENT=production`.**~~ It was not set on the production
+   backend; the startup guard now also recognizes Railway's production environment
+   (see follow-up pass). Watch the first deploy of this change: if `AUTH_DISABLED`
+   were ever `true` in prod, the backend will now refuse to start, as intended.
+   Setting `ENVIRONMENT=production` explicitly is still a good idea.
 5. If testers use SMS/authenticator two-factor, try one sign-in with it on staging;
    the flow is implemented but was verified only by type-check and build (no Clerk
    test instance available to the audit).
@@ -60,15 +80,16 @@ Backend tests: 382 → 451, all passing. Frontend: tsc, lint, vitest (31), and
   [`error-reporting.md`](error-reporting.md). For a small beta, Railway logs plus the
   feedback button are workable.
 - **CSP header** — still deferred (needs a Clerk/Cloudinary/API allowlist).
-- **DNS rebinding** in recipe import — the guard checks resolved addresses but
-  doesn't pin the connection to them.
-- **Backups don't include** custom categories/units, conversion rules, or recipe
-  groups that have no recipes (these aren't deleted by "Delete All Data" either, so a
-  same-account restore keeps them).
-- **AI usage caps** check-then-increment, so parallel requests can slightly exceed
-  a cap.
-- **`scripts/seed_database.py`** inserts rows without `user_id` and fails against the
-  current schema (it now also refuses non-SQLite databases).
+- ~~**DNS rebinding** in recipe import~~ — fixed in the follow-up pass.
+- ~~**Backups don't include** custom categories/units, conversion rules~~ — fixed in
+  the follow-up pass.
+- ~~**AI usage caps** check-then-increment~~ — fixed in the follow-up pass.
+- ~~**`scripts/seed_database.py`** fails against the current schema~~ — fixed in the
+  follow-up pass.
+- **A real email address is hard-coded** in the migration
+  `20260126_120300_add_user_tables_and_user_id_foreign_keys.py` (the backfill owner
+  of pre-auth data). It's in git history either way; noted in case the repo's
+  public visibility matters.
 - Roadmap Phase 4 polish (dead code, raw `<button>`/arbitrary-value sweep) and Phase
   5 decisions ("Import File" coming-soon option, standalone cooking-tip service) are
   unchanged.
