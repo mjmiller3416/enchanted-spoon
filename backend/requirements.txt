@@ -7,7 +7,7 @@ python-multipart>=0.0.6
 slowapi>=0.1.9
 
 # Database
-sqlalchemy>=2.0.0
+sqlalchemy>=2.0.0,<2.1  # 2.1 defaults postgresql:// to psycopg 3; we ship psycopg2
 alembic>=1.13.0
 psycopg2-binary>=2.9.0
 
