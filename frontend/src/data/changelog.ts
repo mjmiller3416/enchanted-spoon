@@ -2,6 +2,25 @@
 // CHANGELOG - Edit the markdown below
 // ============================================
 const CHANGELOG_MD = `
+## 2026-09-26 - New Features
+- Guided onboarding tour: an 11-step walkthrough of Home, Recipes, Meal Planner, Shopping List and Settings. It starts on its own for new accounts and you can replay it from Settings
+- New accounts start with a sample kitchen: 10 recipes with photos, 4 saved meals, 3 planned meals and the shopping list they produce. Sample items show a "Sample" badge and can be removed or re-added in Settings > Data Management
+
+## 2026-09-26 - Improvements
+- Recipe Browser fits more on screen, shows better images and has easier navigation into recipe details
+- Page headers and editors now look the same across the app, and headers no longer overflow on small screens
+- Meal Planner makes it clearer which meal is selected, and the Shopping List shows item state more clearly
+- Settings and Admin share one navigation, and the account pages have been cleaned up
+- Home page sections and unsent Genie messages now survive a reload
+- The back and forward buttons in your browser now keep your place
+
+## 2026-09-26 - Bug Fixes
+- Recipe drafts are protected: an interrupted save picks up where it left off without creating a duplicate
+- Settings changes save reliably, even when you make several quickly
+- Signing in recovers an existing session or a Google/OAuth sign-in instead of getting stuck
+- Favorites stay saved, and one account's data can't appear in another account on the same browser
+- Better error recovery and more accessible controls throughout the app
+
 ## 2026-09-02 - New Features
 - Meal Planner header now shows how many of your 20 planner slots are in use
 - Plan & Billing now shows your renewal date as soon as you subscribe — and after cancelling, it correctly shows when your access ends instead of a renewal date
