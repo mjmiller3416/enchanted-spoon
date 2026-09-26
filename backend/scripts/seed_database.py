@@ -5,6 +5,10 @@ Enchanted Spoon Database Seeder
 A comprehensive database seeding utility for the Enchanted Spoon recipe application.
 Creates realistic recipes, ingredients, meal selections, and shopping data.
 
+All rows belong to one account (--user-id, default DEV_USER_ID or 1), which
+is created if it doesn't exist; "replace" and "--clear-only" only clear that
+account's data. Only runs against a local SQLite database.
+
 Usage:
     python backend/scripts/seed_database.py --mode replace
     python backend/scripts/seed_database.py --mode append --count 10
@@ -14,6 +18,7 @@ Usage:
 """
 
 import argparse
+import os
 import random
 import sys
 from pathlib import Path
@@ -38,7 +43,7 @@ def get_db_and_models():
         Recipe,
         RecipeIngredient,
         ShoppingItem,
-        ShoppingItemContribution,
+        User,
     )
     return SessionLocal, {
         "Ingredient": Ingredient,
@@ -47,7 +52,7 @@ def get_db_and_models():
         "Recipe": Recipe,
         "RecipeIngredient": RecipeIngredient,
         "ShoppingItem": ShoppingItem,
-        "ShoppingItemContribution": ShoppingItemContribution,
+        "User": User,
     }
 
 
@@ -1317,39 +1322,50 @@ SHOPPING_ITEMS_DATA = [
 # SEEDING FUNCTIONS
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 
-def clear_all_data(session: Session, models: Dict[str, Any], verbose: bool = False) -> None:
-    """Clear all data from tables in correct order (respecting foreign keys)."""
-    tables_to_clear = [
-        ("shopping_item_contributions", models["ShoppingItemContribution"]),
-        ("shopping_items", models["ShoppingItem"]),
-        ("planner_entries", models["PlannerEntry"]),
-        ("meals", models["Meal"]),
-        ("recipe_ingredients", models["RecipeIngredient"]),
-        ("recipes", models["Recipe"]),
-        ("ingredients", models["Ingredient"]),
-    ]
-
-    for table_name, model in tables_to_clear:
-        try:
-            count = session.query(model).delete()
-            if verbose:
-                print(f"  [OK] Cleared {table_name} ({count} rows)")
-        except Exception as e:
-            # Table might not exist yet (migrations not run)
-            session.rollback()
-            if verbose:
-                print(f"  [SKIP] {table_name} (table may not exist)")
+def ensure_user(session: Session, models: Dict[str, Any], user_id: int, verbose: bool = False) -> None:
+    """Create a local dev account with this id if it doesn't exist yet."""
+    User = models["User"]
+    if session.get(User, user_id) is not None:
+        return
+    session.add(
+        User(
+            id=user_id,
+            clerk_id=f"dev_user_{user_id}",
+            email=f"dev{user_id}@localhost",
+            name="Dev User",
+        )
+    )
     session.commit()
+    if verbose:
+        print(f"  [OK] Created dev user #{user_id}")
+
+
+def clear_all_data(session: Session, user_id: int, verbose: bool = False) -> None:
+    """Clear one account's recipes, meals, planner and shopping data."""
+    from app.services.data_management import DataManagementService
+
+    # Images are left alone: seeded recipes point at local static files
+    counts = DataManagementService(session, user_id).clear_all_data(delete_images=False)
+    if verbose:
+        for table_name, count in counts.items():
+            if table_name != "cloudinary_images":
+                print(f"  [OK] Cleared {table_name} ({count} rows)")
 
 
 def seed_ingredients(
     session: Session,
     models: Dict[str, Any],
+    user_id: int,
     verbose: bool = False
 ) -> Dict[Tuple[str, str], Any]:
     """Seed all ingredients from the data and return a lookup dict."""
     Ingredient = models["Ingredient"]
-    ingredient_map: Dict[Tuple[str, str], Any] = {}
+    # Reuse what the account already has (append mode); names are unique per category
+    ingredient_map: Dict[Tuple[str, str], Any] = {
+        (ing.ingredient_name.lower(), ing.ingredient_category): ing
+        for ing in session.query(Ingredient).filter(Ingredient.user_id == user_id)
+    }
+    existing_count = len(ingredient_map)
 
     for category, names in INGREDIENTS_BY_CATEGORY.items():
         for name in names:
@@ -1357,7 +1373,8 @@ def seed_ingredients(
             if key not in ingredient_map:
                 ingredient = Ingredient(
                     ingredient_name=name,
-                    ingredient_category=category
+                    ingredient_category=category,
+                    user_id=user_id,
                 )
                 session.add(ingredient)
                 ingredient_map[key] = ingredient
@@ -1369,7 +1386,7 @@ def seed_ingredients(
         session.refresh(ingredient)
 
     if verbose:
-        print(f"  [OK] Created {len(ingredient_map)} ingredients")
+        print(f"  [OK] Created {len(ingredient_map) - existing_count} ingredients")
 
     return ingredient_map
 
@@ -1379,7 +1396,8 @@ def get_or_create_ingredient(
     models: Dict[str, Any],
     ingredient_map: Dict[Tuple[str, str], Any],
     name: str,
-    category: str
+    category: str,
+    user_id: int,
 ) -> Any:
     """Get an existing ingredient or create a new one."""
     Ingredient = models["Ingredient"]
@@ -1390,7 +1408,8 @@ def get_or_create_ingredient(
     # Create new ingredient
     ingredient = Ingredient(
         ingredient_name=name,
-        ingredient_category=category
+        ingredient_category=category,
+        user_id=user_id,
     )
     session.add(ingredient)
     session.flush()
@@ -1402,6 +1421,7 @@ def seed_recipes(
     session: Session,
     models: Dict[str, Any],
     ingredient_map: Dict[Tuple[str, str], Any],
+    user_id: int,
     count: int = 25,
     verbose: bool = False
 ) -> List[Any]:
@@ -1428,13 +1448,20 @@ def seed_recipes(
             reference_image_path=f"/images/recipes/{idx}.png",
             banner_image_path=f"/images/recipes/{idx}_banner.png",
             is_favorite=is_favorite,
+            user_id=user_id,
         )
         session.add(recipe)
         session.flush()  # Get the ID
 
-        # Add ingredients
+        # Add ingredients (a recipe links each ingredient once)
+        linked: set = set()
         for ing_name, quantity, unit, category in recipe_data["ingredients"]:
-            ingredient = get_or_create_ingredient(session, models, ingredient_map, ing_name, category)
+            ingredient = get_or_create_ingredient(
+                session, models, ingredient_map, ing_name, category, user_id
+            )
+            if ingredient.id in linked:
+                continue
+            linked.add(ingredient.id)
             recipe_ingredient = RecipeIngredient(
                 recipe_id=recipe.id,
                 ingredient_id=ingredient.id,
@@ -1462,6 +1489,7 @@ def seed_meal_selections(
     session: Session,
     models: Dict[str, Any],
     recipes: List[Any],
+    user_id: int,
     verbose: bool = False
 ) -> Tuple[List[Any], List[Any]]:
     """Seed meals and planner entries."""
@@ -1483,6 +1511,7 @@ def seed_meal_selections(
         meal = Meal(
             meal_name=meal_data["name"],
             main_recipe_id=main_recipe.id,
+            user_id=user_id,
         )
         # Set side recipe IDs using the property (stores as JSON)
         meal.side_recipe_ids = [s.id for s in side_ids]
@@ -1493,8 +1522,11 @@ def seed_meal_selections(
 
     # Add some meals to planner (about half)
     meals_to_plan = random.sample(created_meals, min(len(created_meals) // 2 + 1, len(created_meals)))
-    for meal in meals_to_plan:
-        planner_entry = PlannerEntry(meal_id=meal.id)
+    next_position = (
+        session.query(PlannerEntry).filter(PlannerEntry.user_id == user_id).count()
+    )
+    for position, meal in enumerate(meals_to_plan, start=next_position):
+        planner_entry = PlannerEntry(meal_id=meal.id, user_id=user_id, position=position)
         session.add(planner_entry)
         created_entries.append(planner_entry)
 
@@ -1510,6 +1542,7 @@ def seed_meal_selections(
 def seed_shopping_data(
     session: Session,
     models: Dict[str, Any],
+    user_id: int,
     verbose: bool = False
 ) -> Tuple[List[Any], List[Any]]:
     """Seed shopping items (manual items only - recipe items come from sync)."""
@@ -1527,11 +1560,17 @@ def seed_shopping_data(
                 category=item_data.get("category"),
                 source=item_data["source"],
                 have=item_data["have"],
+                user_id=user_id,
             )
             session.add(item)
             created_items.append(item)
 
     session.commit()
+
+    # Build the recipe-driven items from the planner, as the app would
+    from app.services.shopping import ShoppingService
+
+    ShoppingService(session, user_id).sync_shopping_list()
 
     if verbose:
         print(f"  [OK] Created {len(created_items)} manual shopping items")
@@ -1583,6 +1622,13 @@ Examples:
     )
 
     parser.add_argument(
+        "--user-id",
+        type=int,
+        default=int(os.environ.get("DEV_USER_ID", "1")),
+        help="Account to seed (default: DEV_USER_ID or 1); created if missing",
+    )
+
+    parser.add_argument(
         "--clear-only",
         action="store_true",
         help="Only clear all data from the database (no seeding)"
@@ -1606,6 +1652,7 @@ Examples:
         print("=" * 24)
         print(f"Mode: {args.mode}")
         print(f"Recipe count: {args.count}")
+        print(f"User: #{args.user_id}")
         if args.recipes_only:
             print("Recipes only: Yes")
     print()
@@ -1614,9 +1661,8 @@ Examples:
     SessionLocal, models = get_db_and_models()
     session = SessionLocal()
 
-    # This script bulk-deletes tables for EVERY user and seeds single-user
-    # demo data. It is only for a local SQLite dev database; refuse to run
-    # against anything else (e.g. a Railway Postgres URL left in the env).
+    # Demo data for a local SQLite dev database only; refuse to run against
+    # anything else (e.g. a Railway Postgres URL left in the env).
     dialect = session.get_bind().dialect.name
     if dialect != "sqlite":
         session.close()
@@ -1629,8 +1675,8 @@ Examples:
     try:
         # Handle clear-only mode
         if args.clear_only:
-            print("Clearing all data...")
-            clear_all_data(session, models, verbose=args.verbose)
+            print(f"Clearing all data for user #{args.user_id}...")
+            clear_all_data(session, args.user_id, verbose=args.verbose)
             print()
             print("Database cleared successfully!")
             print()
@@ -1638,19 +1684,23 @@ Examples:
 
         # Clear data if replace mode
         if args.mode == "replace":
-            print("Clearing existing data...")
-            clear_all_data(session, models, verbose=args.verbose)
+            print(f"Clearing existing data for user #{args.user_id}...")
+            clear_all_data(session, args.user_id, verbose=args.verbose)
             print()
+
+        ensure_user(session, models, args.user_id, verbose=args.verbose)
 
         # Seed ingredients
         print("Seeding ingredients...")
-        ingredient_map = seed_ingredients(session, models, verbose=args.verbose)
+        ingredient_map = seed_ingredients(session, models, args.user_id, verbose=args.verbose)
         total_ingredients = len(ingredient_map)
         print()
 
         # Seed recipes
         print("Seeding recipes...")
-        recipes = seed_recipes(session, models, ingredient_map, count=args.count, verbose=args.verbose)
+        recipes = seed_recipes(
+            session, models, ingredient_map, args.user_id, count=args.count, verbose=args.verbose
+        )
         total_recipes = len(recipes)
         print()
 
@@ -1661,13 +1711,17 @@ Examples:
 
         if not args.recipes_only:
             print("Seeding meal selections...")
-            meals, saved_states = seed_meal_selections(session, models, recipes, verbose=args.verbose)
+            meals, saved_states = seed_meal_selections(
+                session, models, recipes, args.user_id, verbose=args.verbose
+            )
             total_meals = len(meals)
             total_saved = len(saved_states)
             print()
 
             print("Seeding shopping data...")
-            shopping_items, _ = seed_shopping_data(session, models, verbose=args.verbose)
+            shopping_items, _ = seed_shopping_data(
+                session, models, args.user_id, verbose=args.verbose
+            )
             total_shopping = len(shopping_items)
             print()
 
