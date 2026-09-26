@@ -25,7 +25,7 @@ export const adminApi = {
   // ── User Management ───────────────────────────────────────────────────────
 
   listUsers: (
-    params: { skip?: number; limit?: number } = {},
+    params: { skip?: number; limit?: number; search?: string } = {},
     token?: string | null,
   ): Promise<AdminUserListResponse> =>
     fetchApi<AdminUserListResponse>(
