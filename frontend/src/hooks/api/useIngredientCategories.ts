@@ -109,6 +109,7 @@ export function useCreateIngredientCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't add the category" },
     mutationFn: async (data: UserIngredientCategoryCreateDTO) => {
       const token = await getToken();
       return ingredientCategoryApi.create(data, token);
@@ -129,6 +130,7 @@ export function useUpdateIngredientCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't update the category" },
     mutationFn: async ({
       id,
       data,
@@ -158,6 +160,7 @@ export function useDeleteIngredientCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't delete the category" },
     mutationFn: async (id: number) => {
       const token = await getToken();
       return ingredientCategoryApi.delete(id, token);
@@ -179,6 +182,7 @@ export function useReorderIngredientCategories() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't save the new order" },
     mutationFn: async (data: UserIngredientCategoryReorderDTO) => {
       const token = await getToken();
       return ingredientCategoryApi.reorder(data, token);
@@ -240,6 +244,7 @@ export function useBulkUpdateIngredientCategories() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't update categories" },
     mutationFn: async (data: UserIngredientCategoryBulkUpdateDTO) => {
       const token = await getToken();
       return ingredientCategoryApi.bulkUpdate(data, token);
@@ -260,6 +265,7 @@ export function useResetIngredientCategories() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't reset categories" },
     mutationFn: async () => {
       const token = await getToken();
       return ingredientCategoryApi.reset(token);

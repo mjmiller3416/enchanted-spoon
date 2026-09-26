@@ -16,11 +16,12 @@ import {
 } from "@/components/ui/dialog";
 import type { RecipeResponseDTO } from "@/types/recipe";
 import type { PlannerEntryResponseDTO } from "@/types/planner";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import {
   useAddSideToMeal,
   useCreateMeal,
   useAddToPlanner,
+  useDiscardMeal,
 } from "@/hooks/api";
 
 interface AddToMealPlanDialogProps {
@@ -44,6 +45,7 @@ export function AddToMealPlanDialog({
   const addSideToMealMutation = useAddSideToMeal();
   const createMealMutation = useCreateMeal();
   const addToPlannerMutation = useAddToPlanner();
+  const discardMeal = useDiscardMeal();
 
   // Track the planner entry ID (unique), not meal_id (can have duplicates)
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
@@ -120,6 +122,7 @@ export function AddToMealPlanDialog({
     setIsLoading(true);
     setError(null);
 
+    let createdMealId: number | null = null;
     try {
       // Create a new meal with this recipe as the main dish
       const meal = await createMealMutation.mutateAsync({
@@ -128,13 +131,17 @@ export function AddToMealPlanDialog({
         side_recipe_ids: [],
         tags: [],
       });
+      createdMealId = meal.id;
 
       // Add the new meal to the planner
       await addToPlannerMutation.mutateAsync(meal.id);
+      createdMealId = null;
       showSuccess();
     } catch (err) {
       console.error("Failed to create meal:", err);
-      setError("Failed to create meal. Please try again.");
+      // Don't leave an unplanned copy behind for every retry
+      if (createdMealId !== null) void discardMeal(createdMealId);
+      setError(getErrorMessage(err, "Failed to create meal. Please try again."));
     } finally {
       setIsLoading(false);
     }

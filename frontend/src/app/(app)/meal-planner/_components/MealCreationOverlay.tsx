@@ -20,7 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Loader2, Plus, X } from "lucide-react";
-import { useCreateMeal, useUpdateMeal, useAddToPlanner } from "@/hooks/api";
+import { useCreateMeal, useUpdateMeal, useAddToPlanner, useDiscardMeal } from "@/hooks/api";
 import { EditorDialogContent } from "@/components/layout/EditorDialogContent";
 import { useUnsavedChanges } from "@/hooks/ui/useUnsavedChanges";
 import { RecipeBrowserView } from "@/components/recipe/RecipeBrowserView";
@@ -86,6 +86,7 @@ export function MealCreationOverlay({
   const createMealMutation = useCreateMeal();
   const updateMealMutation = useUpdateMeal();
   const addToPlannerMutation = useAddToPlanner();
+  const discardMeal = useDiscardMeal();
 
   const [pickerMode, setPickerMode] = useState<"main" | "side">("main");
   const [pendingMain, setPendingMain] = useState<RecipeCardData | null>(null);
@@ -207,6 +208,7 @@ export function MealCreationOverlay({
     if (!pendingMain) return;
 
     setIsSubmitting(true);
+    let createdMealId: number | null = null;
     try {
       const sideRecipeIds = pendingSides.map((r) => Number(r.id));
 
@@ -241,13 +243,17 @@ export function MealCreationOverlay({
           side_recipe_ids: sideRecipeIds,
         });
         mealId = meal.id;
+        createdMealId = meal.id;
       }
 
       const entry = await addToPlannerMutation.mutateAsync(mealId);
+      createdMealId = null;
       onEntryCreated?.(entry);
       closeOverlay();
     } catch (err) {
       console.error("Failed to save meal:", err);
+      // Don't leave an unplanned copy behind for every retry
+      if (createdMealId !== null) void discardMeal(createdMealId);
       const message = err instanceof Error ? err.message : "Failed to save meal";
       if (message.includes("maximum capacity")) {
         toast.error("Meal queue is full", {

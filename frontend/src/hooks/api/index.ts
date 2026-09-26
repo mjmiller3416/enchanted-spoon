@@ -35,6 +35,7 @@ export {
   // Utilities
   useRefreshPlannerEntries,
   useRefreshCookingStreak,
+  useDiscardMeal,
 } from "./usePlanner";
 
 // Recipe Hooks

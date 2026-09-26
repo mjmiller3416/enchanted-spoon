@@ -17,7 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { cn, getErrorMessage } from "@/lib/utils";
 import { QUICK_FILTERS, DEFAULT_QUICK_FILTER_IDS } from "@/lib/constants";
 import { SectionHeader } from "../SectionHeader";
 import { InlineGroupCreator } from "@/components/common/InlineGroupCreator";
@@ -192,6 +193,7 @@ export function RecipePreferencesSection({
           setNewGroupName("");
           setIsAdding(false);
         },
+        onError: (error) => toast.error(getErrorMessage(error, "Couldn't create the group")),
       }
     );
   };

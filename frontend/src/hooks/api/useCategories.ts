@@ -121,6 +121,7 @@ export function useCreateCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't add the category" },
     mutationFn: async (data: UserCategoryCreateDTO) => {
       const token = await getToken();
       return categoryApi.create(data, token);
@@ -140,6 +141,7 @@ export function useUpdateCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't update the category" },
     mutationFn: async ({
       id,
       data,
@@ -166,6 +168,7 @@ export function useDeleteCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't delete the category" },
     mutationFn: async (id: number) => {
       const token = await getToken();
       return categoryApi.delete(id, token);
@@ -186,6 +189,7 @@ export function useReorderCategories() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't save the new order" },
     mutationFn: async (data: UserCategoryReorderDTO) => {
       const token = await getToken();
       return categoryApi.reorder(data, token);
@@ -245,6 +249,7 @@ export function useBulkUpdateCategories() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't update categories" },
     mutationFn: async (data: UserCategoryBulkUpdateDTO) => {
       const token = await getToken();
       return categoryApi.bulkUpdate(data, token);
@@ -264,6 +269,7 @@ export function useResetCategories() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { errorMessage: "Couldn't reset categories" },
     mutationFn: async () => {
       const token = await getToken();
       return categoryApi.reset(token);

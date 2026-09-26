@@ -37,20 +37,26 @@ interface AISuggestionsProps {
 
 const CACHE_KEY_PREFIX = "ai-suggestions-";
 
-function getCachedSuggestions(mealId: number): MealSuggestionsResponseDTO | null {
+// Keyed by the main dish too: editing a meal keeps its id, and a tip for the
+// old dish must not be shown for the new one
+function cacheKey(mealId: number, mainRecipeName: string): string {
+  return `${CACHE_KEY_PREFIX}${mealId}:${mainRecipeName.trim().toLowerCase()}`;
+}
+
+function getCachedSuggestions(key: string): MealSuggestionsResponseDTO | null {
   try {
     if (typeof window === "undefined") return null;
-    const cached = sessionStorage.getItem(`${CACHE_KEY_PREFIX}${mealId}`);
+    const cached = sessionStorage.getItem(key);
     return cached ? JSON.parse(cached) : null;
   } catch {
     return null;
   }
 }
 
-function setCachedSuggestions(mealId: number, data: MealSuggestionsResponseDTO): void {
+function setCachedSuggestions(key: string, data: MealSuggestionsResponseDTO): void {
   try {
     if (typeof window === "undefined") return;
-    sessionStorage.setItem(`${CACHE_KEY_PREFIX}${mealId}`, JSON.stringify(data));
+    sessionStorage.setItem(key, JSON.stringify(data));
   } catch {
     // Ignore storage errors
   }
@@ -96,27 +102,12 @@ export function AISuggestions({
 
   // Use mutation hook with automatic token injection
   const suggestionsMutation = useMealSuggestions();
-  const { mutate: mutateSuggestions } = suggestionsMutation;
+  const { mutate: mutateSuggestions, reset: resetSuggestions } = suggestionsMutation;
+  const key = cacheKey(mealId, mainRecipeName);
 
-  // Track which mealId we've already fetched to prevent duplicate requests
-  const fetchedMealIdRef = useRef<number | null>(null);
-
-  const fetchSuggestions = useCallback(async (forceRefresh = false) => {
-    // Prevent duplicate fetches for same mealId (unless force refresh)
-    if (!forceRefresh && fetchedMealIdRef.current === mealId) {
-      return;
-    }
-
-    // Check cache first (unless force refresh)
-    if (!forceRefresh) {
-      const cached = getCachedSuggestions(mealId);
-      if (cached) {
-        setSuggestions(cached);
-        fetchedMealIdRef.current = mealId;
-        return;
-      }
-    }
-
+  // Tips are generated only when asked for: each one spends the user's
+  // monthly AI allowance, so merely opening a meal must never trigger one
+  const fetchSuggestions = useCallback(() => {
     mutateSuggestions(
       {
         main_recipe_name: mainRecipeName,
@@ -127,28 +118,23 @@ export function AISuggestions({
         onSuccess: (response) => {
           if (response.success) {
             setSuggestions(response);
-            setCachedSuggestions(mealId, response);
-            fetchedMealIdRef.current = mealId; // Mark as fetched only on success
+            setCachedSuggestions(key, response);
           }
-        },
-        onError: () => {
-          // Reset ref on error to allow retry
-          fetchedMealIdRef.current = null;
         },
       }
     );
-  }, [mealId, mainRecipeName, mainRecipeCategory, mealType, mutateSuggestions]);
+  }, [key, mainRecipeName, mainRecipeCategory, mealType, mutateSuggestions]);
 
-  // Auto-load on mount or when mealId changes. The cache-hit path inside
-  // fetchSuggestions hydrates state synchronously from sessionStorage — that
-  // post-mount hydration is the SSR-safe pattern for external stores.
+  // Show a tip already generated this session for this meal (no network).
+  // Hydrating from sessionStorage after mount is the SSR-safe pattern.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchSuggestions();
-  }, [fetchSuggestions]);
+    setSuggestions(getCachedSuggestions(key));
+    resetSuggestions();
+  }, [key, resetSuggestions]);
 
   const handleRegenerate = () => {
-    fetchSuggestions(true);
+    fetchSuggestions();
   };
 
   const tipText = suggestions?.cooking_tip;
@@ -224,9 +210,27 @@ export function AISuggestions({
             variant="outline"
             size="sm"
             className="text-xs"
-            onClick={() => fetchSuggestions(true)}
+            onClick={() => fetchSuggestions()}
           >
             Try again
+          </Button>
+        </div>
+      )}
+
+      {/* Idle State: nothing generated yet for this meal */}
+      {!bodyHidden && !loading && !error && !tipText && (
+        <div className="space-y-2">
+          <p className="text-sm text-primary/70">
+            Get an AI cooking tip for this meal.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => fetchSuggestions()}
+          >
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Get a tip
           </Button>
         </div>
       )}
