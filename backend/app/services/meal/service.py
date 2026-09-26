@@ -7,6 +7,7 @@ Handles creation, basic reads, updates, deletion, and DTO conversion.
 # -- Imports -------------------------------------------------------------------------------------
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,6 +25,7 @@ from ...repositories.meal_repo import MealRepo
 from ...repositories.planner import PlannerRepo
 from ...repositories.recipe_repo import RecipeRepo
 
+logger = logging.getLogger(__name__)
 
 # -- Exceptions ----------------------------------------------------------------------------------
 class MealSaveError(Exception):
@@ -330,10 +332,24 @@ class MealServiceCore:
         try:
             result = self.repo.delete(meal_id, self.user_id)
             self.session.commit()
-            return result
         except SQLAlchemyError:
             self.session.rollback()
             return False
+
+        if result:
+            # Its planner entries cascaded away; drop their shopping items too
+            from ..shopping import ShoppingService
+            from ..shopping.sync import discard_cached_shopping_rows
+
+            # Planner entries and contributions cascaded at the DB level; drop
+            # the session's stale copies before the sync rewrites them
+            discard_cached_shopping_rows(self.session)
+            try:
+                ShoppingService(self.session, self.user_id).sync_shopping_list()
+            except Exception:
+                self.session.rollback()
+                logger.exception("Shopping sync failed after deleting meal %s", meal_id)
+        return result
 
     # -- Helper Methods --------------------------------------------------------------------------
     def _meal_to_response_dto(self, meal: Meal) -> MealResponseDTO:

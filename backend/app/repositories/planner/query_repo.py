@@ -47,7 +47,7 @@ class PlannerQueryRepo:
             .options(
                 joinedload(PlannerEntry.meal).joinedload(Meal.main_recipe)
             )
-            .order_by(PlannerEntry.position)
+            .order_by(PlannerEntry.position, PlannerEntry.id)
         )
         result = self.session.execute(stmt)
         return result.scalars().unique().all()
@@ -70,7 +70,7 @@ class PlannerQueryRepo:
             .options(
                 joinedload(PlannerEntry.meal).joinedload(Meal.main_recipe)
             )
-            .order_by(PlannerEntry.position)
+            .order_by(PlannerEntry.position, PlannerEntry.id)
         )
         result = self.session.execute(stmt)
         return result.scalars().unique().all()
@@ -88,7 +88,7 @@ class PlannerQueryRepo:
         stmt = (
             select(PlannerEntry.meal_id)
             .where(PlannerEntry.user_id == user_id)
-            .order_by(PlannerEntry.position)
+            .order_by(PlannerEntry.position, PlannerEntry.id)
         )
         result = self.session.execute(stmt)
         return list(result.scalars().all())
@@ -112,7 +112,7 @@ class PlannerQueryRepo:
             .options(
                 joinedload(PlannerEntry.meal).joinedload(Meal.main_recipe)
             )
-            .order_by(PlannerEntry.position)
+            .order_by(PlannerEntry.position, PlannerEntry.id)
         )
         result = self.session.execute(stmt)
         return result.scalars().unique().all()
@@ -154,7 +154,7 @@ class PlannerQueryRepo:
             .options(
                 joinedload(PlannerEntry.meal).joinedload(Meal.main_recipe)
             )
-            .order_by(PlannerEntry.position)
+            .order_by(PlannerEntry.position, PlannerEntry.id)
         )
         result = self.session.execute(stmt)
         return result.scalars().unique().all()
@@ -178,7 +178,7 @@ class PlannerQueryRepo:
             .options(
                 joinedload(PlannerEntry.meal).joinedload(Meal.main_recipe)
             )
-            .order_by(PlannerEntry.position)
+            .order_by(PlannerEntry.position, PlannerEntry.id)
         )
         result = self.session.execute(stmt)
         return result.scalars().unique().all()

@@ -36,7 +36,7 @@ export function SampleData() {
       onSuccess: (result) => {
         const kept =
           result.recipes_kept > 0
-            ? ` Kept ${plural(result.recipes_kept, "recipe")} your own meals use.`
+            ? ` Kept ${plural(result.recipes_kept, "recipe")} you've been using.`
             : "";
         toast.success(
           `Removed ${plural(result.recipes_removed, "sample recipe")} and ${plural(result.meals_removed, "meal")}.${kept}`
@@ -137,8 +137,8 @@ export function SampleData() {
           </DialogHeader>
 
           <p className="text-sm text-muted-foreground">
-            Sample recipes or meals you&apos;ve edited, and sample recipes used in your own
-            meals, are kept.
+            Anything you&apos;ve made your own is kept: sample recipes or meals you&apos;ve edited,
+            cooked, favorited, grouped, added a photo to, or used in your own meals.
           </p>
 
           <DialogFooter>

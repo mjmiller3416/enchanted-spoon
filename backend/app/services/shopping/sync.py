@@ -25,6 +25,21 @@ from ...services.unit_conversion_service import UnitConversionService
 from ...utils.unit_conversion import to_display_unit
 
 
+# -- Helpers -------------------------------------------------------------------------------------
+def discard_cached_shopping_rows(session) -> None:
+    """
+    Drop shopping items/contributions from the session's identity map.
+
+    Call after a committed delete whose FK cascades removed shopping rows at the
+    database level (recipe -> meal -> planner entry -> contribution): the session
+    still holds those dead rows, and on SQLite (which reuses row ids) the sync's
+    fresh inserts would collide with them. The sync reloads what it needs.
+    """
+    for obj in list(session.identity_map.values()):
+        if isinstance(obj, (ShoppingItem, ShoppingItemContribution)) and obj in session:
+            session.expunge(obj)
+
+
 # -- Sync Mixin ----------------------------------------------------------------------------------
 class SyncMixin:
     """Mixin providing planner synchronization methods."""

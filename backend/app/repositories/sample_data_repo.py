@@ -12,8 +12,14 @@ from sqlalchemy.orm import Session
 
 from ..models.ingredient import Ingredient
 from ..models.meal import Meal
+from ..models.planner_entry import PlannerEntry
 from ..models.recipe import Recipe
+from ..models.recipe_group import recipe_group_association
+from ..models.recipe_history import RecipeHistory
 from ..models.recipe_ingredient import RecipeIngredient
+
+# Cloudinary folder a recipe's own uploaded/generated images live under
+RECIPE_IMAGE_FOLDER = "meal-genie/recipes"
 
 
 class SampleDataRepo:
@@ -53,6 +59,51 @@ class SampleDataRepo:
         for meal in self.session.execute(stmt).scalars().unique().all():
             used.update(meal.get_all_recipe_ids())
         return used
+
+    def get_cooked_sample_meal_ids(self) -> Set[int]:
+        """Sample meals with a completed planner entry (their history feeds the streak)."""
+        stmt = (
+            select(PlannerEntry.meal_id)
+            .join(Meal, PlannerEntry.meal_id == Meal.id)
+            .where(
+                Meal.user_id == self.user_id,
+                Meal.is_sample.is_(True),
+                PlannerEntry.is_completed.is_(True),
+            )
+            .distinct()
+        )
+        return set(self.session.execute(stmt).scalars().all())
+
+    def get_sample_recipe_ids_with_activity(self) -> Set[int]:
+        """
+        Sample recipes the user has made their own without editing them:
+        cooked, filed in a group, or given their own image. (Favoriting
+        clears ``is_sample`` directly, since the pack ships pre-favorited.)
+        """
+        sample = select(Recipe.id).where(
+            Recipe.user_id == self.user_id, Recipe.is_sample.is_(True)
+        )
+        active: Set[int] = set()
+        active.update(
+            self.session.execute(
+                select(RecipeHistory.recipe_id).where(RecipeHistory.recipe_id.in_(sample))
+            ).scalars()
+        )
+        active.update(
+            self.session.execute(
+                select(recipe_group_association.c.recipe_id).where(
+                    recipe_group_association.c.recipe_id.in_(sample)
+                )
+            ).scalars()
+        )
+        for recipe in self.get_sample_recipes():
+            own_folder = f"{RECIPE_IMAGE_FOLDER}/{recipe.image_key}/"
+            if any(
+                path and own_folder in path
+                for path in (recipe.reference_image_path, recipe.banner_image_path)
+            ):
+                active.add(recipe.id)
+        return active
 
     # -- Writes ----------------------------------------------------------------------------------
     def delete_meal(self, meal: Meal) -> None:

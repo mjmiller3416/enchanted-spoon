@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import List
 
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm import Session
 
 from ..dtos.user_ingredient_category_dtos import (
@@ -103,7 +103,13 @@ class UserIngredientCategoryService:
         count = self.repo.count(self.user_id)
         if count == 0:
             self.repo.seed_defaults(self.user_id, BUILT_IN_INGREDIENT_CATEGORIES)
-            self.session.flush()
+            # Commit (not just flush): a read-only GET would otherwise roll the
+            # seed back and hand out ids that never existed
+            try:
+                self.session.commit()
+            except IntegrityError:
+                # A concurrent request seeded first; use its rows
+                self.session.rollback()
 
     def _generate_slug(self, label: str) -> str:
         """

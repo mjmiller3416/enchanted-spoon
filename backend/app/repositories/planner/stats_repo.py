@@ -272,7 +272,7 @@ class PlannerStatsRepo:
             .options(
                 joinedload(PlannerEntry.meal).joinedload(Meal.main_recipe)
             )
-            .order_by(PlannerEntry.position)
+            .order_by(PlannerEntry.position, PlannerEntry.id)
         )
         result = self.session.execute(stmt)
         entries = result.scalars().unique().all()
