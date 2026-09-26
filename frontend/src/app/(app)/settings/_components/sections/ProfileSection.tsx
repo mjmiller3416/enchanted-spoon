@@ -9,6 +9,13 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeader } from "../SectionHeader";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DeleteAccountCard } from "../DeleteAccountCard";
+
+// Account deletion runs through the app (it must cancel billing and remove app
+// data first), so hide Clerk's own "Delete account" control in its profile modal
+const userProfileProps = {
+  appearance: { elements: { profileSection__danger: { display: "none" } } },
+};
 
 /**
  * ProfileSection displays the user's Clerk-managed profile information.
@@ -105,7 +112,7 @@ export function ProfileSection() {
                 variant="outline"
                 size="sm"
                 className="mt-3 gap-2"
-                onClick={() => openUserProfile()}
+                onClick={() => openUserProfile(userProfileProps)}
               >
                 <Settings strokeWidth={1.5} className="h-4 w-4" />
                 Manage Profile
@@ -153,7 +160,7 @@ export function ProfileSection() {
                   variant="ghost"
                   size="sm"
                   className="gap-2 h-8"
-                  onClick={() => openUserProfile()}
+                  onClick={() => openUserProfile(userProfileProps)}
                 >
                   <Settings strokeWidth={1.5} className="h-3 w-3" />
                   Manage
@@ -164,6 +171,10 @@ export function ProfileSection() {
               </p>
             </div>
           </div>
+
+          <Separator />
+
+          <DeleteAccountCard />
         </div>
       </CardContent>
     </Card>

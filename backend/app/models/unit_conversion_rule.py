@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import backref, Mapped, mapped_column, relationship
 
 from ..database.base import Base
 
@@ -43,4 +43,7 @@ class UnitConversionRule(Base):
     )
 
     # ── Relationships ───────────────────────────────────────────────────────────────────────────────────────
-    user: Mapped["User"] = relationship("User", backref="unit_conversion_rules")
+    # Cascade so deleting a user removes their rules instead of nulling a NOT NULL FK
+    user: Mapped["User"] = relationship(
+        "User", backref=backref("unit_conversion_rules", cascade="all, delete-orphan")
+    )

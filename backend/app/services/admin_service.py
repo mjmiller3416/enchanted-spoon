@@ -167,7 +167,9 @@ class AdminService:
         try:
             self.repo.delete_user(user)
             self.session.commit()
-        except SQLAlchemyError as e:
+        except Exception as e:
+            # Not only SQLAlchemyError: ORM cascade problems surface as other
+            # exception types and must not leave the session dirty
             self.session.rollback()
             raise AdminSaveError(f"Failed to delete user: {e}") from e
 
