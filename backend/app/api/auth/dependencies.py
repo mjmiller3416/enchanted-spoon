@@ -13,6 +13,7 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from ...core.auth_config import AuthSettings, get_auth_settings
+from ...core.observability import set_user as set_error_reporting_user
 from ...core.usage_limits import get_monthly_limit
 from ...database.db import get_session
 from ...models.user import User
@@ -83,6 +84,7 @@ async def get_current_user(
                 detail=f"Dev user with id={settings.dev_user_id} not found. "
                 f"Run migrations and seed data first.",
             )
+        set_error_reporting_user(dev_user.id)
         return dev_user
 
     # Require token in production mode
@@ -170,6 +172,7 @@ async def get_current_user(
             ),
         )
 
+    set_error_reporting_user(user.id)
     return user
 
 

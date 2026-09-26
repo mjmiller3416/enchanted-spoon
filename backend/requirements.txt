@@ -40,5 +40,8 @@ recipe-scrapers>=15.0.0
 # Payments
 stripe>=11.0.0
 
+# Error reporting (no-op unless SENTRY_DSN is set)
+sentry-sdk[fastapi]>=2.0.0
+
 # GUI (optional - only needed for desktop app)
 # PySide6>=6.6.0
