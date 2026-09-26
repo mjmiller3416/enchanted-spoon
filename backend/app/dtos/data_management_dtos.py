@@ -294,6 +294,43 @@ class RecipeGroupBackupDTO(BaseModel):
     recipe_ids: List[int] = []
 
 
+class CustomizationBackupDTO(BaseModel):
+    """A recipe category, ingredient category, or ingredient unit for full backup."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    value: str = Field(min_length=1, max_length=100)
+    label: str = Field(min_length=1, max_length=100)
+    is_custom: bool = False
+    is_enabled: bool = True
+    position: int = 0
+
+
+class IngredientUnitBackupDTO(CustomizationBackupDTO):
+    """Ingredient unit for full backup (adds the unit's dimension)."""
+
+    unit_type: str = Field(default="count", max_length=20)
+
+
+class ConversionRuleBackupDTO(BaseModel):
+    """Unit conversion rule for full backup."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    ingredient_name: str = Field(min_length=1, max_length=255)
+    from_unit: str = Field(min_length=1, max_length=100)
+    to_unit: str = Field(min_length=1, max_length=100)
+    factor: float = Field(gt=0)
+    round_up: bool = True
+
+    @field_validator("ingredient_name", "from_unit", "to_unit", mode="before")
+    @classmethod
+    def strip_and_lower(cls, v):
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+
+
 class BackupDataDTO(BaseModel):
     """Container for all backup data."""
 
@@ -312,6 +349,10 @@ class BackupDataDTO(BaseModel):
     # Added after the first backup format; empty for older backups
     nutrition_facts: List[NutritionFactsBackupDTO] = []
     recipe_groups: List[RecipeGroupBackupDTO] = []
+    recipe_categories: List[CustomizationBackupDTO] = []
+    ingredient_categories: List[CustomizationBackupDTO] = []
+    ingredient_units: List[IngredientUnitBackupDTO] = []
+    conversion_rules: List[ConversionRuleBackupDTO] = []
 
 
 class FullBackupDTO(BaseModel):
