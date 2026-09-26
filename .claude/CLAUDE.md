@@ -315,7 +315,7 @@ For detailed troubleshooting and configuration, see [.claude/HOOKS.md](.claude/H
 
 ### Commands
 
-- `/git` - Git workflow automation (start, commit, sync, merge, deploy, pr)
+- `/git` - Git workflow automation (start, hotfix, commit, sync, merge, deploy, backport, cleanup, pr, status)
 - `/todo` - Generate TODO items
 - `/changelog` - Generate changelog entries
 

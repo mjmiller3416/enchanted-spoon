@@ -117,8 +117,10 @@ or with scope:
 
 All commits must end with:
 ```
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>
 ```
+
+`<Model Name>` is a placeholder — always substitute the model actually running the session (e.g. `Opus 5.5`), taken from the harness's attribution guidance or the model name in the system prompt. Never copy a model version from an old commit or example. The same applies to every `Co-Authored-By` line in `workflows/*.md`.
 
 ### PR Title Format
 
