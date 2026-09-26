@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { Sparkles, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,17 @@ interface AISuggestionsProps {
   mainRecipeCategory?: string | null;
   mealType?: string | null;
   mealId: number;
+  /**
+   * Compact mode for tight containers (the desktop detail pane): clamps the tip
+   * to 2 lines with a More/Less toggle and drops the card's minimum height.
+   * Off by default so other consumers keep the full card.
+   */
+  collapsible?: boolean;
+  /**
+   * With `collapsible`, start collapsed to just the header with a Show toggle
+   * (used on short viewports). Ignored when `collapsible` is false.
+   */
+  defaultCollapsed?: boolean;
   className?: string;
 }
 
@@ -70,9 +81,18 @@ export function AISuggestions({
   mainRecipeCategory,
   mealType,
   mealId,
+  collapsible = false,
+  defaultCollapsed = false,
   className,
 }: AISuggestionsProps) {
   const [suggestions, setSuggestions] = useState<MealSuggestionsResponseDTO | null>(null);
+
+  // Collapsible-mode UI state: body hidden behind the header, clamp expanded,
+  // and whether the clamped tip actually overflows (only then offer More/Less)
+  const [bodyHidden, setBodyHidden] = useState(collapsible && defaultCollapsed);
+  const [expanded, setExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+  const tipRef = useRef<HTMLParagraphElement>(null);
 
   // Use mutation hook with automatic token injection
   const suggestionsMutation = useMealSuggestions();
@@ -131,6 +151,19 @@ export function AISuggestions({
     fetchSuggestions(true);
   };
 
+  const tipText = suggestions?.cooking_tip;
+
+  // Measure whether the 2-line clamp hides text (re-checks on resize and when
+  // the tip changes) so the More toggle only appears when there is more to see
+  useLayoutEffect(() => {
+    const el = tipRef.current;
+    if (!collapsible || !el || expanded) return;
+    const measure = () => setIsClamped(el.scrollHeight > el.clientHeight + 1);
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [collapsible, expanded, tipText, bodyHidden]);
+
   // Derive loading and error state from mutation
   const loading = suggestionsMutation.isPending;
   const error = suggestionsMutation.isError
@@ -140,32 +173,51 @@ export function AISuggestions({
       : null;
 
   return (
-    <Card className={cn("p-4 bg-primary/10 border-primary/20 min-h-[120px]", className)}>
+    <Card
+      className={cn(
+        "bg-primary/10 border-primary/20",
+        collapsible ? "p-3 gap-0" : "p-4 min-h-[120px]",
+        className
+      )}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className={cn("flex items-center justify-between", !bodyHidden && (collapsible ? "mb-2" : "mb-3"))}>
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
           <h4 className="text-sm font-medium text-primary">Suggestion</h4>
         </div>
-        {!loading && !error && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-primary/70 hover:text-primary hover:bg-primary/10"
-            onClick={handleRegenerate}
-            title="Get new tip"
-            aria-label="Get new tip"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {collapsible && (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-6 px-1 text-xs text-primary/70 hover:text-primary"
+              onClick={() => setBodyHidden((hidden) => !hidden)}
+              aria-expanded={!bodyHidden}
+            >
+              {bodyHidden ? "Show" : "Hide"}
+            </Button>
+          )}
+          {!bodyHidden && !loading && !error && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-primary/70 hover:text-primary hover:bg-primary/10"
+              onClick={handleRegenerate}
+              title="Get new tip"
+              aria-label="Get new tip"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Loading State */}
-      {loading && <AISuggestionsSkeleton />}
+      {!bodyHidden && loading && <AISuggestionsSkeleton />}
 
       {/* Error State */}
-      {!loading && error && (
+      {!bodyHidden && !loading && error && (
         <div className="space-y-2">
           <p className="text-sm text-destructive/80">{error}</p>
           <Button
@@ -180,10 +232,29 @@ export function AISuggestions({
       )}
 
       {/* Success State */}
-      {!loading && !error && suggestions?.cooking_tip && (
-        <p className="text-sm text-primary/70 leading-relaxed">
-          {suggestions.cooking_tip}
-        </p>
+      {!bodyHidden && !loading && !error && tipText && (
+        <>
+          <p
+            ref={tipRef}
+            className={cn(
+              "text-sm text-primary/70 leading-relaxed",
+              collapsible && !expanded && "line-clamp-2"
+            )}
+          >
+            {tipText}
+          </p>
+          {collapsible && (isClamped || expanded) && (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto self-start p-0 mt-1 text-xs text-primary/70 hover:text-primary"
+              onClick={() => setExpanded((prev) => !prev)}
+              aria-expanded={expanded}
+            >
+              {expanded ? "Less" : "More"}
+            </Button>
+          )}
+        </>
       )}
     </Card>
   );
