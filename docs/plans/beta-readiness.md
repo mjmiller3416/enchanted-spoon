@@ -51,6 +51,10 @@ from checking the Railway config. Committed directly to `staging`.
 
 Backend tests: 451 → 464, all passing. No frontend changes.
 
+Later the same day: feedback issues link `user #<id>` to an admin Users search
+(id/email/name), and Sentry error reporting was added to both apps (backend tests
+→ 473; frontend tsc, lint, vitest and `next build` pass).
+
 ## Manual steps before inviting testers (not code)
 
 1. **Clerk dashboard → disable "Allow users to delete their accounts".** The app now
@@ -76,9 +80,12 @@ Backend tests: 451 → 464, all passing. No frontend changes.
 
 ## Known issues left for later (not beta-blocking)
 
-- **Observability** (Sentry/GlitchTip) — still not started; see
-  [`error-reporting.md`](error-reporting.md). For a small beta, Railway logs plus the
-  feedback button are workable.
+- **Observability** — Sentry is wired into backend and frontend (inactive until the
+  DSNs are set). To turn it on: create FastAPI and Next.js projects in Sentry, then set
+  on Railway — backend: `SENTRY_DSN`; frontend: `NEXT_PUBLIC_SENTRY_DSN`, plus
+  `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` for readable stack traces — and
+  redeploy (the frontend DSN is baked in at build time). See
+  [`error-reporting.md`](error-reporting.md).
 - **CSP header** — still deferred (needs a Clerk/Cloudinary/API allowlist).
 - ~~**DNS rebinding** in recipe import~~ — fixed in the follow-up pass.
 - ~~**Backups don't include** custom categories/units, conversion rules~~ — fixed in

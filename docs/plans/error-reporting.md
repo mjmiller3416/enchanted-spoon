@@ -8,6 +8,13 @@ while making changes.
 > No admin panel, no stored `feedback_reports` table (not even the join table proposed below —
 > there's currently no server-side record of who filed what). Recommendation 2 (Sentry/GlitchTip)
 > is **not started** — this is still the largest open gap from the "Now (pre-launch)" list.
+>
+> **Update (2026-09-26):** Recommendation 2 is **built, pending account setup** — backend
+> (`app/core/observability.py`) and frontend (`@sentry/nextjs`, `src/lib/sentry.ts`) report to
+> Sentry once `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` are set; events carry the Railway commit
+> SHA as the release and only the internal user id. Issues now cite `user #<id>` with a link to
+> the admin Users list, which can search by id — a lighter substitute for the join table below
+> (no "what else did this user file" yet).
 
 ---
 
