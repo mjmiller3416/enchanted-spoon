@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarDays,
   BookOpen,
+  Compass,
   House,
   ShoppingCart,
   EllipsisVertical,
@@ -33,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { useShoppingList, useRefreshShoppingList, useCurrentUser } from "@/hooks/api";
 import { useTheme } from "@/hooks/ui";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
+import { useTour } from "@/lib/providers/TourProvider";
 
 interface NavItem {
   name: string;
@@ -59,6 +61,7 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
   const { signOut } = useClerk();
   const { isAdmin } = useCurrentUser();
   const { openWizard } = useRecipeWizardDialog();
+  const { startTour } = useTour();
   const { resolvedTheme, toggleTheme } = useTheme();
 
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -106,6 +109,8 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
   return (
     <>
       <nav
+        aria-label="Main navigation"
+        data-tour="nav-main"
         className={cn(
           // Only visible on mobile
           "md:hidden",
@@ -181,6 +186,7 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
           <Button
             variant="ghost"
             onClick={() => setIsMoreOpen(true)}
+            data-tour="nav-add"
             className={cn(
               // Layout
               "flex flex-col items-center justify-center",
@@ -310,6 +316,15 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
                 Ask the Genie
               </Button>
             )}
+
+            <Button
+              variant="ghost"
+              onClick={() => handleMenuAction(startTour)}
+              className="flex items-center justify-start gap-3 px-5 py-3 w-full h-auto rounded-none text-sm text-foreground"
+            >
+              <Compass className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+              Take the tour
+            </Button>
 
             <div className="h-px bg-border mx-5 my-1" />
 

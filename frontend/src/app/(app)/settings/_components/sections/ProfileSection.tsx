@@ -1,7 +1,7 @@
 "use client";
 
-import { User, Mail, ExternalLink, Shield } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { User, Mail, Settings, Shield } from "lucide-react";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export function ProfileSection() {
   const { user, isLoaded } = useUser();
+  const { openUserProfile } = useClerk();
 
   // Loading state
   if (!isLoaded) {
@@ -25,10 +26,10 @@ export function ProfileSection() {
           <SectionHeader
             icon={User}
             title="Account & Profile"
-            description="Your account information managed by Clerk"
+            description="Your account details and sign-in preferences"
           />
           <div className="space-y-6">
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
               <Skeleton className="h-24 w-24 rounded-full" />
               <div className="flex-1 space-y-2">
                 <Skeleton className="h-4 w-32" />
@@ -71,25 +72,25 @@ export function ProfileSection() {
         <SectionHeader
           icon={User}
           title="Account & Profile"
-          description="Your account information managed by Clerk"
+          description="Your account details and sign-in preferences"
         />
 
         <div className="space-y-6">
           {/* Avatar and Name Section */}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
             <Avatar className="h-24 w-24 border-4 border-elevated">
               <AvatarImage src={user.imageUrl} alt={displayName} />
               <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-xl font-semibold text-foreground">
                   {displayName}
                 </h3>
                 <Badge variant="secondary" className="text-xs">
-                  <Shield className="h-3 w-3 mr-1" />
+                  <Shield strokeWidth={1.5} className="h-3 w-3 mr-1" />
                   Verified
                 </Badge>
               </div>
@@ -104,9 +105,9 @@ export function ProfileSection() {
                 variant="outline"
                 size="sm"
                 className="mt-3 gap-2"
-                onClick={() => window.open("https://accounts.clerk.com/user", "_blank")}
+                onClick={() => openUserProfile()}
               >
-                <ExternalLink className="h-4 w-4" />
+                <Settings strokeWidth={1.5} className="h-4 w-4" />
                 Manage Profile
               </Button>
             </div>
@@ -117,21 +118,21 @@ export function ProfileSection() {
           {/* Email Display */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+              <Mail strokeWidth={1.5} className="h-3.5 w-3.5 text-muted-foreground" />
               Email Address
             </div>
             <div className="flex items-center gap-3">
-              <div className="px-3 py-2 bg-elevated rounded-md text-foreground max-w-md flex-1">
+              <div className="px-3 py-2 bg-elevated rounded-md text-foreground max-w-md min-w-0 break-words flex-1">
                 {primaryEmail?.emailAddress || "No email set"}
               </div>
               {primaryEmail?.verification?.status === "verified" && (
-                <Badge variant="outline" className="text-xs text-green-600 border-green-600/30">
+                <Badge variant="outline" className="text-xs text-success border-success/30">
                   Verified
                 </Badge>
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Email is managed through your Clerk account settings
+              Update your email in Manage Profile
             </p>
           </div>
 
@@ -140,7 +141,7 @@ export function ProfileSection() {
           {/* Account Security Info */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+              <Shield strokeWidth={1.5} className="h-3.5 w-3.5 text-muted-foreground" />
               Account Security
             </div>
             <div className="bg-elevated rounded-lg p-4 space-y-3">
@@ -152,14 +153,14 @@ export function ProfileSection() {
                   variant="ghost"
                   size="sm"
                   className="gap-2 h-8"
-                  onClick={() => window.open("https://accounts.clerk.com/user/security", "_blank")}
+                  onClick={() => openUserProfile()}
                 >
-                  <ExternalLink className="h-3 w-3" />
+                  <Settings strokeWidth={1.5} className="h-3 w-3" />
                   Manage
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Manage your password, two-factor authentication, and connected accounts through Clerk
+                Manage your password, two-factor authentication, and connected accounts
               </p>
             </div>
           </div>

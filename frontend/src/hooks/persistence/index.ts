@@ -8,3 +8,9 @@ export {
   useRecipeFilterPersistence,
   type SavedRecipeFilterState,
 } from "./useRecipeFilterPersistence";
+export {
+  useOnboardingTour,
+  ONBOARDING_TOUR_VERSION,
+  type OnboardingTourState,
+  type OnboardingTourOutcome,
+} from "./useOnboardingTour";

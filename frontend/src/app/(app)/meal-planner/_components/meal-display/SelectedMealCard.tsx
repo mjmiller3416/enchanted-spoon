@@ -133,8 +133,8 @@ export function SelectedMealCard({
       <Card className={cn("p-0 overflow-hidden", isCompleted && "opacity-60")}>
         <div className="flex flex-col lg:flex-row">
           {/* LEFT: Image Section */}
-          <div
-            className="group/image relative w-full lg:w-64 h-48 lg:h-auto flex-shrink-0 cursor-pointer overflow-hidden bg-elevated"
+          <Button variant="ghost" aria-label={`View ${mainRecipe.recipe_name}`}
+            className="rounded-none p-0 group/image relative w-full lg:w-64 h-48 lg:h-auto flex-shrink-0 cursor-pointer overflow-hidden bg-elevated"
             onClick={() => handleRecipeClick(mainRecipe.id)}
           >
             {/* Transform wrapper - handles the zoom animation (matches MealGridCard) */}
@@ -153,22 +153,17 @@ export function SelectedMealCard({
             </div>
             {/* Completed Overlay */}
             {isCompleted && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+              <div className="absolute inset-0 flex items-center justify-center bg-background-intense/40">
                 <Check className="h-12 w-12 text-success" strokeWidth={1.5} />
               </div>
             )}
-          </div>
+          </Button>
 
           {/* MIDDLE: Details Section */}
           <div className="flex-1 p-6 border-r border-border">
             {/* Title & Metadata */}
             <div className="mb-4">
-              <h3
-                className="text-2xl font-semibold text-foreground mb-2 cursor-pointer hover:text-primary transition-colors"
-                onClick={() => handleRecipeClick(mainRecipe.id)}
-              >
-                {mainRecipe.recipe_name}
-              </h3>
+              <h3 className="text-section-header mb-2"><Button variant="link" className="h-auto whitespace-normal p-0 text-left text-inherit" onClick={() => handleRecipeClick(mainRecipe.id)}>{mainRecipe.recipe_name}</Button></h3>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 {mainRecipe.servings != null && (
                   <span className="flex items-center gap-1.5">

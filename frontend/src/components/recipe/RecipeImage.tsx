@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { ChefHat } from "lucide-react";
+import { getResponsiveRecipeImage } from "@/lib/imageUtils";
 import { cn } from "@/lib/utils";
 
 // ============================================================================
@@ -26,6 +27,8 @@ interface RecipeImageProps {
    * @default true
    */
   showLoadingState?: boolean;
+  loading?: "lazy" | "eager";
+  sizes?: string;
 }
 
 // ============================================================================
@@ -98,7 +101,11 @@ function ImagePlaceholder({
  * - Direct: <RecipeImage src={url} alt="..." /> for most components
  * - For grids/lists: use showLoadingState={false} for better performance
  */
-export function RecipeImage({
+export function RecipeImage(props: RecipeImageProps) {
+  return <RecipeImageSource key={props.src || "empty"} {...props} />;
+}
+
+function RecipeImageSource({
   src,
   alt,
   className,
@@ -107,7 +114,10 @@ export function RecipeImage({
   iconClassName,
   fill = false,
   showLoadingState = true,
+  loading = "lazy",
+  sizes = "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px",
 }: RecipeImageProps) {
+  const responsive = getResponsiveRecipeImage(src);
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -132,8 +142,14 @@ export function RecipeImage({
   // Without loading state - simple render (optimized for lists/grids)
   if (!showLoadingState) {
     return (
+      // Cloudinary owns responsive delivery; other user image origins pass through.
+      // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={src}
+        src={responsive.src}
+        srcSet={responsive.srcSet}
+        sizes={responsive.srcSet ? sizes : undefined}
+        loading={loading}
+        decoding="async"
         alt={alt}
         className={cn(fillClasses, className)}
         onError={() => setHasError(true)}
@@ -150,8 +166,14 @@ export function RecipeImage({
         </div>
       )}
 
+      {/* Cloudinary srcSet handles responsive delivery; local images use native loading. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        src={responsive.src}
+        srcSet={responsive.srcSet}
+        sizes={responsive.srcSet ? sizes : undefined}
+        loading={loading}
+        decoding="async"
         alt={alt}
         className={cn(
           fillClasses,

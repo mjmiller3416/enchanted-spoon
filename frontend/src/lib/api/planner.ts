@@ -199,6 +199,9 @@ export const plannerApi = {
    * @param entryId - Planner entry ID
    * @param token - Optional auth token for authenticated requests
    */
+  setShoppingMode: (entryId: number, shoppingMode: "all" | "produce_only" | "none", token?: string | null): Promise<PlannerEntryResponseDTO> =>
+    fetchApi<PlannerEntryResponseDTO>(`/api/planner/entries/${entryId}/shopping-mode`, { method: "PUT", body: JSON.stringify({ shopping_mode: shoppingMode }) }, token),
+
   cycleShoppingMode: (entryId: number, token?: string | null): Promise<PlannerEntryResponseDTO> =>
     fetchApi<PlannerEntryResponseDTO>(
       `/api/planner/entries/${entryId}/cycle-shopping-mode`,

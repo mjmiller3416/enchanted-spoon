@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Link, Loader2, RotateCcw, Save, Sparkles } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { EditorDialogContent } from "@/components/layout/EditorDialogContent";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
@@ -25,6 +26,7 @@ import { Form } from "@/components/ui/form";
 import { useCategories } from "@/hooks/api/useCategories";
 import type { RecipeGenerationResponseDTO } from "@/types/ai";
 import { useRecipeWizard } from "./useRecipeWizard";
+import { useUnsavedChanges } from "@/hooks/ui/useUnsavedChanges";
 import {
   MethodSelectionStep,
   RecipeBasicsStep,
@@ -83,6 +85,10 @@ export function RecipeWizardView({
 
   const wizard = useRecipeWizard({ onSave: handleSave, mode, recipeId, initialGenerated });
   const { currentStep, resetWizard, isEditMode, isLoadingRecipe } = wizard;
+  const leave = useUnsavedChanges({
+    isDirty: open && wizard.hasUnsavedData,
+    onConfirmLeave: () => { resetWizard(); onOpenChange(false); },
+  });
 
   // In edit mode the method-selection step (1) is skipped, so the visible
   // steps are 2–5 — re-base the counter/progress to that range.
@@ -119,6 +125,7 @@ export function RecipeWizardView({
   // Only prompt when there's actually unsaved data to lose; otherwise reset
   // and close so reopening starts fresh at the feature-select step.
   const handleRequestClose = useCallback(() => {
+    if (wizard.isSubmitting) return;
     if (wizard.hasUnsavedData) {
       setDiscardIntent("close");
       setShowDiscardConfirm(true);
@@ -126,7 +133,7 @@ export function RecipeWizardView({
     }
     resetWizard();
     onOpenChange(false);
-  }, [wizard.hasUnsavedData, resetWizard, onOpenChange]);
+  }, [wizard.hasUnsavedData, wizard.isSubmitting, resetWizard, onOpenChange]);
 
   // Radix fires onOpenChange(false) for the X button, Escape, and backdrop.
   const handleOpenChange = useCallback(
@@ -142,21 +149,24 @@ export function RecipeWizardView({
 
   // Footer "Start over" (steps 2+): wipe inputs, stay open at step 1.
   const handleStartOverClick = useCallback(() => {
+    if (wizard.isSubmitting) return;
     if (!wizard.hasUnsavedData) {
       resetWizard();
       return;
     }
     setDiscardIntent("reset");
     setShowDiscardConfirm(true);
-  }, [wizard.hasUnsavedData, resetWizard]);
+  }, [wizard.hasUnsavedData, wizard.isSubmitting, resetWizard]);
 
   const handleDiscardConfirm = useCallback(() => {
+    if (wizard.isSubmitting) return;
+    if (leave.showLeaveDialog) { leave.confirmLeave(); return; }
     setShowDiscardConfirm(false);
     resetWizard();
     if (discardIntent === "close") {
       onOpenChange(false);
     }
-  }, [discardIntent, resetWizard, onOpenChange]);
+  }, [discardIntent, resetWizard, onOpenChange, leave, wizard.isSubmitting]);
 
   return (
     <>
@@ -178,17 +188,14 @@ export function RecipeWizardView({
           - gap: 0
           - display: flex / flex-direction: column
       */}
-      <DialogContent
-        size="xl"
-        className="flex flex-col h-[85vh] p-0 gap-0 overflow-hidden"
-      >
+      <EditorDialogContent>
         {/* ── Header ──────────────────────────────────────────────── */}
-        <div className="shrink-0 px-6 pt-5 pb-4 space-y-3">
+        <div className="shrink-0 px-4 sm:px-6 pt-5 pb-4 space-y-3 border-b border-border">
           <DialogHeader className="text-center sm:text-center">
             <p className="text-xs font-semibold uppercase tracking-widest text-primary">
               {isEditMode ? "Edit Recipe" : "Create New Recipe"}
             </p>
-            <DialogTitle className="text-2xl font-bold">
+            <DialogTitle className="text-page-title">
               {wizard.currentStep === 2 && wizard.creationMethod === "ai-generate"
                 ? "AI Recipe Generator"
                 : wizard.currentStep === 2 && wizard.creationMethod === "url-import"
@@ -294,6 +301,18 @@ export function RecipeWizardView({
         </div>
         </Form>
 
+          {wizard.createUncertain && (
+            <Card className="mx-6 mb-4 border-warning" role="alert">
+              <CardContent className="space-y-3 pt-4">
+                <p className="text-sm">The save response was lost. This recipe may already exist. Your draft is still open. Check the library in a new tab; if the recipe exists, continue from that saved recipe.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" asChild><a href="/recipes" target="_blank" rel="noreferrer">Check recipe library</a></Button>
+                  <Button variant="outline" size="sm" onClick={wizard.acknowledgeCreateRetry}>I checked; allow another save</Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Another save can create a duplicate if the first request succeeded.</p>
+              </CardContent>
+            </Card>
+          )}
           {/* ── Footer navigation ───────────────────────────────────── */}
           <div className="flex w-full items-center justify-between px-6 py-4 border-t border-border-subtle bg-background/50">
             {/* Left side — Discard (steps 2+, create mode only) */}
@@ -399,7 +418,7 @@ export function RecipeWizardView({
                 <Button
                   type="button"
                   onClick={wizard.handleSubmit}
-                  disabled={wizard.isSubmitting}
+                  disabled={wizard.isSubmitting || wizard.createUncertain}
                   aria-busy={wizard.isSubmitting}
                   aria-label={
                     wizard.isSubmitting
@@ -415,10 +434,10 @@ export function RecipeWizardView({
               )}
             </div>
           </div>
-      </DialogContent>
+      </EditorDialogContent>
     </Dialog>
 
-    <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+    <AlertDialog open={showDiscardConfirm || leave.showLeaveDialog} onOpenChange={(value) => { setShowDiscardConfirm(value); if (!value) leave.cancelLeave(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>

@@ -1,18 +1,15 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { Sparkles, Send, X, Minimize2, Maximize2, Minus, FileText } from "lucide-react";
+import { useCallback, useRef, useEffect } from "react";
+import { Sparkles, Send, X, Minimize2, Maximize2, Minus, FileText, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useChatHistory } from "@/hooks/persistence";
-import { useAssistantChat } from "@/hooks/api/useAI";
+import { useAssistantDialog } from "@/lib/providers/AssistantProvider";
 import { useChatScroll } from "@/hooks/ui";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
-import { classifyAiGateError } from "@/lib/paywall";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ChatMessageList } from "./ChatMessageList";
-import type { RecipeGeneratedDTO } from "@/types/ai";
 
 interface AssistantChatContentProps {
   onClose: () => void;
@@ -32,18 +29,9 @@ export function AssistantChatContent({
   isMobile = false,
 }: AssistantChatContentProps) {
   const { openWizardWithRecipe } = useRecipeWizardDialog();
-  const [input, setInput] = useState("");
-  const { messages, addMessage, clearHistory } = useChatHistory();
-  const chatMutation = useAssistantChat();
-  const { messagesEndRef, scrollContainerRef, showTopFade, showBottomFade } = useChatScroll(messages.length, chatMutation.isPending);
+  const { input, setInput, messages, clearHistory, pendingRecipe, setPendingRecipe, sendMessage, isSending } = useAssistantDialog();
+  const { messagesEndRef, scrollContainerRef, showTopFade, showBottomFade } = useChatScroll(messages.length, isSending);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Track pending recipe for "View Recipe Draft" button
-  const [pendingRecipe, setPendingRecipe] = useState<{
-    recipe: RecipeGeneratedDTO;
-    referenceImageData: string | null;
-    bannerImageData: string | null;
-  } | null>(null);
 
   // Focus input when opened (desktop only — mobile auto-focus opens the keyboard)
   useEffect(() => {
@@ -52,49 +40,7 @@ export function AssistantChatContent({
     }
   }, [isMobile]);
 
-  const handleSubmit = useCallback(async (messageText?: string) => {
-    const textToSend = messageText || input.trim();
-    if (!textToSend || chatMutation.isPending) return;
-
-    setInput("");
-    addMessage({ role: "user", content: textToSend });
-
-    try {
-      // Single unified API call - AI decides what action to take
-      const response = await chatMutation.mutateAsync({
-        message: textToSend,
-        conversationHistory: messages,
-      });
-
-      if (response.success) {
-        // Check if AI generated a recipe
-        if (response.recipe) {
-          // Store recipe in state - show button instead of auto-navigating
-          setPendingRecipe({
-            recipe: response.recipe,
-            referenceImageData: response.reference_image_data || null,
-            bannerImageData: response.banner_image_data || null,
-          });
-          addMessage({ role: "assistant", content: response.response || "I've created a recipe for you!" });
-        } else if (response.response) {
-          // Normal chat response
-          addMessage({ role: "assistant", content: response.response });
-        }
-      } else {
-        throw new Error(response.error || "Failed to get response");
-      }
-    } catch (error) {
-      console.error("Failed to get response:", error);
-      // Access-gate errors already open the paywall dialog (QueryProvider's
-      // MutationCache) — keep the chat bubble consistent with it.
-      addMessage({
-        role: "assistant",
-        content: classifyAiGateError(error)
-          ? "You've used this month's assistant allowance — see the upgrade options to keep chatting."
-          : "Sorry, something went wrong. Please try again.",
-      });
-    }
-  }, [input, chatMutation, messages, addMessage]);
+  const handleSubmit = (messageText?: string) => sendMessage(messageText || input.trim());
 
   // Open the recipe wizard pre-filled with the generated draft for review/edit
   const handleViewRecipe = useCallback(() => {
@@ -106,7 +52,8 @@ export function AssistantChatContent({
       banner_image_data: pendingRecipe.bannerImageData ?? undefined,
     });
     setPendingRecipe(null);
-  }, [pendingRecipe, openWizardWithRecipe]);
+    onClose();
+  }, [pendingRecipe, openWizardWithRecipe, setPendingRecipe, onClose]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -146,6 +93,7 @@ export function AssistantChatContent({
                 <Button
                   variant="ghost"
                   size="sm"
+                  disabled={isSending}
                   onClick={clearHistory}
                   className="text-xs h-7 text-muted-foreground hover:text-foreground"
                 >
@@ -197,16 +145,16 @@ export function AssistantChatContent({
       {/* Messages / Empty State Area */}
       <ChatMessageList
         messages={messages}
-        isPending={chatMutation.isPending}
+        isPending={isSending}
         scrollContainerRef={scrollContainerRef}
         messagesEndRef={messagesEndRef}
         showTopFade={showTopFade}
         showBottomFade={showBottomFade}
         onSuggestionClick={handleSubmit}
-        isSuggestionDisabled={chatMutation.isPending}
+        isSuggestionDisabled={isSending}
         afterLoadingSlot={
           <AnimatePresence>
-            {pendingRecipe && !chatMutation.isPending && (
+            {pendingRecipe && !isSending && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -231,6 +179,7 @@ export function AssistantChatContent({
       <div className="p-3 border-t border-border/50 bg-muted/30">
         <div className="flex items-center gap-2">
           <Input
+            aria-label="Message Genie"
             ref={inputRef}
             type="text"
             value={input}
@@ -246,11 +195,11 @@ export function AssistantChatContent({
           <Button
             size="icon"
             onClick={() => handleSubmit()}
-            disabled={!input.trim() || chatMutation.isPending}
+            disabled={!input.trim() || isSending}
             aria-label="Send message"
             className="bg-primary hover:bg-primary-hover text-primary-foreground shadow-sm disabled:bg-muted disabled:text-muted-foreground"
           >
-            <Send className="h-4 w-4" strokeWidth={1.5} />
+            {isSending ? <Loader2 className="size-4 animate-spin" strokeWidth={1.5} /> : <Send className="h-4 w-4" strokeWidth={1.5} />}
           </Button>
         </div>
       </div>

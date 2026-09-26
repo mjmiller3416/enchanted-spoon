@@ -44,6 +44,7 @@ export function mapRecipeForCard(dto: RecipeResponseDTO): RecipeCardData {
     dietaryPreference: dto.diet_pref ?? undefined,
     isFavorite: dto.is_favorite ?? false,
     isAiGenerated: dto.is_ai_generated ?? false,
+    isSample: dto.is_sample ?? false,
     sourceUrl: dto.source_url ?? undefined,
     ingredients: dto.ingredients?.map(mapIngredientForCard) ?? [],
     createdAt: dto.created_at ?? undefined,
@@ -73,6 +74,7 @@ export function mapCardDtoToCardData(dto: RecipeCardDTO): RecipeCardData {
     dietaryPreference: dto.diet_pref ?? undefined,
     isFavorite: dto.is_favorite ?? false,
     isAiGenerated: dto.is_ai_generated ?? false,
+    isSample: dto.is_sample ?? false,
     sourceUrl: dto.source_url ?? undefined,
     createdAt: dto.created_at ?? undefined,
   };

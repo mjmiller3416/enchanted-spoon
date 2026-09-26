@@ -1,0 +1,42 @@
+{
+  "Weeknight Beef Tacos": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396300/meal-genie/starter-pack/weeknight-beef-tacos/reference_weeknight-beef-tacos.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396300/meal-genie/starter-pack/weeknight-beef-tacos/banner_weeknight-beef-tacos.jpg"
+  },
+  "Creamy Tomato Basil Pasta": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396301/meal-genie/starter-pack/creamy-tomato-basil-pasta/reference_creamy-tomato-basil-pasta.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396302/meal-genie/starter-pack/creamy-tomato-basil-pasta/banner_creamy-tomato-basil-pasta.jpg"
+  },
+  "Lemon Herb Roast Chicken": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396303/meal-genie/starter-pack/lemon-herb-roast-chicken/reference_lemon-herb-roast-chicken.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396303/meal-genie/starter-pack/lemon-herb-roast-chicken/banner_lemon-herb-roast-chicken.jpg"
+  },
+  "Teriyaki Salmon Bowls": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396304/meal-genie/starter-pack/teriyaki-salmon-bowls/reference_teriyaki-salmon-bowls.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396305/meal-genie/starter-pack/teriyaki-salmon-bowls/banner_teriyaki-salmon-bowls.jpg"
+  },
+  "Cilantro Lime Rice": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396306/meal-genie/starter-pack/cilantro-lime-rice/reference_cilantro-lime-rice.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396306/meal-genie/starter-pack/cilantro-lime-rice/banner_cilantro-lime-rice.jpg"
+  },
+  "Garlic Parmesan Roasted Potatoes": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396307/meal-genie/starter-pack/garlic-parmesan-roasted-potatoes/reference_garlic-parmesan-roasted-potatoes.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396308/meal-genie/starter-pack/garlic-parmesan-roasted-potatoes/banner_garlic-parmesan-roasted-potatoes.jpg"
+  },
+  "Simple Green Salad": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396308/meal-genie/starter-pack/simple-green-salad/reference_simple-green-salad.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396309/meal-genie/starter-pack/simple-green-salad/banner_simple-green-salad.jpg"
+  },
+  "Easy Garlic Bread": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396310/meal-genie/starter-pack/easy-garlic-bread/reference_easy-garlic-bread.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396311/meal-genie/starter-pack/easy-garlic-bread/banner_easy-garlic-bread.jpg"
+  },
+  "Fluffy Buttermilk Pancakes": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396312/meal-genie/starter-pack/fluffy-buttermilk-pancakes/reference_fluffy-buttermilk-pancakes.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396313/meal-genie/starter-pack/fluffy-buttermilk-pancakes/banner_fluffy-buttermilk-pancakes.jpg"
+  },
+  "Chewy Chocolate Chip Cookies": {
+    "reference": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396314/meal-genie/starter-pack/chewy-chocolate-chip-cookies/reference_chewy-chocolate-chip-cookies.jpg",
+    "banner": "https://res.cloudinary.com/dfbeydsmt/image/upload/v1790396314/meal-genie/starter-pack/chewy-chocolate-chip-cookies/banner_chewy-chocolate-chip-cookies.jpg"
+  }
+}

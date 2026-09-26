@@ -143,7 +143,8 @@ export const IngredientsStep = memo(function IngredientsStep({
       const stringValue = value === null ? "" : String(value);
       form.setValue(
         `ingredients.${index}.${wizardField}` as `ingredients.${number}.ingredientName`,
-        stringValue
+        stringValue,
+        { shouldDirty: true, shouldValidate: true }
       );
     },
     [fields, form]
@@ -158,7 +159,7 @@ export const IngredientsStep = memo(function IngredientsStep({
   );
 
   const handleClearAll = useCallback(() => {
-    form.setValue("ingredients", [createEmptyIngredient()]);
+    form.setValue("ingredients", [createEmptyIngredient()], { shouldDirty: true, shouldValidate: true });
   }, [form]);
 
   // Root-level error only (per-row errors handled inside WatchedIngredientRow).

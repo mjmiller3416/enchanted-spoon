@@ -279,7 +279,7 @@ export function MealCarouselWidget({
             strokeWidth={1.5}
           />
           <h2 className="text-lg font-semibold text-foreground">
-            Meals This Week
+            Your planned meals
           </h2>
           <span className="text-xs text-muted-foreground">
             {remainingCount} remaining &middot; {completedCount} cooked

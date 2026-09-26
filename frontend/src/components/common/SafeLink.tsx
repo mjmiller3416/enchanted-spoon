@@ -3,7 +3,7 @@
 import { useCallback, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { hasAnyUnsavedChanges, setNavigationBypass } from "@/hooks/ui/useUnsavedChanges";
+import { hasAnyUnsavedChanges, discardUnsavedChanges, setNavigationBypass } from "@/hooks/ui/useUnsavedChanges";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +17,7 @@ import {
 import { AlertTriangle } from "lucide-react";
 
 interface SafeLinkProps {
+  "aria-current"?: React.AriaAttributes["aria-current"];
   href: string;
   children: React.ReactNode;
   className?: string;
@@ -29,7 +30,7 @@ interface SafeLinkProps {
  * 
  * Use this in navigation components (like Sidebar) to respect unsaved changes.
  */
-export function SafeLink({ href, children, className, onClick }: SafeLinkProps) {
+export function SafeLink({ href, children, className, onClick, ...ariaProps }: SafeLinkProps) {
   const router = useRouter();
   const [showDialog, setShowDialog] = useState(false);
   // Use ref to store href so it's not affected by state updates during dialog close
@@ -61,6 +62,7 @@ export function SafeLink({ href, children, className, onClick }: SafeLinkProps) 
     isConfirmingRef.current = true;
     
     // Enable bypass to prevent re-interception
+    discardUnsavedChanges();
     setNavigationBypass(true);
     
     // Get the href before any state changes
@@ -98,7 +100,7 @@ export function SafeLink({ href, children, className, onClick }: SafeLinkProps) 
 
   return (
     <>
-      <Link href={href} className={className} onClick={handleClick}>
+      <Link {...ariaProps} href={href} className={className} onClick={handleClick}>
         {children}
       </Link>
 
@@ -106,7 +108,7 @@ export function SafeLink({ href, children, className, onClick }: SafeLinkProps) 
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-secondary" />
+              <AlertTriangle className="h-5 w-5 text-secondary" strokeWidth={1.5} />
               Unsaved Changes
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -117,7 +119,7 @@ export function SafeLink({ href, children, className, onClick }: SafeLinkProps) 
             <AlertDialogCancel onClick={handleCancel}>Keep Editing</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirm}
-              className="bg-destructive text-white hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Discard Changes
             </AlertDialogAction>

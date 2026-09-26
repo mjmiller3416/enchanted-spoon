@@ -31,6 +31,7 @@ export interface RecipeCardData {
   dietaryPreference?: string;
   isFavorite?: boolean;
   isAiGenerated?: boolean;
+  isSample?: boolean; // Onboarding starter-pack recipe the user hasn't edited
   sourceUrl?: string; // Original page when imported from a website
   ingredients?: RecipeIngredient[]; // For large card display
   createdAt?: string; // ISO date string for "new recipes" filter
@@ -71,6 +72,8 @@ export interface RecipeResponseDTO extends RecipeBaseDTO {
   total_time: number | null;
   is_favorite: boolean;
   is_ai_generated: boolean;
+  /** Onboarding starter-pack recipe the user hasn't edited yet */
+  is_sample?: boolean;
   created_at: string | null;
   ingredients: RecipeIngredientResponseDTO[];
   group_ids: number[]; // IDs of recipe groups this recipe belongs to
@@ -98,6 +101,8 @@ export interface RecipeCardDTO {
   recipe_name: string;
   is_favorite: boolean;
   is_ai_generated?: boolean;
+  /** Onboarding starter-pack recipe the user hasn't edited yet */
+  is_sample?: boolean;
   source_url?: string | null;
   reference_image_path: string | null;
   banner_image_path: string | null;

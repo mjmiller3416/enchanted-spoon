@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { SidebarPageSkeleton } from "@/components/layout/SidebarPageSkeleton";
 import { DataManagementSection } from "./sections/DataManagementSection";
@@ -24,6 +23,7 @@ import { FeedbackSection } from "./sections/FeedbackSection";
 import { AIFeaturesSection } from "./sections/AIFeaturesSection";
 import { RecipePreferencesSection } from "./sections/RecipePreferencesSection";
 import { ShoppingListSection } from "./sections/ShoppingListSection";
+import { TourReplayCard } from "./TourReplayCard";
 
 export function SettingsView() {
   const searchParams = useSearchParams();
@@ -31,10 +31,15 @@ export function SettingsView() {
   const queryClient = useQueryClient();
   // Stripe Checkout returns to /settings?checkout=success|cancelled
   // (see BillingService success_url/cancel_url) — land on the billing tab.
-  const [activeCategory, setActiveCategory] = useState<SettingsCategory>(() =>
-    searchParams.get("checkout") ? "billing" : "profile"
-  );
-  const { settings, isLoaded, updateSettings, resetSection } = useSettings();
+  const requestedSection = searchParams.get("section");
+  const activeCategory: SettingsCategory = searchParams.get("checkout") ? "billing" : CATEGORIES.find(category => category.id === requestedSection)?.id ?? "profile";
+  const setActiveCategory = (category: SettingsCategory) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("section", category);
+    params.delete("checkout");
+    router.push(`/settings?${params}`, { scroll: false });
+  };
+  const { settings, isLoaded, updateSettings, resetSection, isSyncing, error: settingsError, retrySave } = useSettings();
   const { theme, setTheme } = useTheme();
 
   const checkoutHandled = useRef(false);
@@ -44,13 +49,13 @@ export function SettingsView() {
     checkoutHandled.current = true;
 
     if (checkout === "success") {
-      toast.success("Welcome to Pro! Your subscription is now active.");
+      toast.info("Checkout completed. Refreshing your subscription status…");
       // Webhook writes the new tier — refetch profile + usage caps.
       queryClient.invalidateQueries({ queryKey: currentUserQueryKeys.all });
     } else if (checkout === "cancelled") {
       toast.info("Checkout cancelled — no changes were made.");
     }
-    router.replace("/settings", { scroll: false });
+    router.replace("/settings?section=billing", { scroll: false });
   }, [searchParams, router, queryClient]);
 
   // Handle reset current section
@@ -98,10 +103,6 @@ export function SettingsView() {
       case "shoppingList":
         return (
           <ShoppingListSection
-            autoClearChecked={settings.shoppingList.autoClearChecked}
-            onAutoClearChange={(value) =>
-              updateSettings("shoppingList", { autoClearChecked: value })
-            }
             categorySortOrder={settings.shoppingList.categorySortOrder}
             customCategoryOrder={settings.shoppingList.customCategoryOrder}
             onCategorySortOrderChange={(value) =>
@@ -152,8 +153,8 @@ export function SettingsView() {
   return (
     <PageLayout
       title="Settings"
-      description="Manage your preferences and account settings. Changes are saved automatically."
-      actions={
+      description="Manage your preferences and account settings."
+      actions={!["profile", "billing", "dataManagement", "feedback"].includes(activeCategory) &&
         <Button
           variant="ghost"
           onClick={handleResetSection}
@@ -164,22 +165,27 @@ export function SettingsView() {
         </Button>
       }
     >
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-sm" role="status" aria-live="polite">
+          {isSyncing && <Loader2 className="size-4 animate-spin text-primary" strokeWidth={1.5} />}
+          <span className={settingsError ? "text-destructive" : "text-muted-foreground"}>{settingsError ?? (isSyncing ? "Saving changes…" : "All changes saved")}</span>
+          {settingsError && <Button variant="outline" size="sm" disabled={isSyncing} onClick={() => void retrySave()}>Retry</Button>}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-8">
           {/* Left Sidebar - Category Navigation */}
           <div className="lg:col-span-1">
             <div className="sticky top-24">
-              <Card className="overflow-hidden">
-                <CardContent className="p-4">
-                  <CategoryNav
-                    categories={CATEGORIES}
-                    activeCategory={activeCategory}
-                    onCategoryChange={setActiveCategory}
-                  />
-                </CardContent>
-              </Card>
+              <div data-tour="settings-nav">
+                <CategoryNav
+                  categories={CATEGORIES}
+                  activeCategory={activeCategory}
+                  onCategoryChange={setActiveCategory}
+                />
+              </div>
+
+              <TourReplayCard className="mt-4" />
 
               {/* Version Info */}
-              <div className="mt-4 px-4 py-3 text-center">
+              <div className="hidden lg:block mt-4 px-4 py-3 text-center">
                 <p className="text-xs text-muted-foreground">
                   {appConfig.appName} v{packageJson.version}
                 </p>
@@ -189,7 +195,7 @@ export function SettingsView() {
           </div>
 
           {/* Right Content - Settings Form */}
-          <div className="lg:col-span-3 space-y-6">{renderCategoryContent()}</div>
+          <div className="min-w-0 lg:col-span-3 space-y-6">{renderCategoryContent()}</div>
         </div>
     </PageLayout>
   );

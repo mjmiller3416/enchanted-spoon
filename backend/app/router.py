@@ -21,6 +21,7 @@ from app.api import (
     planner,
     recipe_groups,
     recipes,
+    sample_data,
     settings,
     shopping,
     stripe_webhooks,
@@ -58,6 +59,7 @@ api_router.include_router(conversion_rules.router, prefix="/api/unit-conversions
 api_router.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 api_router.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 api_router.include_router(users.router, prefix="/api/users", tags=["users"])
+api_router.include_router(sample_data.router, prefix="/api/sample-data", tags=["sample-data"])
 api_router.include_router(billing.router, prefix="/api/billing", tags=["billing"])
 
 # ── Admin routes ─────────────────────────────────────────────────────────

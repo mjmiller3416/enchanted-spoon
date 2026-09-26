@@ -1,6 +1,6 @@
 "use client";
 
-import { Flag } from "lucide-react";
+import { Flag, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 
 interface ShoppingItemProps {
   item: ShoppingItemResponseDTO;
+  pending?: boolean;
   onToggle: (id: number) => void;
   onToggleFlagged: (id: number) => void;
 }
@@ -28,14 +29,14 @@ interface ShoppingItemProps {
  * - Tooltip shows recipe sources with usage counts (e.g., "Air Fryer Potatoes (×2)")
  * - Quantity badge on the right
  */
-export function ShoppingItem({ item, onToggle, onToggleFlagged }: ShoppingItemProps) {
+export function ShoppingItem({ item, pending = false, onToggle, onToggleFlagged }: ShoppingItemProps) {
   const handleClick = () => {
-    onToggle(item.id);
+    if (!pending) onToggle(item.id);
   };
 
   const handleFlagClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onToggleFlagged(item.id);
+    if (!pending) onToggleFlagged(item.id);
   };
 
   // Format quantity with unit for badge display
@@ -72,6 +73,7 @@ export function ShoppingItem({ item, onToggle, onToggleFlagged }: ShoppingItemPr
 
   return (
     <div
+      aria-busy={pending}
       onClick={handleClick}
       className={cn(
         "group flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer",
@@ -83,6 +85,8 @@ export function ShoppingItem({ item, onToggle, onToggleFlagged }: ShoppingItemPr
     >
       {/* Checkbox */}
       <Checkbox
+        aria-label={`Collected ${item.ingredient_name}`}
+        disabled={pending}
         checked={item.have}
         onCheckedChange={() => onToggle(item.id)}
         onClick={(e) => e.stopPropagation()}
@@ -107,7 +111,7 @@ export function ShoppingItem({ item, onToggle, onToggleFlagged }: ShoppingItemPr
         {/* Ingredient name */}
         <span
           className={cn(
-            "text-foreground font-medium block truncate transition-all duration-200",
+            "text-foreground font-medium block break-words transition-all duration-200",
             item.have && "line-through text-muted-foreground decoration-muted/50"
           )}
         >
@@ -154,9 +158,12 @@ export function ShoppingItem({ item, onToggle, onToggleFlagged }: ShoppingItemPr
 
       {/* Flag icon - anchored to right */}
       <Button
+        disabled={pending}
         variant="ghost"
         size="icon-sm"
         onClick={handleFlagClick}
+        aria-label={item.flagged ? "Remove item flag" : "Flag item"}
+        aria-pressed={item.flagged}
         className={cn(
           "shrink-0",
           item.flagged
@@ -164,12 +171,13 @@ export function ShoppingItem({ item, onToggle, onToggleFlagged }: ShoppingItemPr
             : "text-muted-foreground/40 hover:text-muted-foreground"
         )}
       >
-        <Flag
+        {pending ? <Loader2 className="size-4 animate-spin" strokeWidth={1.5} /> : <Flag
+          strokeWidth={1.5}
           className={cn(
             "size-4",
             item.flagged && "fill-warning"
           )}
-        />
+        />}
       </Button>
     </div>
   );

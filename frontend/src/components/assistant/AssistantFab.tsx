@@ -27,6 +27,7 @@ export function AssistantFab() {
     <Button
       size="icon"
       aria-label="Ask the Genie"
+      data-tour="genie-trigger"
       onClick={openAssistant}
       className="md:hidden fixed bottom-24 right-4 z-40 size-12 rounded-full shadow-floating print:hidden"
     >

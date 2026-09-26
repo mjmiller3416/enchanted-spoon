@@ -224,7 +224,7 @@ class UserRepo:
         self.session.flush()
         return user
 
-    def get_settings(self, user_id: int) -> Optional[UserSettings]:
+    def get_settings(self, user_id: int, *, for_update: bool = False) -> Optional[UserSettings]:
         """
         Get user settings by user ID.
 
@@ -235,9 +235,11 @@ class UserRepo:
             UserSettings if found, None otherwise.
         """
         stmt = select(UserSettings).where(UserSettings.user_id == user_id)
+        if for_update:
+            stmt = stmt.with_for_update()
         return self.session.scalars(stmt).first()
 
-    def get_or_create_settings(self, user_id: int) -> UserSettings:
+    def get_or_create_settings(self, user_id: int, *, for_update: bool = False) -> UserSettings:
         """
         Get user settings, creating with defaults if they don't exist.
 
@@ -250,7 +252,7 @@ class UserRepo:
         Returns:
             UserSettings (existing or newly created with defaults).
         """
-        settings = self.get_settings(user_id)
+        settings = self.get_settings(user_id, for_update=for_update)
         if settings is not None:
             return settings
 

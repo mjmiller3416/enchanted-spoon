@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { accountStorageKey } from "@/lib/account-storage";
 import type { RecipeFilters } from "@/lib/filterUtils";
 import type {
   SortOption,
@@ -17,6 +19,7 @@ export interface SavedRecipeFilterState {
   activeQuickFilters: string[];
   sortBy: SortOption;
   sortDirection: SortDirection;
+  page?: { key: string; index: number };
   timestamp: number;
 }
 
@@ -69,6 +72,8 @@ interface UseRecipeFilterPersistenceReturn {
  * ```
  */
 export function useRecipeFilterPersistence(): UseRecipeFilterPersistenceReturn {
+  const { userId } = useAuth();
+  const storageKey = accountStorageKey(STORAGE_KEY, userId);
   const saveFilterState = useCallback(
     (state: Omit<SavedRecipeFilterState, "timestamp">) => {
       try {
@@ -76,17 +81,17 @@ export function useRecipeFilterPersistence(): UseRecipeFilterPersistenceReturn {
           ...state,
           timestamp: Date.now(),
         };
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+        sessionStorage.setItem(storageKey, JSON.stringify(toSave));
       } catch (error) {
         console.error("[useRecipeFilterPersistence] Failed to save:", error);
       }
     },
-    []
+    [storageKey]
   );
 
   const loadFilterState = useCallback((): SavedRecipeFilterState | null => {
     try {
-      const stored = sessionStorage.getItem(STORAGE_KEY);
+      const stored = sessionStorage.getItem(storageKey);
       if (!stored) return null;
 
       const parsed = JSON.parse(stored) as SavedRecipeFilterState;
@@ -94,7 +99,7 @@ export function useRecipeFilterPersistence(): UseRecipeFilterPersistenceReturn {
       // Check for staleness
       const age = Date.now() - parsed.timestamp;
       if (age > MAX_AGE_MS) {
-        sessionStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(storageKey);
         return null;
       }
 
@@ -103,15 +108,15 @@ export function useRecipeFilterPersistence(): UseRecipeFilterPersistenceReturn {
       console.error("[useRecipeFilterPersistence] Failed to load:", error);
       return null;
     }
-  }, []);
+  }, [storageKey]);
 
   const clearFilterState = useCallback(() => {
     try {
-      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(storageKey);
     } catch (error) {
       console.error("[useRecipeFilterPersistence] Failed to clear:", error);
     }
-  }, []);
+  }, [storageKey]);
 
   return {
     saveFilterState,

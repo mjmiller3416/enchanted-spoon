@@ -3,7 +3,7 @@
 import { Sun, Moon, Monitor, Palette, Check } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "../SectionHeader";
 import { appConfig } from "@/lib/config";
@@ -52,7 +52,7 @@ export function AppearanceSection({
           {/* Theme Selection */}
           <div className="space-y-3">
             <Label className="flex items-center gap-2">
-              <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+              <Palette strokeWidth={1.5} className="h-3.5 w-3.5 text-muted-foreground" />
               Theme
             </Label>
             <div className="grid grid-cols-3 gap-3 max-w-lg">
@@ -61,11 +61,12 @@ export function AppearanceSection({
                 const isSelected = theme === option.value;
 
                 return (
-                  <button
+                  <Button variant="outline"
+                    aria-pressed={isSelected}
                     key={option.value}
                     onClick={() => onThemeChange(option.value)}
                     className={cn(
-                      "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200",
+                      "relative h-auto flex flex-col items-center gap-2 p-3 sm:p-4 rounded-xl border-2 transition-all duration-200",
                       isSelected
                         ? "border-secondary bg-secondary/10 shadow-md"
                         : "border-border hover:border-muted hover:bg-hover"
@@ -77,7 +78,7 @@ export function AppearanceSection({
                         isSelected ? "bg-secondary/20" : "bg-elevated"
                       )}
                     >
-                      <Icon
+                      <Icon strokeWidth={1.5}
                         className={cn(
                           "h-5 w-5",
                           isSelected ? "text-secondary" : "text-muted-foreground"
@@ -94,10 +95,10 @@ export function AppearanceSection({
                     </span>
                     {isSelected && (
                       <div className="absolute top-2 right-2">
-                        <Check className="h-4 w-4 text-secondary" />
+                        <Check strokeWidth={1.5} className="h-4 w-4 text-secondary" />
                       </div>
                     )}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -106,17 +107,6 @@ export function AppearanceSection({
             </p>
           </div>
 
-          <Separator />
-
-          {/* Future: Accent Color, Font Size, etc. */}
-          <div className="bg-elevated rounded-xl p-6 text-center border border-dashed border-border">
-            <p className="text-sm text-muted-foreground">
-              More appearance options coming soon
-            </p>
-            <p className="text-xs text-muted-foreground/70 mt-1">
-              Accent colors, font sizes, and more
-            </p>
-          </div>
         </div>
       </CardContent>
     </Card>

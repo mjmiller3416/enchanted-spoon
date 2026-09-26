@@ -66,102 +66,35 @@ export function useIngredientBreakdown(recipeIds: number[]) {
 /**
  * Toggle item's "have" status with optimistic updates.
  */
-export function useToggleItem() {
+function useShoppingField(field: "have" | "flagged") {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
-
+  const patch = (id: number, value: boolean) => queryClient.setQueryData<ShoppingListResponseDTO>(shoppingQueryKeys.list(), old => {
+    if (!old) return old;
+    const items = old.items.map(item => item.id === id ? { ...item, [field]: value } : item);
+    return { ...old, items, checked_items: items.filter(item => item.have).length };
+  });
   return useMutation({
-    mutationFn: async (itemId: number) => {
-      const token = await getToken();
-      return shoppingApi.toggleItem(itemId, token);
-    },
-
-    // Optimistic update
-    onMutate: async (itemId) => {
-      // Cancel outgoing refetches
+    mutationKey: ["shopping", "write"],
+    mutationFn: async ({ id, value }: { id: number; value: boolean }) => shoppingApi.updateItem(id, { [field]: value }, await getToken()),
+    onMutate: async ({ id, value }) => {
       await queryClient.cancelQueries({ queryKey: shoppingQueryKeys.list() });
-
-      // Snapshot previous value
-      const previousData = queryClient.getQueryData<ShoppingListResponseDTO>(
-        shoppingQueryKeys.list()
-      );
-
-      // Optimistically update
-      if (previousData) {
-        queryClient.setQueryData<ShoppingListResponseDTO>(
-          shoppingQueryKeys.list(),
-          {
-            ...previousData,
-            items: previousData.items.map((item) =>
-              item.id === itemId ? { ...item, have: !item.have } : item
-            ),
-            checked_items: previousData.items.find((i) => i.id === itemId)?.have
-              ? previousData.checked_items - 1
-              : previousData.checked_items + 1,
-          }
-        );
-      }
-
-      // Return context for rollback
-      return { previousData };
+      const previous = queryClient.getQueryData<ShoppingListResponseDTO>(shoppingQueryKeys.list())?.items.find(item => item.id === id)?.[field];
+      patch(id, value);
+      return { previous };
     },
-
-    // Rollback on error
-    onError: (_err, _itemId, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(shoppingQueryKeys.list(), context.previousData);
-      }
-    },
-
-    // Dispatch event for sidebar sync
+    onSuccess: (item, { id }) => patch(id, item[field]),
+    onError: (_error, { id }, context) => { if (context?.previous !== undefined) patch(id, context.previous); },
     onSettled: () => {
-      window.dispatchEvent(new Event("shopping-list-updated"));
-    },
-  });
-}
-
-/**
- * Toggle item's "flagged" status with optimistic updates.
- */
-export function useToggleFlagged() {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (itemId: number) => {
-      const token = await getToken();
-      return shoppingApi.toggleFlagged(itemId, token);
-    },
-
-    onMutate: async (itemId) => {
-      await queryClient.cancelQueries({ queryKey: shoppingQueryKeys.list() });
-
-      const previousData = queryClient.getQueryData<ShoppingListResponseDTO>(
-        shoppingQueryKeys.list()
-      );
-
-      if (previousData) {
-        queryClient.setQueryData<ShoppingListResponseDTO>(
-          shoppingQueryKeys.list(),
-          {
-            ...previousData,
-            items: previousData.items.map((item) =>
-              item.id === itemId ? { ...item, flagged: !item.flagged } : item
-            ),
-          }
-        );
-      }
-
-      return { previousData };
-    },
-
-    onError: (_err, _itemId, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(shoppingQueryKeys.list(), context.previousData);
+      if (queryClient.isMutating({ mutationKey: ["shopping", "write"] }) === 1) {
+        void queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() });
+        window.dispatchEvent(new Event("shopping-list-updated"));
       }
     },
   });
 }
+export function useToggleItem() { return useShoppingField("have"); }
+export function useToggleFlagged() { return useShoppingField("flagged"); }
 
 /**
  * Add a manual item.
@@ -205,55 +138,9 @@ export function useAddManualItem() {
 export function useDeleteItem() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async (itemId: number) => {
-      const token = await getToken();
-      return shoppingApi.deleteItem(itemId, token);
-    },
-
-    onMutate: async (itemId) => {
-      await queryClient.cancelQueries({ queryKey: shoppingQueryKeys.list() });
-
-      const previousData = queryClient.getQueryData<ShoppingListResponseDTO>(
-        shoppingQueryKeys.list()
-      );
-
-      if (previousData) {
-        const deletedItem = previousData.items.find((i) => i.id === itemId);
-        queryClient.setQueryData<ShoppingListResponseDTO>(
-          shoppingQueryKeys.list(),
-          {
-            ...previousData,
-            items: previousData.items.filter((item) => item.id !== itemId),
-            total_items: previousData.total_items - 1,
-            checked_items: deletedItem?.have
-              ? previousData.checked_items - 1
-              : previousData.checked_items,
-            manual_items:
-              deletedItem?.source === "manual"
-                ? previousData.manual_items - 1
-                : previousData.manual_items,
-            recipe_items:
-              deletedItem?.source === "recipe"
-                ? previousData.recipe_items - 1
-                : previousData.recipe_items,
-          }
-        );
-      }
-
-      return { previousData };
-    },
-
-    onError: (_err, _itemId, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(shoppingQueryKeys.list(), context.previousData);
-      }
-    },
-
-    onSettled: () => {
-      window.dispatchEvent(new Event("shopping-list-updated"));
-    },
+    mutationFn: async (id: number) => shoppingApi.deleteItem(id, await getToken()),
+    onSettled: () => { void queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() }); },
   });
 }
 

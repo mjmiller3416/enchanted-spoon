@@ -1,10 +1,20 @@
 "use client";
 
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { maybeHandleAiGateError } from "@/lib/paywall";
+import { SettingsProvider } from "./SettingsProvider";
 
 export function QueryProvider({ children }: { children: ReactNode }) {
+  const { userId, isLoaded } = useAuth();
+  if (!isLoaded) return null;
+  // Remount all personal state and give each identity a separate cache. Late
+  // responses from the previous account can only reach its retired client.
+  return <QuerySession key={userId ?? "guest"}>{children}</QuerySession>;
+}
+
+function QuerySession({ children }: { children: ReactNode }) {
   // Create QueryClient inside useState to avoid recreating on every render
   const [queryClient] = useState(
     () =>
@@ -26,18 +36,23 @@ export function QueryProvider({ children }: { children: ReactNode }) {
             refetchOnWindowFocus: true,
             // Retry failed requests once
             retry: 1,
-            // Don't refetch on reconnect (user can refresh manually)
-            refetchOnReconnect: false,
+            refetchOnReconnect: true,
           },
           mutations: {
-            // Retry mutations once on failure
-            retry: 1,
+            // A lost response does not mean the write failed. Toggle/create/AI
+            // operations must never be repeated automatically.
+            retry: false,
           },
         },
       })
   );
 
+  useEffect(() => () => {
+    void queryClient.cancelQueries();
+    queryClient.clear();
+  }, [queryClient]);
+
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}><SettingsProvider>{children}</SettingsProvider></QueryClientProvider>
   );
 }

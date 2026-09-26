@@ -17,6 +17,7 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  Compass,
   MessageSquarePlus,
   Sparkles,
   Shield,
@@ -56,6 +57,7 @@ import { useShoppingList, useRefreshShoppingList, useCurrentUser } from "@/hooks
 import { useTheme } from "@/hooks/ui";
 import { useNavActions } from "@/lib/providers/NavActionsProvider";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
+import { useTour } from "@/lib/providers/TourProvider";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TopNavLink — Inline navigation link for the top nav bar
@@ -79,15 +81,16 @@ function TopNavLink({
   return (
     <SafeLink
       href={href}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium",
+        "flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium",
         "transition-colors duration-200",
         isActive
           ? "text-primary bg-primary/10"
           : "text-muted-foreground hover:text-foreground hover:bg-hover/50"
       )}
     >
-      <Icon className="h-4 w-4" strokeWidth={isActive ? 2 : 1.5} />
+      <Icon className="h-4 w-4" strokeWidth={1.5} />
       <span>{label}</span>
 
       {badge !== undefined && badge > 0 && (
@@ -130,6 +133,7 @@ function NavButton({
   return (
     <SafeLink
       href={href}
+      aria-current={isActive ? "page" : undefined}
       onClick={onClick}
       className={cn(
         // Base layout
@@ -208,6 +212,7 @@ function TopNavAddMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
+          data-tour="nav-add"
           className={cn(
             "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium",
             "transition-colors duration-200",
@@ -252,6 +257,7 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
   const { signOut } = useClerk();
   const router = useRouter();
   const { isAdmin } = useCurrentUser();
+  const { startTour, isActive: tourActive } = useTour();
 
   const handleSignOut = async () => {
     await signOut();
@@ -369,6 +375,15 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
         >
           <Sparkles className="h-4 w-4" />
           Ask the Genie
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={startTour}
+          disabled={tourActive}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <Compass className="h-4 w-4" strokeWidth={1.5} />
+          Take the tour
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -501,31 +516,32 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
         {/* Left section: Logo + App Name + Hamburger */}
         <div className="flex items-center gap-3 mr-6">
           <Logo className="h-8 w-auto flex-shrink-0" />
-          <span className="text-lg font-semibold text-foreground whitespace-nowrap">
+          <span className={cn("text-lg font-semibold text-foreground whitespace-nowrap", isPinned && Boolean(navActions) && "hidden")}>
             {appConfig.appName}
           </span>
 
-          {/* Hamburger button — visible between md and lg */}
+          {/* Hamburger button — visible between md and xl */}
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden ml-1"
+            className="xl:hidden ml-1"
             aria-label="Open navigation menu"
+            data-tour="nav-main nav-add"
             onClick={() => setSheetOpen(true)}
           >
             <Menu className="size-5" strokeWidth={1.5} />
           </Button>
         </div>
 
-        {/* Center section: Inline nav links — hidden below lg */}
-        <nav className="hidden lg:flex items-center gap-1.5 flex-1" aria-label="Main navigation">
+        {/* Center section: Inline nav links — hidden below xl */}
+        <nav className="hidden xl:flex items-center gap-1.5 flex-1" aria-label="Main navigation" data-tour="nav-main">
           {navigation.map((item) => (
             <TopNavLink
               key={item.href}
               icon={item.icon}
               label={item.name}
               href={item.href}
-              isActive={pathname === item.href}
+              isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
               badge={item.hasBadge ? shoppingListRemaining : undefined}
             />
           ))}
@@ -533,10 +549,10 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
         </nav>
 
         {/* Spacer to push right section when nav is hidden */}
-        <div className="flex-1 lg:hidden" />
+        <div className="flex-1 xl:hidden" />
 
         {/* Pinned page actions — injected from PageLayout when header scrolls out */}
-        {navActions && (
+        {navActions && isPinned && (
           <div
             className={cn(
               "flex items-center gap-2 border-l border-border pl-3",
@@ -559,6 +575,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
                 variant="ghost"
                 size="icon"
                 aria-label="Open the Genie"
+                data-tour="genie-trigger"
                 onClick={onOpenAssistant}
               >
                 <Sparkles className="size-5" strokeWidth={1.5} />
@@ -632,7 +649,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
                 icon={item.icon}
                 label={item.name}
                 href={item.href}
-                isActive={pathname === item.href}
+                isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
                 badge={item.hasBadge ? shoppingListRemaining : undefined}
                 onClick={handleSheetNavigate}
               />

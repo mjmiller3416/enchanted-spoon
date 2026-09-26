@@ -58,7 +58,8 @@ export function QuickAddForm({ variant }: QuickAddFormProps) {
     <QuantityInput
       value={quantity}
       onChange={setQuantity}
-      placeholder="Qty"
+      aria-label="Item quantity"
+            placeholder="Qty"
       className="w-16"
     />
   );

@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, case, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, case, false, func
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -59,6 +59,10 @@ class Recipe(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_ai_generated: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # Starter-pack recipe seeded for a new account; cleared once the user edits it
+    is_sample: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False, index=True
+    )
     # Original URL when the recipe was imported from a website (None otherwise)
     source_url: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)
 

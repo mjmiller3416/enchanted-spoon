@@ -66,7 +66,7 @@ export function TonightCard({ entry, isLoading = false }: TonightCardProps) {
           />
           <div className="absolute top-3 left-3">
             <span className="inline-flex items-center rounded-full bg-background/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-foreground backdrop-blur-md">
-              Tonight
+              Up next
             </span>
           </div>
         </div>
@@ -150,7 +150,7 @@ function PlanWeekCard() {
       <div className="rounded-full bg-primary/10 p-4">
         <CalendarDays className="size-8 text-primary" strokeWidth={1.5} />
       </div>
-      <h3 className="text-xl font-semibold text-foreground">Plan your week</h3>
+      <h3 className="text-xl font-semibold text-foreground">Plan your next meal</h3>
       <p className="max-w-sm text-sm text-muted-foreground">
         Pick meals from your recipes and your shopping list builds itself.
       </p>

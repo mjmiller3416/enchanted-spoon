@@ -253,7 +253,7 @@ export function DirectionsNotesStep() {
           <Textarea
             id="wizard-notes"
             value={notes}
-            onChange={(e) => form.setValue("notes", e.target.value)}
+            onChange={(e) => form.setValue("notes", e.target.value, { shouldDirty: true })}
             placeholder={[
               "Add helpful notes for this recipe, such as:",
               "  - Ingredient substitutions",

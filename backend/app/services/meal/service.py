@@ -250,6 +250,8 @@ class MealServiceCore:
             if update_dto.tags is not None:
                 meal.tags = update_dto.tags
 
+            # An edited starter meal is the user's now; "Remove sample data" keeps it
+            meal.is_sample = False
             updated_meal = self.repo.update(meal)
             self.session.commit()
 

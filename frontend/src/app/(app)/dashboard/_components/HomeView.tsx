@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { UtensilsCrossed } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
+import { QueryError } from "@/components/common/QueryError";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { PageHeaderContent } from "@/components/layout/PageHeader";
@@ -35,18 +34,21 @@ export function HomeView() {
     isLoading: statsLoading,
     error: statsError,
     refetch: refetchStats,
+    isFetching: statsFetching,
   } = useDashboardStats();
   const {
     data: plannerEntries,
     isLoading: plannerLoading,
     error: plannerError,
     refetch: refetchPlanner,
+    isFetching: plannerFetching,
   } = usePlannerEntries();
   const {
     data: shoppingData,
     isLoading: shoppingLoading,
     error: shoppingError,
     refetch: refetchShopping,
+    isFetching: shoppingFetching,
   } = useShoppingList();
 
   const [setupComplete, setSetupComplete, setupLoaded] = useGetStartedComplete();
@@ -72,7 +74,7 @@ export function HomeView() {
     }
   }, [setupLoaded, setupComplete, entries.length, setSetupComplete]);
 
-  const dataReady = !statsLoading && !plannerLoading && !!statsData;
+  const dataReady = !statsLoading && !plannerLoading && !statsError && !plannerError && !!statsData;
   const showGetStarted =
     dataReady && totalRecipes === 0 && entries.length === 0;
   const showProgressBanner =
@@ -87,68 +89,35 @@ export function HomeView() {
     (activeEntries.length > 1 || (completedCount > 0 && entries.length > 0));
 
   const firstName = user?.firstName || "there";
-  const hasError = statsError || plannerError || shoppingError;
 
   // State-aware subtitle — no fake enthusiasm over zeros
-  const subtitle = plannerLoading ? null : activeEntries.length > 0 ? (
+  const subtitle = plannerError ? <>Your saved plan will appear when the connection recovers.</> : plannerLoading ? null : activeEntries.length > 0 ? (
     <>
       You have{" "}
       <span className="font-semibold text-primary">{activeEntries.length}</span>{" "}
-      meal{activeEntries.length === 1 ? "" : "s"} planned this week.
+      meal{activeEntries.length === 1 ? "" : "s"} in your plan.
     </>
   ) : completedCount > 0 ? (
     <>
       All caught up —{" "}
       <span className="font-semibold text-primary">{completedCount}</span> meal
-      {completedCount === 1 ? "" : "s"} cooked this week. 🎉
+      {completedCount === 1 ? "" : "s"} marked complete.
     </>
   ) : (
-    <>Let&apos;s plan your week.</>
+    <>Let&apos;s plan your next meal.</>
   );
 
-  if (hasError) {
-    return (
-      <PageLayout
-        headerContent={
-          <PageHeaderContent>
-            <div className="flex flex-1 flex-col gap-1.5">
-              <h1 className="text-2xl font-semibold text-foreground">
-                {`${getGreeting()}, ${firstName} 👋`}
-              </h1>
-            </div>
-          </PageHeaderContent>
-        }
-      >
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="rounded-full bg-destructive/10 p-4 mb-4">
-            <UtensilsCrossed className="size-8 text-destructive" strokeWidth={1.5} />
-          </div>
-          <h3 className="text-lg font-semibold">Something went wrong</h3>
-          <p className="text-sm text-muted-foreground mt-1 mb-4">
-            Failed to load your Home data. Please try again.
-          </p>
-          <Button onClick={() => {
-            if (statsError) refetchStats();
-            if (plannerError) refetchPlanner();
-            if (shoppingError) refetchShopping();
-          }}>
-            Try Again
-          </Button>
-        </div>
-      </PageLayout>
-    );
-  }
 
   return (
     <PageLayout
       headerContent={
         <PageHeaderContent>
           <div className="flex flex-1 flex-col gap-1.5">
-            <h1 className="text-2xl font-semibold text-foreground">
+            <h1 className="text-page-title text-foreground">
               {`${getGreeting()}, ${firstName} 👋`}
             </h1>
             {subtitle ? (
-              <p className="text-md text-muted-foreground">{subtitle}</p>
+              <p className="text-sm text-muted-foreground">{subtitle}</p>
             ) : (
               <Skeleton className="h-5 w-64" />
             )}
@@ -160,6 +129,7 @@ export function HomeView() {
       }
       contentClassName="flex flex-col"
     >
+      {statsError && <div className="mb-4"><QueryError title="Couldn’t refresh your recipe summary" onRetry={() => void refetchStats()} retrying={statsFetching} /></div>}
       {showGetStarted ? (
         <GetStartedCard
           recipesDone={totalRecipes > 0}
@@ -174,14 +144,18 @@ export function HomeView() {
           )}
 
           {/* Tonight hero + shopping status */}
-          <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3 lg:gap-6">
+          <div
+            className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3 lg:gap-6"
+            data-tour={dataReady ? "home-overview" : undefined}
+          >
             <div className="lg:col-span-2">
-              <TonightCard entry={tonight} isLoading={plannerLoading} />
+              {plannerError && <div className="mb-4"><QueryError title="Couldn’t refresh your meal plan" onRetry={() => void refetchPlanner()} retrying={plannerFetching} /></div>}
+              {(!plannerError || plannerEntries) && <TonightCard entry={tonight} isLoading={plannerLoading} />}
             </div>
-            <ShoppingListWidget
-              shoppingData={shoppingData}
-              isLoading={shoppingLoading}
-            />
+            <div>
+              {shoppingError && <div className="mb-4"><QueryError title="Couldn’t refresh your shopping list" onRetry={() => void refetchShopping()} retrying={shoppingFetching} /></div>}
+              {(!shoppingError || shoppingData) && <ShoppingListWidget shoppingData={shoppingData} isLoading={shoppingLoading} />}
+            </div>
           </div>
 
           {/* This Week strip */}

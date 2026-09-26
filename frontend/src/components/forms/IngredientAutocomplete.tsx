@@ -19,6 +19,10 @@ import {
 export type { AutocompleteIngredient } from "@/hooks/forms/useIngredientAutocomplete";
 
 export interface IngredientAutocompleteProps {
+  id?: string;
+  "aria-label"?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
   /** Available ingredients to search/filter. When omitted, fetches automatically. */
   ingredients?: AutocompleteIngredient[];
   /** Current input value (controlled) */
@@ -44,6 +48,10 @@ export interface IngredientAutocompleteProps {
 }
 
 export function IngredientAutocomplete({
+  id,
+  "aria-label": ariaLabel = "Ingredient name",
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
   ingredients: ingredientsProp,
   value,
   onValueChange,
@@ -57,6 +65,7 @@ export function IngredientAutocomplete({
   autoFocus = false,
 }: IngredientAutocompleteProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const listId = React.useId();
   const listRef = React.useRef<HTMLDivElement>(null);
 
   // Self-fetch ingredients when none are provided via props
@@ -153,6 +162,15 @@ export function IngredientAutocomplete({
       <PopoverAnchor asChild>
         <Input
           ref={inputRef}
+          id={id}
+          role="combobox"
+          aria-label={ariaLabel}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls={open ? listId : undefined}
+          aria-activedescendant={open && items[highlightedIndex] ? `${listId}-${highlightedIndex}` : undefined}
           type="text"
           value={value}
           onChange={handleInputChange}
@@ -181,6 +199,7 @@ export function IngredientAutocomplete({
       >
         <div
           ref={listRef}
+          id={listId}
           className="max-h-52 overflow-y-auto p-1"
           role="listbox"
         >
@@ -194,6 +213,7 @@ export function IngredientAutocomplete({
             <div
               key={item.type === "ingredient" ? item.data?.id : "create-new"}
               role="option"
+              id={`${listId}-${index}`}
               aria-selected={highlightedIndex === index}
               className={cn(
                 "flex items-center justify-between rounded-sm px-2 py-1.5 text-sm cursor-pointer transition-colors duration-150",

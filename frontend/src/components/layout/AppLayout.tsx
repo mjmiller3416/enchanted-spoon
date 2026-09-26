@@ -14,6 +14,7 @@ import {
   RecipeWizardProvider,
   useRecipeWizardDialog,
 } from "@/lib/providers/RecipeWizardProvider";
+import { TourProvider } from "@/lib/providers/TourProvider";
 import { RecipeWizardView } from "@/app/(app)/recipes/_components/wizard/RecipeWizardView";
 import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
 import { PaywallDialog } from "@/components/common/PaywallDialog";
@@ -29,14 +30,15 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-screen print:block print:min-h-0">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">Skip to main content</a>
       <TopNav onOpenAssistant={openAssistant} />
       <MobileBottomNav onOpenAssistant={openAssistant} />
-      <main className="flex-1 pb-20 md:pb-0 print:pb-0">
+      <main id="main-content" tabIndex={-1} className="flex-1 pb-20 md:pb-0 print:pb-0">
         {children}
       </main>
       <AssistantFab />
       <AssistantPopup open={assistantOpen} onOpenChange={setAssistantOpen} />
-      <RecipeWizardView
+      {isOpen && <RecipeWizardView
         key={
           mode === "edit"
             ? `edit-${editRecipeId}`
@@ -49,7 +51,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         mode={mode}
         recipeId={editRecipeId}
         initialGenerated={generatedSeed}
-      />
+      />}
       <ScrollToTopButton />
       <PaywallDialog />
     </div>
@@ -62,7 +64,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <NavActionsProvider>
         <AssistantProvider>
           <RecipeWizardProvider>
-            <AppLayoutInner>{children}</AppLayoutInner>
+            <TourProvider>
+              <AppLayoutInner>{children}</AppLayoutInner>
+            </TourProvider>
           </RecipeWizardProvider>
         </AssistantProvider>
       </NavActionsProvider>

@@ -32,6 +32,7 @@ from ...models import (
     ShoppingItem,
     ShoppingItemContribution,
 )
+from ..sample_data.starter_pack import starter_image_urls
 
 
 # -- Backup Operations Mixin ---------------------------------------------------------------------
@@ -64,11 +65,13 @@ class BackupOperationsMixin:
 
         Returns the count of successfully deleted images.
         """
+        # Starter-pack artwork is shared by every account; never destroy it
+        shared = starter_image_urls()
         deleted_count = 0
 
         for recipe in recipes:
             for image_path in [recipe.reference_image_path, recipe.banner_image_path]:
-                if image_path:
+                if image_path and image_path not in shared:
                     public_id = self._extract_cloudinary_public_id(image_path)
                     if public_id:
                         try:
