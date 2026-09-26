@@ -9,7 +9,7 @@ worth more after the fact than the checklist itself.
 
 | Doc | Status |
 |-----|--------|
-| [enchanted-spoon-rename.md](enchanted-spoon-rename.md) | Open — final app rename (Whiskful → Enchanted Spoon), 3 phases + legal gate, August 2026 |
+| [beta-readiness.md](beta-readiness.md) | Done in code (on staging) — friends-and-family beta audit, 2026-09-26; lists the manual pre-invite steps and known leftovers |
 | [public-release-roadmap.md](public-release-roadmap.md) | Open — full pre-launch audit + phased plan, August 2026 |
 | [ai-gateway-and-eval.md](ai-gateway-and-eval.md) | Open — provider abstraction + eval harness, 6 phases (Phase 0 is a go/no-go gate), August 2026 |
 | [error-reporting.md](error-reporting.md) | Partially shipped — see status note at top of the doc; referenced from the roadmap's Phase 3 |
@@ -20,3 +20,4 @@ worth more after the fact than the checklist itself.
 audit that motivated them, July 2026 — route groups, landing page, Home redesign, flow wiring,
 polish) and the **shared frontend utilities extraction**. Both are fully implemented and
 verified against the current codebase. Read them for historical "why," not as a task list.
+It also holds the **Enchanted Spoon rename** plan (all phases executed).

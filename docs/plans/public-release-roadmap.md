@@ -96,6 +96,14 @@ hurt if ignored:
 > `customer.subscription.updated` for it backfills the flag.
 > Remaining fronts: observability, CSP + admin SQL console allowlist, then Phases 4–5.
 
+> **Update 2026-09-26 (friends-and-family beta audit):** see
+> [`beta-readiness.md`](beta-readiness.md). On staging: the admin SQL console is now a
+> single read-only statement in a rolled-back READ ONLY transaction (closes the Phase 3
+> item); Phase 4's account-deletion flow, `(app)/error.tsx` boundary, "Manage Profile"
+> fix, and theme-picker `aria-pressed` are done. Also fixed: restore data loss, xlsx
+> import, email-relink account takeover, emails in public feedback issues, a frontend
+> file-write route, and fresh-database migrations.
+
 ## Status tracker
 
 | Phase | Focus | Depends on | Status (2026-08-23) |
@@ -103,8 +111,8 @@ hurt if ignored:
 | [0](#phase-0--reliability--cost-guardrails-do-first) | Reliability & cost guardrails | — | ✅ Complete, deployed |
 | [1](#phase-1--monetization-backend) | Monetization (backend) | Phase 0's usage-limit plumbing; a product decision | ✅ Complete (#164/#166 + #165 verification moved to Phase 2) |
 | [2](#phase-2--monetization-frontend) | Monetization (frontend) | Phase 1 | ✅ Complete, deployed — #164/#165/#166 closed 2026-08-23; prod checkout smoke test passed 2026-09-02 (phase fully closed) |
-| [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Nearly done — CI hard-gated 2026-08-23; remaining: CSP + admin SQL console allowlist, observability (deferred) |
-| [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) | Not started (re-verified item-by-item 2026-08-23; only the stray route dirs turned out already resolved) |
+| [3](#phase-3--production-hardening) | Production hardening | — (parallel to 0–2) | 🔶 Nearly done — CI hard-gated 2026-08-23; SQL console locked down 2026-09-26; remaining: CSP, observability (deferred) |
+| [4](#phase-4--ui-polish--cleanup) | UI polish & cleanup | — (parallel, lowest urgency) | 🔶 Partly done 2026-09-26 — account deletion, error boundary, Manage Profile, aria-pressed; remaining: dead code, design-system sweep, keyboard-nav pass |
 | [5](#phase-5--ai-feature-completeness) | AI feature completeness | Phase 0 | Not started, except the `/api/ai/meal-genie` → `/assistant` rename half of the URL-prefix item (done 2026-08-22) |
 
 Phases 0 and 3 are the most urgent and don't block on each other — either can start first.
@@ -358,8 +366,10 @@ test suites (`test_metered_free_tier.py`, `test_stripe_webhook_service.py`,
 - [🔶] *(Lower priority)* **Security headers** added via `next.config.ts` `headers()`:
       `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy`, HSTS,
       `Permissions-Policy`. **CSP intentionally deferred** — it needs a careful allowlist
-      for Clerk/Cloudinary/the API origin. Still open: harden the admin SQL console's
-      keyword-denylist into an allowlist or point it at a read-only DB role.
+      for Clerk/Cloudinary/the API origin. ~~Still open: harden the admin SQL console's
+      keyword-denylist into an allowlist or point it at a read-only DB role.~~ *Done
+      2026-09-26: single SELECT/WITH statement, wider denylist, run in a READ ONLY
+      transaction with a 5s statement_timeout that is always rolled back.*
 - [ ] **Observability** *(deferred to a dedicated follow-up, 2026-08-09)* — see
       [`error-reporting.md`](error-reporting.md); still the single largest untracked-here
       gap (Sentry/GlitchTip not started).
@@ -383,19 +393,23 @@ re-verified still pending on 2026-08-23, except where struck through.)*
       method-selection cards in `MethodSelectionStep.tsx:72` — primary interactive
       controls, not edge cases); arbitrary Tailwind bracket values (`h-[...]`,
       `min-h-[...]`) across ~19 files.
-- [ ] **Fix broken "Manage Profile" links.** `ProfileSection.tsx:107,155` opens Clerk's
+- [✅] **Fix broken "Manage Profile" links.** *(Already calling `openUserProfile()`
+      when re-checked 2026-09-26.)* `ProfileSection.tsx:107,155` opens Clerk's
       generic marketing domain (`accounts.clerk.com/user`) instead of the actual
       instance account portal — should use Clerk's `openUserProfile()` /
       `<UserProfile/>`.
-- [ ] **Add an account-deletion flow.** Settings currently only deletes app data
+- [✅] **Add an account-deletion flow.** *Done 2026-09-26: Settings → Account &
+      Profile → Delete Account (`DELETE /api/users/me?confirm=true`) cancels Stripe,
+      deletes data and images, then the Clerk user.* Settings currently only deletes app data
       (recipes/meals/lists), not the account itself — a real gap for a public consumer
       launch (GDPR/CCPA-adjacent expectation).
-- [ ] **Add per-route `error.tsx` boundaries** for the main app routes (recipes,
+- [✅] **Add per-route `error.tsx` boundaries** *(2026-09-26: one `(app)/error.tsx`
+      covers every signed-in route and keeps the app navigation)* for the main app routes (recipes,
       meal-planner, shopping-list) — today only a root boundary exists, so a failure deep
       in one feature loses page context. (Per-route `loading.tsx` already exists
       everywhere — this is just the error-boundary half.)
-- [ ] **Small a11y fixes:** add `aria-pressed` to the `AppearanceSection` theme-picker
-      buttons (the method-selection wizard step already does this correctly — same
+- [ ] **Small a11y fixes:** ~~add `aria-pressed` to the `AppearanceSection` theme-picker
+      buttons~~ *(done)* (the method-selection wizard step already does this correctly — same
       pattern, just missing here); a targeted keyboard-nav pass on the recipe wizard
       stepper and the drag-and-drop ingredient/category reordering.
 
