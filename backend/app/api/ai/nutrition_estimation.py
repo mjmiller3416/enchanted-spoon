@@ -11,7 +11,6 @@ from app.dtos.nutrition_dtos import (
 )
 from app.models.user import User
 from app.services.ai.nutrition_estimation import get_nutrition_estimation_service
-from app.services.usage_service import UsageService
 from app.api.errors import internal_error
 
 router = APIRouter()
@@ -39,12 +38,6 @@ async def estimate_nutrition(
             raise HTTPException(
                 status_code=500, detail=result.error or "Nutrition estimation failed"
             )
-
-        # Track usage (silent fail)
-        try:
-            UsageService(session, current_user.id).increment("ai_suggestions_requested")
-        except Exception:
-            pass
 
         return result
 

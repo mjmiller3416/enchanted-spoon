@@ -17,6 +17,8 @@ import socket
 from typing import Optional
 from urllib.parse import urljoin, urlparse
 
+import anyio
+import httpcore
 import httpx
 from bs4 import BeautifulSoup
 from recipe_scrapers import scrape_html
@@ -53,6 +55,85 @@ logger = logging.getLogger(__name__)
 
 # Cap manual redirect following so a page can't loop us indefinitely.
 MAX_REDIRECTS = 5
+
+
+# ── Public-only network access ───────────────────────────────────────────────
+
+
+def _global_addresses(infos: list) -> list[str]:
+    """Addresses from a getaddrinfo answer, rejecting it if any is non-public."""
+    addresses = []
+    for info in infos:
+        address = str(info[4][0]).split("%", 1)[0]  # drop IPv6 zone id
+        try:
+            is_global = ipaddress.ip_address(address).is_global
+        except ValueError:
+            is_global = False
+        if not is_global:
+            raise RecipeImportFetchError("That doesn't look like a valid website URL")
+        if address not in addresses:
+            addresses.append(address)
+    return addresses
+
+
+class _PublicOnlyNetworkBackend(httpcore.AsyncNetworkBackend):
+    """Resolves each connection's host itself and dials only public addresses.
+
+    `_validate_url` checks what a hostname resolves to, but the HTTP client
+    would resolve it again when connecting, so a DNS answer that flips to a
+    private address in between (DNS rebinding) would slip through. Doing the
+    lookup here and connecting to the checked IP closes that gap; TLS still
+    verifies the certificate against the original hostname.
+    """
+
+    def __init__(self) -> None:
+        self._inner = httpcore.AnyIOBackend()
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: Optional[float] = None,
+        local_address: Optional[str] = None,
+        socket_options=None,
+    ) -> httpcore.AsyncNetworkStream:
+        try:
+            infos = await anyio.to_thread.run_sync(
+                socket.getaddrinfo, host, port, 0, socket.SOCK_STREAM
+            )
+        except (socket.gaierror, UnicodeError) as e:
+            raise httpcore.ConnectError(str(e)) from e
+
+        last_error: Optional[Exception] = None
+        for address in _global_addresses(infos):
+            try:
+                return await self._inner.connect_tcp(
+                    address, port, timeout, local_address, socket_options
+                )
+            except httpcore.ConnectError as e:
+                last_error = e
+        raise last_error or httpcore.ConnectError(f"No address for {host}")
+
+    async def connect_unix_socket(self, *args, **kwargs) -> httpcore.AsyncNetworkStream:
+        raise RecipeImportFetchError("That doesn't look like a valid website URL")
+
+    async def sleep(self, seconds: float) -> None:
+        await self._inner.sleep(seconds)
+
+
+class _PublicOnlyTransport(httpx.AsyncHTTPTransport):
+    """httpx transport whose connections go through `_PublicOnlyNetworkBackend`.
+
+    Passing a custom transport also stops httpx from routing through
+    environment proxies, which would otherwise do their own DNS lookup.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._pool = httpcore.AsyncConnectionPool(
+            ssl_context=httpx.create_ssl_context(),
+            network_backend=_PublicOnlyNetworkBackend(),
+        )
 
 
 # ── Domain Exceptions ────────────────────────────────────────────────────────
@@ -180,8 +261,8 @@ class RecipeImportService:
         except ValueError:
             # A domain name: it must *resolve* only to public addresses, or a
             # name like foo.railway.internal / 127.0.0.1.nip.io would reach
-            # private services. (A DNS answer that changes between this check
-            # and the fetch is not covered; this blocks the static cases.)
+            # private services. This gives a friendly early error; the fetch
+            # itself re-resolves and pins in `_PublicOnlyNetworkBackend`.
             RecipeImportService._assert_resolves_publicly(hostname)
         else:
             if not ip.is_global:
@@ -197,13 +278,7 @@ class RecipeImportService:
             raise RecipeImportFetchError(
                 "Could not reach that website. Check the URL and try again."
             ) from e
-        for info in infos:
-            address = str(info[4][0]).split("%", 1)[0]  # drop IPv6 zone id
-            try:
-                if not ipaddress.ip_address(address).is_global:
-                    raise RecipeImportFetchError("That doesn't look like a valid website URL")
-            except ValueError:
-                raise RecipeImportFetchError("That doesn't look like a valid website URL")
+        _global_addresses(infos)
 
     @staticmethod
     async def _fetch_following_validated_redirects(
@@ -236,6 +311,7 @@ class RecipeImportService:
                 headers=FETCH_HEADERS,
                 follow_redirects=False,
                 timeout=FETCH_TIMEOUT_SECONDS,
+                transport=_PublicOnlyTransport(),
             ) as client:
                 response = await RecipeImportService._fetch_following_validated_redirects(
                     client, url
@@ -491,6 +567,7 @@ class RecipeImportService:
                 headers={**FETCH_HEADERS, "Referer": page_url},
                 follow_redirects=False,
                 timeout=FETCH_TIMEOUT_SECONDS,
+                transport=_PublicOnlyTransport(),
             ) as client:
                 response = await RecipeImportService._fetch_following_validated_redirects(
                     client, validated_url

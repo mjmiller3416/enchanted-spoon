@@ -5,7 +5,7 @@ Provides get_current_user and related dependencies for protecting routes.
 """
 
 import logging
-from typing import Callable, Optional
+from typing import Callable, Generator, Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,6 +13,8 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from ...core.auth_config import AuthSettings, get_auth_settings
+from ...core.observability import set_user as set_error_reporting_user
+from ...core.usage_limits import get_monthly_limit
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -82,6 +84,7 @@ async def get_current_user(
                 detail=f"Dev user with id={settings.dev_user_id} not found. "
                 f"Run migrations and seed data first.",
             )
+        set_error_reporting_user(dev_user.id)
         return dev_user
 
     # Require token in production mode
@@ -169,6 +172,7 @@ async def get_current_user(
             ),
         )
 
+    set_error_reporting_user(user.id)
     return user
 
 
@@ -237,17 +241,20 @@ def require_pro(
     return user
 
 
-def require_within_usage_limit(field: str) -> Callable[..., User]:
+def require_within_usage_limit(field: str) -> Callable[..., Generator[User, None, None]]:
     """
     Dependency factory that enforces a monthly usage cap for a Gemini-backed
     AI feature, resolved from the user's subscription tier.
 
-    Checks the user's monthly `UserUsage` counter for `field` against their
-    tier's cap in `app/core/usage_limits.py`. Admins are exempt. Free users
-    are metered (a small taste-test allowance), not blocked outright — the
-    binary `require_pro` gate was deliberately dropped here when the metered
-    free tier landed (#164), so a capped free user gets a structured 429 the
-    frontend can turn into an upgrade prompt.
+    Reserves one unit of `field` against the user's tier cap in
+    `app/core/usage_limits.py` before the route runs (one atomic conditional
+    UPDATE, so parallel requests can't overshoot the cap), and refunds it if
+    the route raises. Routes therefore must not increment `field` themselves.
+    Admins are uncapped but still counted. Free users are metered (a small
+    taste-test allowance), not blocked outright — the binary `require_pro`
+    gate was deliberately dropped here when the metered free tier landed
+    (#164), so a capped free user gets a structured 429 the frontend can turn
+    into an upgrade prompt.
 
     Usage:
         @router.post("/ai/generate-image")
@@ -264,16 +271,19 @@ def require_within_usage_limit(field: str) -> Callable[..., User]:
         HTTPException 429: User has reached their tier's monthly cap for `field`.
     """
 
-    def _check_usage_limit(
+    def _reserve_usage(
         user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
-    ) -> User:
+    ) -> Generator[User, None, None]:
         if user.is_admin:
-            return user
+            limit = None
+        else:
+            tier = "pro" if user.has_pro_access else "free"
+            limit = get_monthly_limit(tier, field)
 
-        tier = "pro" if user.has_pro_access else "free"
+        usage_service = UsageService(session, user.id)
         try:
-            UsageService(session, user.id).check_limit(field, tier)
+            usage_service.reserve(field, limit)
         except UsageLimitExceededError as e:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -288,9 +298,18 @@ def require_within_usage_limit(field: str) -> Callable[..., User]:
                     ),
                 },
             )
-        return user
 
-    return _check_usage_limit
+        try:
+            yield user
+        except Exception:
+            # The feature failed — don't charge the user for it
+            try:
+                usage_service.release(field)
+            except Exception:
+                logger.exception("Failed to refund %s usage for user %s", field, user.id)
+            raise
+
+    return _reserve_usage
 
 
 def require_admin(

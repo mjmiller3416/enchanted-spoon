@@ -22,12 +22,32 @@ class AdminRepo:
 
     # ── User Queries ─────────────────────────────────────────────────────────
 
-    def list_users(self, skip: int = 0, limit: int = 50) -> Tuple[List[User], int]:
-        """List all users with pagination."""
-        total = self.session.scalar(select(func.count(User.id)))
+    def list_users(
+        self, skip: int = 0, limit: int = 50, search: Optional[str] = None
+    ) -> Tuple[List[User], int]:
+        """List users with pagination, optionally filtered.
+
+        ``search`` matches a user id exactly ("12" or "#12", as feedback
+        issues cite them) or a case-insensitive substring of email or name.
+        """
+        filters = []
+        term = (search or "").strip()
+        if term:
+            id_term = term.lstrip("#")
+            if id_term.isdigit():
+                filters.append(User.id == int(id_term))
+            else:
+                pattern = f"%{term.lower()}%"
+                filters.append(
+                    func.lower(User.email).like(pattern)
+                    | func.lower(func.coalesce(User.name, "")).like(pattern)
+                )
+
+        total = self.session.scalar(select(func.count(User.id)).where(*filters))
 
         stmt = (
             select(User)
+            .where(*filters)
             .order_by(User.created_at.desc())
             .offset(skip)
             .limit(limit)

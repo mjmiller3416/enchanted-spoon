@@ -17,7 +17,6 @@ from app.services.ai.recipe_import.service import (
     RecipeImportNotFoundError,
     RecipeImportParseError,
 )
-from app.services.usage_service import UsageService
 from app.services.user_category_service import UserCategoryService
 from app.api.errors import internal_error
 
@@ -52,12 +51,6 @@ async def import_recipe(
 
         service = get_recipe_import_service()
         result = await service.import_from_url(request)
-
-        # Track usage (silent fail)
-        try:
-            UsageService(session, current_user.id).increment("recipes_imported")
-        except Exception:
-            pass
 
         return result
 

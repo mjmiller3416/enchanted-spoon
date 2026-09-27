@@ -1,18 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
+  Search,
   Shield,
   Trash2,
   UserPlus,
   UserMinus,
   ShieldCheck,
   ShieldOff,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { QueryError } from "@/components/common/QueryError";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -60,9 +64,26 @@ function formatDate(dateStr: string): string {
 }
 
 export function AdminUsersSection() {
+  // Feedback issues cite "user #12" and link here with ?user=12
+  const searchParams = useSearchParams();
+  const linkedUser = searchParams.get("user");
+  const [search, setSearch] = useState(linkedUser ? `#${linkedUser}` : "");
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [page, setPage] = useState(0);
   const limit = 20;
-  const { data, isLoading, isError, isFetching, refetch } = useAdminUsers(page * limit, limit);
+  const { data, isLoading, isError, isFetching, refetch } = useAdminUsers(
+    page * limit,
+    limit,
+    debouncedSearch,
+  );
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const grantPro = useGrantPro();
   const revokePro = useRevokePro();
@@ -142,6 +163,31 @@ export function AdminUsersSection() {
             description="View and manage all registered users"
           />
 
+          <div className="relative mb-4">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+              strokeWidth={1.5}
+            />
+            <Input
+              aria-label="Search users"
+              placeholder="Search by #id, email or name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 pr-10 text-sm"
+            />
+            {search.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Clear search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-foreground"
+                onClick={() => setSearch("")}
+              >
+                <X className="h-4 w-4" strokeWidth={1.5} />
+              </Button>
+            )}
+          </div>
+
           {isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -174,7 +220,7 @@ export function AdminUsersSection() {
                       {user.name || "No name"}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {user.email}
+                      #{user.id} · {user.email}
                     </p>
                   </div>
 
@@ -243,7 +289,7 @@ export function AdminUsersSection() {
 
               {data?.items.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">
-                  No users found.
+                  {debouncedSearch.trim() ? "No users match that search." : "No users found."}
                 </p>
               )}
 

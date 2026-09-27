@@ -15,8 +15,11 @@ from sqlalchemy import select
 
 from ...dtos.data_management_dtos import (
     BackupDataDTO,
+    ConversionRuleBackupDTO,
+    CustomizationBackupDTO,
     FullBackupDTO,
     IngredientBackupDTO,
+    IngredientUnitBackupDTO,
     MealBackupDTO,
     NutritionFactsBackupDTO,
     PlannerEntryBackupDTO,
@@ -37,6 +40,10 @@ from ...models import (
     RecipeIngredient,
     ShoppingItem,
     ShoppingItemContribution,
+    UnitConversionRule,
+    UserCategory,
+    UserIngredientCategory,
+    UserIngredientUnit,
 )
 
 # Cloudinary folder recipe-owned images live under (see app/api/upload.py)
@@ -244,6 +251,24 @@ class BackupOperationsMixin:
             .all()
         )
         recipe_groups = self.session.query(RecipeGroup).filter(RecipeGroup.user_id == user_id).all()
+        recipe_categories = (
+            self.session.query(UserCategory).filter(UserCategory.user_id == user_id).all()
+        )
+        ingredient_categories = (
+            self.session.query(UserIngredientCategory)
+            .filter(UserIngredientCategory.user_id == user_id)
+            .all()
+        )
+        ingredient_units = (
+            self.session.query(UserIngredientUnit)
+            .filter(UserIngredientUnit.user_id == user_id)
+            .all()
+        )
+        conversion_rules = (
+            self.session.query(UnitConversionRule)
+            .filter(UnitConversionRule.user_id == user_id)
+            .all()
+        )
 
         # Convert to DTOs
         return FullBackupDTO(
@@ -352,6 +377,18 @@ class BackupOperationsMixin:
                         recipe_ids=[r.id for r in g.recipes],
                     )
                     for g in recipe_groups
+                ],
+                recipe_categories=[
+                    CustomizationBackupDTO.model_validate(c) for c in recipe_categories
+                ],
+                ingredient_categories=[
+                    CustomizationBackupDTO.model_validate(c) for c in ingredient_categories
+                ],
+                ingredient_units=[
+                    IngredientUnitBackupDTO.model_validate(u) for u in ingredient_units
+                ],
+                conversion_rules=[
+                    ConversionRuleBackupDTO.model_validate(r) for r in conversion_rules
                 ],
             ),
         )

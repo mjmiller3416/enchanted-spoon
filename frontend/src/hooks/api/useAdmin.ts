@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import { adminApi } from "@/lib/api";
 import { adminQueryKeys, currentUserQueryKeys } from "./queryKeys";
@@ -44,15 +44,17 @@ export function useCurrentUser() {
 /**
  * Fetch paginated list of all users (admin only).
  */
-export function useAdminUsers(skip: number = 0, limit: number = 50) {
+export function useAdminUsers(skip: number = 0, limit: number = 50, search: string = "") {
   const { getToken } = useAuth();
+  const trimmed = search.trim();
 
   return useQuery({
-    queryKey: [...adminQueryKeys.users(), { skip, limit }],
+    queryKey: [...adminQueryKeys.users(), { skip, limit, search: trimmed }],
     queryFn: async () => {
       const token = await getToken();
-      return adminApi.listUsers({ skip, limit }, token);
+      return adminApi.listUsers({ skip, limit, search: trimmed }, token);
     },
+    placeholderData: keepPreviousData,
     staleTime: 30000,
   });
 }

@@ -22,15 +22,24 @@ from app.dtos.data_management_dtos import (
     FullBackupDTO,
     RecipeBackupDTO,
 )
+from app.dtos.unit_conversion_dtos import UnitConversionRuleCreateDTO
+from app.dtos.user_category_dtos import UserCategoryCreateDTO, UserCategoryUpdateDTO
+from app.dtos.user_ingredient_unit_dtos import UserIngredientUnitCreateDTO
 from app.models import (
     Meal,
     NutritionFacts,
     PlannerEntry,
     Recipe,
     RecipeGroup,
+    UnitConversionRule,
     User,
+    UserCategory,
+    UserIngredientUnit,
 )
 from app.services.data_management import DataManagementService
+from app.services.unit_conversion_service import UnitConversionService
+from app.services.user_category_service import UserCategoryService
+from app.services.user_ingredient_unit_service import UserIngredientUnitService
 from app.services.sample_data import SampleDataService
 
 
@@ -153,6 +162,110 @@ class TestRestoreAtomicity:
             image_key="../../other-folder",
         )
         assert dto.image_key is None
+
+
+class TestCustomizationBackup:
+    """Categories, units, conversion rules and empty groups survive a backup."""
+
+    def _customize(self, session: Session, uid: int) -> None:
+        cats = UserCategoryService(session, uid)
+        cats.create_category(UserCategoryCreateDTO(label="Grandma's"))
+        first_builtin = cats.get_all_categories(include_disabled=True)[0]
+        cats.update_category(first_builtin.id, UserCategoryUpdateDTO(is_enabled=False))
+        UserIngredientUnitService(session, uid).create_unit(
+            UserIngredientUnitCreateDTO(label="Knob")
+        )
+        UnitConversionService(session, uid).create_rule(
+            UnitConversionRuleCreateDTO(
+                ingredient_name="Butter", from_unit="tbs", to_unit="stick", factor=0.125
+            )
+        )
+        session.add(RecipeGroup(name="Someday", user_id=uid))
+        session.commit()
+
+    def test_restore_into_a_fresh_account_brings_customizations(
+        self, file_session, seeded_user, second_user_file
+    ):
+        self._customize(file_session, seeded_user.id)
+        backup = FullBackupDTO(
+            **DataManagementService(file_session, seeded_user.id)
+            .export_full_backup()
+            .model_dump(mode="json")
+        )
+
+        uid = second_user_file.id
+        result = DataManagementService(file_session, uid).execute_restore(backup)
+        assert result.success is True, result.errors
+
+        source_cats = {
+            c.value: c
+            for c in file_session.query(UserCategory).filter(
+                UserCategory.user_id == seeded_user.id
+            )
+        }
+        restored_cats = {
+            c.value: c
+            for c in file_session.query(UserCategory).filter(UserCategory.user_id == uid)
+        }
+        assert restored_cats.keys() == source_cats.keys()
+        for value, source in source_cats.items():
+            assert restored_cats[value].is_enabled == source.is_enabled
+            assert restored_cats[value].is_custom == source.is_custom
+        assert any(not c.is_enabled for c in restored_cats.values())
+
+        knob = (
+            file_session.query(UserIngredientUnit)
+            .filter(UserIngredientUnit.user_id == uid, UserIngredientUnit.label == "Knob")
+            .one()
+        )
+        assert knob.is_custom is True
+        rule = (
+            file_session.query(UnitConversionRule)
+            .filter(UnitConversionRule.user_id == uid)
+            .one()
+        )
+        assert (rule.ingredient_name, rule.from_unit, rule.to_unit, rule.factor) == (
+            "butter", "tbs", "stick", 0.125
+        )
+        assert (
+            file_session.query(RecipeGroup)
+            .filter(RecipeGroup.user_id == uid, RecipeGroup.name == "Someday")
+            .count()
+            == 1
+        )
+
+    def test_same_account_restore_does_not_duplicate(self, file_session, seeded_user):
+        uid = seeded_user.id
+        self._customize(file_session, uid)
+        service = DataManagementService(file_session, uid)
+        backup = FullBackupDTO(**service.export_full_backup().model_dump(mode="json"))
+        before = [
+            _count(file_session, m, uid)
+            for m in (UserCategory, UserIngredientUnit, UnitConversionRule, RecipeGroup)
+        ]
+
+        result = service.execute_restore(backup, clear_existing=True)
+
+        assert result.success is True, result.errors
+        assert before == [
+            _count(file_session, m, uid)
+            for m in (UserCategory, UserIngredientUnit, UnitConversionRule, RecipeGroup)
+        ]
+
+    def test_older_backup_leaves_customizations_alone(self, file_session, seeded_user):
+        uid = seeded_user.id
+        self._customize(file_session, uid)
+        service = DataManagementService(file_session, uid)
+        payload = service.export_full_backup().model_dump(mode="json")
+        for key in ("recipe_categories", "ingredient_categories", "ingredient_units", "conversion_rules"):
+            del payload["data"][key]
+        before = _count(file_session, UserCategory, uid)
+
+        result = service.execute_restore(FullBackupDTO(**payload), clear_existing=True)
+
+        assert result.success is True, result.errors
+        assert _count(file_session, UserCategory, uid) == before
+        assert _count(file_session, UnitConversionRule, uid) == 1
 
 
 # ---------------------------------------------------------------------------

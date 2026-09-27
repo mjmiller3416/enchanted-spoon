@@ -12,9 +12,13 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from app.core.observability import init_sentry
 from app.core.rate_limit import limiter
 from app.core.startup import validate_config
 from app.router import api_router
+
+# Before the app is built so Sentry's FastAPI integration can hook it
+init_sentry()
 
 
 @asynccontextmanager

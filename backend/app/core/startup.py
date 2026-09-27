@@ -6,10 +6,11 @@ Fails fast when a production deployment is missing critical configuration,
 rather than silently falling back to insecure development defaults (an open
 auth bypass, or a throwaway SQLite file that discards every write on redeploy).
 
-"Production" is signalled by the ``ENVIRONMENT`` env var. Anything other than
-``production`` (the default is ``development``) is treated as a dev/test
-environment, where the same problems are logged as informational notices
-instead of aborting startup.
+"Production" is signalled by the ``ENVIRONMENT`` env var or, when that is
+unset, by Railway's own ``RAILWAY_ENVIRONMENT_NAME`` (injected into every
+deployment, so the guard can't be skipped by forgetting to set a variable).
+Anything else is treated as a dev/test environment, where the same problems
+are logged as informational notices instead of aborting startup.
 """
 
 import logging
@@ -27,7 +28,10 @@ class ConfigError(RuntimeError):
 
 def is_production() -> bool:
     """Return True when running in a production-looking environment."""
-    return os.environ.get("ENVIRONMENT", "development").strip().lower() == "production"
+    environment = os.environ.get("ENVIRONMENT") or os.environ.get(
+        "RAILWAY_ENVIRONMENT_NAME", "development"
+    )
+    return environment.strip().lower() == "production"
 
 
 def _uses_sqlite() -> bool:

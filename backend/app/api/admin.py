@@ -41,12 +41,13 @@ router = APIRouter()
 def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    search: Optional[str] = Query(None, max_length=255),
     session: Session = Depends(get_session),
     current_admin: User = Depends(require_admin),
 ) -> AdminUserListResponseDTO:
-    """List all users with pagination."""
+    """List users with pagination; ``search`` matches an id ("12"/"#12"), email or name."""
     service = AdminService(session, current_admin.id)
-    return service.list_users(skip=skip, limit=limit)
+    return service.list_users(skip=skip, limit=limit, search=search)
 
 
 # ── Usage Analytics ──────────────────────────────────────────────────────────

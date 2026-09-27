@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: `How ${appConfig.appName} collects, uses, and protects your data.`,
 };
 
-const LAST_UPDATED = "July 13, 2026";
+const LAST_UPDATED = "September 26, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -86,7 +86,8 @@ export default function PrivacyPage() {
       <Section title="Third-party services">
         <p className="leading-7 text-foreground-subtle">
           We rely on the following processors to run the service: Clerk (authentication),
-          Cloudinary (image hosting), Google Gemini (AI processing), and Railway (hosting).
+          Cloudinary (image hosting), Google Gemini (AI processing), Sentry (error
+          reports, identified only by an internal account number), and Railway (hosting).
           Each processes only the data needed for its role, under its own privacy terms.
         </p>
       </Section>

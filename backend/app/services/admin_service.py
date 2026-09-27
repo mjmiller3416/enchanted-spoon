@@ -91,9 +91,11 @@ class AdminService:
 
     # ── User Management ──────────────────────────────────────────────────────
 
-    def list_users(self, skip: int = 0, limit: int = 50) -> AdminUserListResponseDTO:
-        """List all users with pagination."""
-        users, total = self.repo.list_users(skip=skip, limit=limit)
+    def list_users(
+        self, skip: int = 0, limit: int = 50, search: Optional[str] = None
+    ) -> AdminUserListResponseDTO:
+        """List users with pagination, optionally filtered by id, email or name."""
+        users, total = self.repo.list_users(skip=skip, limit=limit, search=search)
         return AdminUserListResponseDTO(
             items=[AdminUserListDTO.from_model(u) for u in users],
             total=total,
