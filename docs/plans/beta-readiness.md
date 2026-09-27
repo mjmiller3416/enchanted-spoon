@@ -80,12 +80,13 @@ Later the same day: feedback issues link `user #<id>` to an admin Users search
 
 ## Known issues left for later (not beta-blocking)
 
-- **Observability** — Sentry is wired into backend and frontend (inactive until the
-  DSNs are set). To turn it on: create FastAPI and Next.js projects in Sentry, then set
-  on Railway — backend: `SENTRY_DSN`; frontend: `NEXT_PUBLIC_SENTRY_DSN`, plus
-  `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` for readable stack traces — and
-  redeploy (the frontend DSN is baked in at build time). See
-  [`error-reporting.md`](error-reporting.md).
+- **Observability** — Sentry is wired into backend and frontend. Sentry org
+  `endurance-decking` has projects `enchanted-spoon-backend` and
+  `enchanted-spoon-frontend`, and the production Railway services have `SENTRY_DSN`
+  (backend) and `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,
+  `SENTRY_PROJECT` (frontend), set 2026-09-27 without a redeploy. Reporting starts
+  with the first production deploy that includes this code (merge `staging` →
+  `main`). See [`error-reporting.md`](error-reporting.md).
 - **CSP header** — still deferred (needs a Clerk/Cloudinary/API allowlist).
 - ~~**DNS rebinding** in recipe import~~ — fixed in the follow-up pass.
 - ~~**Backups don't include** custom categories/units, conversion rules~~ — fixed in
