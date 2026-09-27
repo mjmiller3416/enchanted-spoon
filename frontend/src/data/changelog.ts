@@ -15,6 +15,8 @@ const CHANGELOG_MD = `
 - Settings and Admin share one navigation, and the account pages have been cleaned up
 - Home page sections and unsent Genie messages now survive a reload
 - The back and forward buttons in your browser now keep your place
+- Backups now include your custom categories, ingredient units and unit conversion rules, and restoring brings them back
+- We're now notified automatically when something breaks, so problems get fixed faster
 
 ## 2026-09-26 - Bug Fixes
 - The selected meal card no longer gets cut off on desktop, and the detail panel scrolls when it's taller than your screen
@@ -24,6 +26,8 @@ const CHANGELOG_MD = `
 - Signing in recovers an existing session or a Google/OAuth sign-in instead of getting stuck
 - Favorites stay saved, and one account's data can't appear in another account on the same browser
 - Better error recovery and more accessible controls throughout the app
+- AI usage limits are counted accurately, even when several requests go out at once
+- Importing a recipe from a website is more secure
 
 ## 2026-09-02 - New Features
 - Meal Planner header now shows how many of your 20 planner slots are in use
