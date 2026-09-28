@@ -181,6 +181,7 @@ export {
   useCurrentUser,
   // Usage Metrics
   useAdminUsage,
+  useAdminActivity,
   // User Management
   useAdminUsers,
   useGrantPro,

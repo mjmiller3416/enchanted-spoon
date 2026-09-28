@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.api.auth import get_current_user, require_admin
 from app.database.db import get_session
 from app.dtos.admin_dtos import (
+    AdminActivityResponseDTO,
     AdminGrantProDTO,
     AdminQueryRequestDTO,
     AdminQueryResponseDTO,
@@ -66,6 +67,16 @@ def get_usage(
     """Per-user AI feature usage for a month (defaults to the current month)."""
     service = AdminService(session, current_admin.id)
     return service.get_usage_by_user(month=month)
+
+
+@router.get("/activity", response_model=AdminActivityResponseDTO)
+def get_activity(
+    session: Session = Depends(get_session),
+    current_admin: User = Depends(require_admin),
+) -> AdminActivityResponseDTO:
+    """Per-user engagement (content, planning, cooking, last seen) and totals."""
+    service = AdminService(session, current_admin.id)
+    return service.get_activity_by_user()
 
 
 @router.patch("/users/{user_id}/pro", response_model=AdminUserListDTO)

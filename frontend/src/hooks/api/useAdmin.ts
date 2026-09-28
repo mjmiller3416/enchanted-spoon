@@ -77,6 +77,22 @@ export function useAdminUsage(month?: string) {
 }
 
 /**
+ * Fetch per-user engagement (content, planning, cooking, last seen) and totals (admin only).
+ */
+export function useAdminActivity() {
+  const { getToken } = useAuth();
+
+  return useQuery({
+    queryKey: adminQueryKeys.activity(),
+    queryFn: async () => {
+      const token = await getToken();
+      return adminApi.getActivity(token);
+    },
+    staleTime: 30000,
+  });
+}
+
+/**
  * Grant pro access to a user.
  */
 export function useGrantPro() {

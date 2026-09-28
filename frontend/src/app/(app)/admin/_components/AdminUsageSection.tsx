@@ -48,7 +48,9 @@ function formatMonthLabel(month: string): string {
 
 // ── Tier badge (mirrors AdminUsersSection.getAccessBadge) ────────────────────
 
-function getTierBadge(user: AdminUserUsage) {
+export function getTierBadge(
+  user: Pick<AdminUserUsage, "is_admin" | "has_pro_access" | "subscription_tier">,
+) {
   if (user.is_admin) {
     return (
       <Badge variant="default" size="sm">

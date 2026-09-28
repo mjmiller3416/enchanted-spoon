@@ -7,8 +7,9 @@ related to users, including lookup, creation, and account relinking.
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import set_committed_value
 
 from ..models.user import User
 from ..models.user_settings import UserSettings
@@ -147,6 +148,27 @@ class UserRepo:
         if avatar_url is not None:
             user.avatar_url = avatar_url
         return user
+
+    def set_last_active(self, user: User, at: datetime) -> None:
+        """
+        Stamp a user's last authenticated request without bumping updated_at.
+
+        A Core UPDATE (rather than an attribute write) so the column's
+        ``onupdate`` doesn't make every visit look like a profile edit.
+
+        Args:
+            user: The user who made the request.
+            at: The time to record.
+        """
+        self.session.execute(
+            update(User)
+            .where(User.id == user.id)
+            .values(last_active_at=at, updated_at=User.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+        # Mirror it on the loaded instance without marking it dirty
+        set_committed_value(user, "last_active_at", at)
+        self.session.flush()
 
     def set_stripe_customer_id(self, user: User, stripe_customer_id: str) -> User:
         """

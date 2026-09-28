@@ -76,6 +76,8 @@ class User(Base):
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
+    # Last authenticated request, stamped at most every few minutes (see UserService.touch_last_active)
+    last_active_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # ── Relationships ───────────────────────────────────────────────────────
     recipes: Mapped[List["Recipe"]] = relationship(

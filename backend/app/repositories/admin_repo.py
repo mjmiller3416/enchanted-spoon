@@ -5,13 +5,23 @@ for user management.
 """
 
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
+from ..models.meal import Meal
+from ..models.planner_entry import PlannerEntry
+from ..models.recipe import Recipe
+from ..models.recipe_group import RecipeGroup
+from ..models.shopping_item import ShoppingItem
 from ..models.user import User
 from ..models.user_usage import UserUsage
+
+
+def _count_if(condition) -> Any:
+    """SUM(CASE WHEN condition THEN 1 ELSE 0 END), portable across SQLite/Postgres."""
+    return func.coalesce(func.sum(case((condition, 1), else_=0)), 0)
 
 
 class AdminRepo:
@@ -81,6 +91,92 @@ class AdminRepo:
             .order_by(User.id)
         )
         return [(row[0], row[1]) for row in self.session.execute(stmt).all()]
+
+    def list_activity(
+        self, since: datetime
+    ) -> List[Tuple[User, Dict[str, Any]]]:
+        """List every user with their engagement counts, ordered by user id.
+
+        One grouped subquery per table, LEFT JOINed onto users, so users with
+        no rows in a table still appear with zeros. ``since`` bounds the
+        ``*_recent`` counts. Starter-pack recipes and meals are excluded.
+        """
+        recipes = (
+            select(
+                Recipe.user_id.label("user_id"),
+                func.count(Recipe.id).label("recipes"),
+                _count_if(Recipe.is_ai_generated.is_(True)).label("recipes_ai_generated"),
+                _count_if(Recipe.source_url.is_not(None)).label("recipes_imported"),
+                _count_if(Recipe.created_at >= since).label("recipes_recent"),
+            )
+            .where(Recipe.is_sample.is_(False))
+            .group_by(Recipe.user_id)
+            .subquery()
+        )
+        # Favoriting a starter recipe is still the user doing something
+        favorites = (
+            select(Recipe.user_id.label("user_id"), func.count(Recipe.id).label("favorites"))
+            .where(Recipe.is_favorite.is_(True))
+            .group_by(Recipe.user_id)
+            .subquery()
+        )
+        collections = (
+            select(RecipeGroup.user_id.label("user_id"), func.count(RecipeGroup.id).label("collections"))
+            .group_by(RecipeGroup.user_id)
+            .subquery()
+        )
+        meals = (
+            select(Meal.user_id.label("user_id"), func.count(Meal.id).label("saved_meals"))
+            .where(Meal.is_saved.is_(True), Meal.is_sample.is_(False))
+            .group_by(Meal.user_id)
+            .subquery()
+        )
+        # Cleared entries are soft-deleted precisely so cooking history survives
+        planner = (
+            select(
+                PlannerEntry.user_id.label("user_id"),
+                _count_if(
+                    and_(PlannerEntry.is_completed.is_(False), PlannerEntry.is_cleared.is_(False))
+                ).label("planned_meals"),
+                _count_if(PlannerEntry.is_completed.is_(True)).label("meals_cooked"),
+                _count_if(
+                    and_(PlannerEntry.is_completed.is_(True), PlannerEntry.completed_at >= since)
+                ).label("meals_cooked_recent"),
+                func.max(PlannerEntry.completed_at).label("last_cooked_at"),
+            )
+            .group_by(PlannerEntry.user_id)
+            .subquery()
+        )
+        shopping = (
+            select(ShoppingItem.user_id.label("user_id"), func.count(ShoppingItem.id).label("shopping_items"))
+            .group_by(ShoppingItem.user_id)
+            .subquery()
+        )
+
+        columns = [
+            recipes.c.recipes,
+            recipes.c.recipes_ai_generated,
+            recipes.c.recipes_imported,
+            recipes.c.recipes_recent,
+            favorites.c.favorites,
+            collections.c.collections,
+            meals.c.saved_meals,
+            planner.c.planned_meals,
+            planner.c.meals_cooked,
+            planner.c.meals_cooked_recent,
+            planner.c.last_cooked_at,
+            shopping.c.shopping_items,
+        ]
+        stmt = select(User, *columns)
+        for sub in (recipes, favorites, collections, meals, planner, shopping):
+            stmt = stmt.outerjoin(sub, sub.c.user_id == User.id)
+        stmt = stmt.order_by(User.id)
+
+        names = [c.name for c in columns]
+        return [
+            (row[0], dict(zip(names, row[1:])))
+            for row in self.session.execute(stmt).all()
+        ]
 
     def update_user_pro_grant(
         self,

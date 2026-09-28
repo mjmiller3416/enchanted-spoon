@@ -6,9 +6,10 @@ Handles business logic for user lookup, creation, and account claiming.
 
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..models.user import User
@@ -20,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 class AccountLinkError(Exception):
     """An existing account uses this email, but ownership couldn't be confirmed."""
+
+
+# How stale last_active_at may get before a request re-stamps it; keeps the
+# write to a handful per session instead of one per API call
+LAST_ACTIVE_RESOLUTION = timedelta(minutes=15)
 
 
 def starter_content_enabled() -> bool:
@@ -133,6 +139,28 @@ class UserService:
 
         self._seed_starter_content(user)
         return user
+
+    def touch_last_active(self, user: User, now: Optional[datetime] = None) -> None:
+        """
+        Record that the user just made an authenticated request.
+
+        Throttled to one write per LAST_ACTIVE_RESOLUTION, and best-effort:
+        a failed stamp must never fail the request it rode in on.
+        """
+        now = now or datetime.now(timezone.utc)
+        last = user.last_active_at
+        if last is not None:
+            # SQLite hands back naive datetimes; they are stored as UTC
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=timezone.utc)
+            if now - last < LAST_ACTIVE_RESOLUTION:
+                return
+        try:
+            self.repo.set_last_active(user, now)
+            self.session.commit()
+        except SQLAlchemyError:
+            self.session.rollback()
+            logger.warning("Failed to record last activity for user %s", user.id, exc_info=True)
 
     def _sync_email(self, user: User, email: str) -> None:
         """
