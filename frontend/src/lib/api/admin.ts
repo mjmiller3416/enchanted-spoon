@@ -7,6 +7,7 @@ import type {
   AdminQueryRequest,
   AdminQueryResponse,
   AdminUsageResponse,
+  AdminActivityResponse,
 } from "@/types/admin";
 import { fetchApi, buildQueryString } from "./base";
 
@@ -81,6 +82,9 @@ export const adminApi = {
       undefined,
       token,
     ),
+
+  getActivity: (token?: string | null): Promise<AdminActivityResponse> =>
+    fetchApi<AdminActivityResponse>("/api/admin/activity", undefined, token),
 
   // ── Database Query ─────────────────────────────────────────────────────
 

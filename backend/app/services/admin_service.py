@@ -6,7 +6,7 @@ and database query business logic.
 
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, List
 
 from sqlalchemy import text
@@ -16,10 +16,13 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from ..dtos.admin_dtos import (
+    AdminActivityResponseDTO,
+    AdminActivitySummaryDTO,
     AdminGrantProDTO,
     AdminQueryResponseDTO,
     AdminUsageResponseDTO,
     AdminUserListDTO,
+    AdminUserActivityDTO,
     AdminUserListResponseDTO,
     AdminUserUsageDTO,
 )
@@ -77,6 +80,16 @@ QUERY_TIMEOUT_MS = 5000
 
 MAX_QUERY_ROWS = 500
 
+# Window for the "recent" counts in the activity view
+ACTIVITY_WINDOW_DAYS = 30
+
+
+def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+    """SQLite returns naive datetimes; they are stored as UTC."""
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
 
 # ── Admin Service ────────────────────────────────────────────────────────────
 
@@ -116,6 +129,50 @@ class AdminService:
             users=[
                 AdminUserUsageDTO.from_models(user, usage) for user, usage in rows
             ],
+        )
+
+    def get_activity_by_user(
+        self, now: Optional[datetime] = None
+    ) -> AdminActivityResponseDTO:
+        """All-time engagement per user plus totals for the admin activity view.
+
+        Every user appears, sorted by id. ``*_recent`` counts cover the last
+        ACTIVITY_WINDOW_DAYS. Read-only, so no commit is performed.
+        """
+        now = now or datetime.now(timezone.utc)
+        since = now - timedelta(days=ACTIVITY_WINDOW_DAYS)
+        week_ago = now - timedelta(days=7)
+
+        users: List[AdminUserActivityDTO] = []
+        for user, counts in self.repo.list_activity(since):
+            users.append(
+                AdminUserActivityDTO(
+                    user_id=user.id,
+                    email=user.email,
+                    name=user.name,
+                    is_admin=user.is_admin,
+                    subscription_tier=user.subscription_tier,
+                    has_pro_access=user.has_pro_access,
+                    created_at=_as_utc(user.created_at),
+                    last_active_at=_as_utc(user.last_active_at),
+                    last_cooked_at=_as_utc(counts.pop("last_cooked_at")),
+                    **{key: value or 0 for key, value in counts.items()},
+                )
+            )
+
+        def active_since(cutoff: datetime) -> int:
+            return sum(1 for u in users if u.last_active_at and u.last_active_at >= cutoff)
+
+        summary = AdminActivitySummaryDTO(
+            total_users=len(users),
+            active_7d=active_since(week_ago),
+            active_30d=active_since(since),
+            new_users_30d=sum(1 for u in users if u.created_at >= since),
+            recipes_recent=sum(u.recipes_recent for u in users),
+            meals_cooked_recent=sum(u.meals_cooked_recent for u in users),
+        )
+        return AdminActivityResponseDTO(
+            window_days=ACTIVITY_WINDOW_DAYS, summary=summary, users=users
         )
 
     def grant_pro(self, user_id: int, dto: AdminGrantProDTO) -> AdminUserListDTO:

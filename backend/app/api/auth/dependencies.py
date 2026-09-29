@@ -84,6 +84,7 @@ async def get_current_user(
                 detail=f"Dev user with id={settings.dev_user_id} not found. "
                 f"Run migrations and seed data first.",
             )
+        user_service.touch_last_active(dev_user)
         set_error_reporting_user(dev_user.id)
         return dev_user
 
@@ -172,6 +173,7 @@ async def get_current_user(
             ),
         )
 
+    user_service.touch_last_active(user)
     set_error_reporting_user(user.id)
     return user
 

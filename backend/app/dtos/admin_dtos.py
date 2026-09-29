@@ -214,6 +214,57 @@ class CurrentUserUsageDTO(BaseModel):
         )
 
 
+# ── Activity-by-User DTOs ───────────────────────────────────────────────────
+
+
+class AdminUserActivityDTO(BaseModel):
+    """One user's all-time engagement footprint, plus recent-window counts.
+
+    Starter-pack (``is_sample``) recipes and meals are excluded so the numbers
+    reflect what the user built, not what onboarding seeded.
+    """
+
+    user_id: int
+    email: str
+    name: Optional[str] = None
+    is_admin: bool
+    subscription_tier: str
+    has_pro_access: bool
+    created_at: datetime
+    last_active_at: Optional[datetime] = None
+    recipes: int = 0
+    recipes_ai_generated: int = 0
+    recipes_imported: int = 0
+    recipes_recent: int = 0
+    favorites: int = 0
+    collections: int = 0
+    saved_meals: int = 0
+    planned_meals: int = 0
+    meals_cooked: int = 0
+    meals_cooked_recent: int = 0
+    last_cooked_at: Optional[datetime] = None
+    shopping_items: int = 0
+
+
+class AdminActivitySummaryDTO(BaseModel):
+    """Headline totals across all users for the activity view."""
+
+    total_users: int
+    active_7d: int
+    active_30d: int
+    new_users_30d: int
+    recipes_recent: int
+    meals_cooked_recent: int
+
+
+class AdminActivityResponseDTO(BaseModel):
+    """Response DTO for the /api/admin/activity endpoint."""
+
+    window_days: int
+    summary: AdminActivitySummaryDTO
+    users: List[AdminUserActivityDTO]
+
+
 # ── Database Query DTOs ─────────────────────────────────────────────────────
 
 

@@ -75,6 +75,46 @@ export interface AdminUsageResponse {
   users: AdminUserUsage[];
 }
 
+// Activity-by-user types
+
+export interface AdminUserActivity {
+  user_id: number;
+  email: string;
+  name: string | null;
+  is_admin: boolean;
+  subscription_tier: string;
+  has_pro_access: boolean;
+  created_at: string;
+  last_active_at: string | null;
+  recipes: number;
+  recipes_ai_generated: number;
+  recipes_imported: number;
+  recipes_recent: number;
+  favorites: number;
+  collections: number;
+  saved_meals: number;
+  planned_meals: number;
+  meals_cooked: number;
+  meals_cooked_recent: number;
+  last_cooked_at: string | null;
+  shopping_items: number;
+}
+
+export interface AdminActivitySummary {
+  total_users: number;
+  active_7d: number;
+  active_30d: number;
+  new_users_30d: number;
+  recipes_recent: number;
+  meals_cooked_recent: number;
+}
+
+export interface AdminActivityResponse {
+  window_days: number;
+  summary: AdminActivitySummary;
+  users: AdminUserActivity[];
+}
+
 // Database query types
 
 export interface AdminQueryRequest {

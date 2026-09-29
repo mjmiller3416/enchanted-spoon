@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Shield, Database, Activity } from "lucide-react";
+import { Shield, Database, Activity, TrendingUp } from "lucide-react";
 import { SectionNav } from "@/components/layout/SectionNav";
 import { QueryError } from "@/components/common/QueryError";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -9,9 +9,10 @@ import { SidebarPageSkeleton } from "@/components/layout/SidebarPageSkeleton";
 import { useCurrentUser } from "@/hooks/api";
 import { AdminUsersSection } from "./AdminUsersSection";
 import { AdminUsageSection } from "./AdminUsageSection";
+import { AdminActivitySection } from "./AdminActivitySection";
 import { AdminDatabaseSection } from "./AdminDatabaseSection";
 
-type AdminTab = "users" | "usage" | "database";
+type AdminTab = "users" | "activity" | "usage" | "database";
 
 interface TabConfig {
   id: AdminTab;
@@ -26,6 +27,12 @@ const TABS: TabConfig[] = [
     label: "User Management",
     icon: Shield,
     description: "Manage users and access levels",
+  },
+  {
+    id: "activity",
+    label: "User Activity",
+    icon: TrendingUp,
+    description: "Engagement and last seen by user",
   },
   {
     id: "usage",
@@ -74,6 +81,8 @@ export function AdminView() {
     switch (activeTab) {
       case "users":
         return <AdminUsersSection />;
+      case "activity":
+        return <AdminActivitySection />;
       case "usage":
         return <AdminUsageSection />;
       case "database":
