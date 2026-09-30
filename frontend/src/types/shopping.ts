@@ -84,3 +84,9 @@ export interface ShoppingListGenerationDTO {
   include_manual_items?: boolean;
   clear_existing?: boolean;
 }
+
+/** Free-text notes pad on the shopping list. updated_at is null until first save. */
+export interface ShoppingNotesDTO {
+  content: string;
+  updated_at: string | null;
+}

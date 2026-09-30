@@ -77,6 +77,7 @@ export {
   shoppingQueryKeys,
   // Queries
   useShoppingList,
+  useShoppingNotes,
   useIngredientBreakdown,
   // Mutations
   useToggleItem,
@@ -86,6 +87,7 @@ export {
   useClearManualItems,
   useClearCompletedItems,
   useGenerateShoppingList,
+  useSaveShoppingNotes,
   // Utilities
   useRefreshShoppingList,
 } from "./useShopping";

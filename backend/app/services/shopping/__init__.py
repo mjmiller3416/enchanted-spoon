@@ -6,13 +6,14 @@ Combines core service, item management, planner sync, and aggregation.
 
 from .aggregation import AggregationMixin
 from .item import ItemManagementMixin
+from .notes import NotesMixin
 from .service import ShoppingServiceCore
 from .sync import SyncMixin
 
 
 # ── Unified Service ─────────────────────────────────────────────────────────────────────────────
 class ShoppingService(
-    AggregationMixin, ItemManagementMixin, SyncMixin, ShoppingServiceCore
+    AggregationMixin, ItemManagementMixin, NotesMixin, SyncMixin, ShoppingServiceCore
 ):
     """Unified shopping service combining all functionality.
 
@@ -21,6 +22,7 @@ class ShoppingService(
     - SyncMixin: Planner synchronization and generation methods
     - ItemManagementMixin: Item CRUD and status management
     - AggregationMixin: Ingredient breakdown and analysis
+    - NotesMixin: Free-text shopping list notes
     """
 
     pass

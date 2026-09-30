@@ -23,6 +23,8 @@ from app.dtos.shopping_dtos import (
     ShoppingListGenerationDTO,
     ShoppingListGenerationResultDTO,
     ShoppingListResponseDTO,
+    ShoppingNotesResponseDTO,
+    ShoppingNotesUpdateDTO,
 )
 from app.models.user import User
 from app.services.shopping import ShoppingService
@@ -59,6 +61,25 @@ def get_shopping_list(
     )
 
     return service.get_shopping_list(filters)
+
+
+@router.get("/notes", response_model=ShoppingNotesResponseDTO)
+def get_shopping_notes(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the free-text notes shown on the shopping list."""
+    return ShoppingService(session, current_user.id).get_notes()
+
+
+@router.put("/notes", response_model=ShoppingNotesResponseDTO)
+def save_shopping_notes(
+    notes: ShoppingNotesUpdateDTO,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Replace the free-text notes shown on the shopping list."""
+    return ShoppingService(session, current_user.id).save_notes(notes.content)
 
 
 @router.get("/items/{item_id}", response_model=ShoppingItemResponseDTO)

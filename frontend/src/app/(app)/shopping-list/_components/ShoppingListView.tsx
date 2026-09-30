@@ -32,6 +32,7 @@ import {
 import { QuickAddForm } from "@/components/forms/QuickAddForm";
 import { getErrorMessage } from "@/lib/utils";
 import { IngredientSourceSidebar } from "./IngredientSourceSidebar";
+import { ShoppingNotes } from "./ShoppingNotes";
 import { useSettings } from "@/hooks/persistence/useSettings";
 
 /**
@@ -43,6 +44,7 @@ import { useSettings } from "@/hooks/persistence/useSettings";
  * - Optimistic UI updates for toggling items (via React Query mutations)
  * - Clear completed action
  * - Empty state when no items
+ * - Account-synced notes pad (sidebar card on desktop, collapsible on mobile)
  * - Loading skeleton during fetch
  */
 export function ShoppingListView() {
@@ -371,6 +373,8 @@ export function ShoppingListView() {
         {/* Add manual item form - also available when list is empty */}
         <QuickAddForm variant="inline" />
 
+        <ShoppingNotes variant="collapsible" className="mb-4" />
+
         <div className="flex flex-col items-center justify-center py-16 text-center" data-tour="shopping-list">
           <div className="p-4 mb-4 rounded-full bg-elevated">
             <ShoppingCart className="w-12 h-12 text-muted-foreground" />
@@ -454,6 +458,9 @@ export function ShoppingListView() {
       {/* Add manual item form */}
       <QuickAddForm variant="inline" />
 
+      {/* Notes (mobile) - the desktop copy lives in the sidebar */}
+      <ShoppingNotes variant="collapsible" className="mb-4 lg:hidden" />
+
       <div className="mb-4 lg:hidden">
         <Select value={filterRecipeName ?? "__all__"} onValueChange={value => setFilterRecipeName(value === "__all__" ? null : value)}>
           <SelectTrigger className="w-full" aria-label="Filter by recipe source"><SelectValue placeholder="All sources" /></SelectTrigger>
@@ -502,9 +509,10 @@ export function ShoppingListView() {
           </div>
         </div>
 
-        {/* Recipe filter sidebar (desktop only) - sticky below header */}
+        {/* Notes + recipe filter sidebar (desktop only) - sticky below header */}
         <div className="hidden lg:block">
-          <div className="sticky top-28 transform-gpu">
+          <div className="sticky top-28 transform-gpu flex flex-col gap-4 max-h-[calc(100vh-8rem)]">
+            <ShoppingNotes variant="card" className="shrink-0" />
             <IngredientSourceSidebar
               recipes={recipes}
               manualItemCount={manualItemCount}
