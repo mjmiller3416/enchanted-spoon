@@ -6,6 +6,7 @@ import { shoppingApi } from "@/lib/api";
 import type {
   ShoppingListResponseDTO,
   ManualItemCreateDTO,
+  ShoppingNotesDTO,
 } from "@/types/shopping";
 
 // ============================================================================
@@ -15,6 +16,7 @@ import type {
 export const shoppingQueryKeys = {
   all: ["shopping"] as const,
   list: () => [...shoppingQueryKeys.all, "list"] as const,
+  notes: () => [...shoppingQueryKeys.all, "notes"] as const,
   breakdown: (recipeIds: number[]) =>
     [...shoppingQueryKeys.all, "breakdown", recipeIds.sort().join(",")] as const,
 };
@@ -38,6 +40,23 @@ export function useShoppingList() {
     },
     staleTime: 0, // Always fresh - shopping list changes frequently
     enabled: isLoaded && isSignedIn, // Only fetch when auth is ready
+  });
+}
+
+/**
+ * Fetch the shopping list notes. Refetches on window focus so notes written
+ * on another device show up when you return to the tab.
+ */
+export function useShoppingNotes() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: shoppingQueryKeys.notes(),
+    queryFn: async () => {
+      const token = await getToken();
+      return shoppingApi.getNotes(token);
+    },
+    enabled: isLoaded && isSignedIn,
   });
 }
 
@@ -221,4 +240,25 @@ export function useRefreshShoppingList() {
   return () => {
     queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() });
   };
+}
+
+/**
+ * Save the shopping list notes. Saves share a mutation scope so they run in
+ * order and a slow earlier save can never overwrite a later one.
+ */
+export function useSaveShoppingNotes() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    meta: { errorMessage: "Couldn't save your notes" },
+    scope: { id: "shopping-notes" },
+    mutationFn: async (content: string) => {
+      const token = await getToken();
+      return shoppingApi.saveNotes(content, token);
+    },
+    onSuccess: (notes) => {
+      queryClient.setQueryData<ShoppingNotesDTO>(shoppingQueryKeys.notes(), notes);
+    },
+  });
 }

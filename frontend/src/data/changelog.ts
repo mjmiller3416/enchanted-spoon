@@ -2,6 +2,9 @@
 // CHANGELOG - Edit the markdown below
 // ============================================
 const CHANGELOG_MD = `
+## 2026-09-30 - New Features
+- Shopping List notes: jot down store hours, coupons or anything to double-check. Notes save automatically and follow your account — write them on your computer, read them on your phone at the store
+
 ## 2026-09-26 - New Features
 - Menu (formerly Meal Planner): tap a planned meal to open its details in a panel docked beside your menu — sides, cook times, and Genie's suggestions without leaving the page. The open meal stays open when you reload
 - Guided onboarding tour: an 11-step walkthrough of Home, Recipes, Meal Planner, Shopping List and Settings. It starts on its own for new accounts and you can replay it from Settings

@@ -10,6 +10,7 @@ from .recipe_history import RecipeHistory
 from .recipe_ingredient import RecipeIngredient
 from .shopping_item import ShoppingItem
 from .shopping_item_contribution import ShoppingItemContribution
+from .shopping_note import ShoppingNote
 from .unit_conversion_rule import UnitConversionRule
 from .user import User
 from .user_category import UserCategory
@@ -29,6 +30,7 @@ __all__ = [
     "PlannerEntry",
     "ShoppingItem",
     "ShoppingItemContribution",
+    "ShoppingNote",
     "UnitConversionRule",
     "User",
     "UserCategory",

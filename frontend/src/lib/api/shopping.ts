@@ -6,6 +6,7 @@ import type {
   ShoppingItemUpdateDTO,
   ShoppingListFilterDTO,
   ShoppingListGenerationDTO,
+  ShoppingNotesDTO,
 } from "@/types/shopping";
 import type { IngredientBreakdownDTO } from "@/types/recipe";
 import type { BulkOperationResultDTO } from "@/types/common";
@@ -202,6 +203,28 @@ export const shoppingApi = {
     fetchApi<IngredientBreakdownDTO[]>(
       `/api/shopping/breakdown?recipe_ids=${recipeIds.join(",")}`,
       undefined,
+      token
+    ),
+
+  /**
+   * Get the shopping list notes
+   * @param token - Optional auth token for authenticated requests
+   */
+  getNotes: (token?: string | null): Promise<ShoppingNotesDTO> =>
+    fetchApi<ShoppingNotesDTO>("/api/shopping/notes", undefined, token),
+
+  /**
+   * Replace the shopping list notes
+   * @param content - Full notes text
+   * @param token - Optional auth token for authenticated requests
+   */
+  saveNotes: (content: string, token?: string | null): Promise<ShoppingNotesDTO> =>
+    fetchApi<ShoppingNotesDTO>(
+      "/api/shopping/notes",
+      {
+        method: "PUT",
+        body: JSON.stringify({ content }),
+      },
       token
     ),
 };

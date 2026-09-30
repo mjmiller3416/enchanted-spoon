@@ -59,7 +59,7 @@ export function IngredientSourceSidebar({
   }
 
   return (
-    <Card className="p-4 flex flex-col max-h-[calc(100vh-8rem)]">
+    <Card className="p-4 flex flex-col min-h-0">
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex-shrink-0">
           Recipes in this list
         </h2>

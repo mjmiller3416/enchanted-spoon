@@ -7,6 +7,7 @@ Handles shopping item creation, updates, filtering, and aggregation.
 # ── Imports ─────────────────────────────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -265,3 +266,17 @@ class BulkOperationResultDTO(BaseModel):
     updated_count: int
     message: str
     errors: List[str] = []
+
+# ── Notes DTOs ──────────────────────────────────────────────────────────────────────────────────────────────
+SHOPPING_NOTES_MAX_LENGTH = 5000
+
+class ShoppingNotesUpdateDTO(BaseModel):
+    """DTO for replacing the shopping list notes."""
+
+    content: str = Field(..., max_length=SHOPPING_NOTES_MAX_LENGTH)
+
+class ShoppingNotesResponseDTO(BaseModel):
+    """DTO for the shopping list notes. updated_at is None until first save."""
+
+    content: str = ""
+    updated_at: Optional[datetime] = None

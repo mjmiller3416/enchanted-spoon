@@ -13,6 +13,7 @@ from .aggregation_repo import (
 )
 from .contribution_repo import ShoppingContributionRepo
 from .item_repo import ShoppingItemRepo
+from .note_repo import ShoppingNoteRepo
 
 
 class ShoppingRepo:
@@ -35,6 +36,7 @@ class ShoppingRepo:
         self.item_repo = ShoppingItemRepo(session, user_id)
         self.aggregation_repo = ShoppingAggregationRepo(session, user_id)
         self.contribution_repo = ShoppingContributionRepo(session, user_id)
+        self.note_repo = ShoppingNoteRepo(session, user_id)
 
     # ── Item Operations (delegate to item_repo) ─────────────────────────────────────────────────────────────
     def create_shopping_item(self, shopping_item, user_id=None):
@@ -84,6 +86,15 @@ class ShoppingRepo:
     def clear_recipe_items(self, user_id=None):
         """Clear recipe items."""
         return self.item_repo.clear_recipe_items(user_id)
+
+    # ── Note Operations (delegate to note_repo) ──────────────────────────────────────────────────────────────
+    def get_note(self):
+        """Get the user's shopping notes."""
+        return self.note_repo.get_note()
+
+    def upsert_note(self, content):
+        """Create or replace the user's shopping notes."""
+        return self.note_repo.upsert_note(content)
 
     # ── Aggregation Operations (delegate to aggregation_repo) ──────────────────────────────────────────────
     def get_recipe_ingredients(self, recipe_ids):
@@ -167,6 +178,7 @@ __all__ = [
     "ShoppingItemRepo",
     "ShoppingAggregationRepo",
     "ShoppingContributionRepo",
+    "ShoppingNoteRepo",
     # Data classes
     "AggregatedIngredient",
     "ContributionData",
