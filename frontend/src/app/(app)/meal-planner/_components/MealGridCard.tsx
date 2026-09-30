@@ -5,7 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
 import { RecipeBannerImage } from "@/components/recipe/RecipeBannerImage";
 import { ShoppingCart, Users, Clock, Bookmark, Loader2 } from "lucide-react";
 import { formatTime } from "@/lib/quantityUtils";
@@ -147,19 +147,24 @@ export function MealGridCard({
 
         {/* Status Icons - Top Right */}
         <div className="absolute top-2 right-2 flex gap-1">
-          <DropdownMenu>
+          {/* Portaled out of the card: the card's hover lift (transform) would otherwise become
+              the menu's containing block and make it jump as hover toggles. modal={false}
+              skips Radix's scroll lock, which is what caused layout shift with portals. */}
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon-sm" disabled={isShoppingModePending} aria-label={`Shopping mode: ${getShoppingModeTooltip(shoppingMode)}`} onPointerDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
                 {isShoppingModePending ? <Loader2 className="size-4 animate-spin" strokeWidth={1.5} /> : <ShoppingCart className="size-4" strokeWidth={1.5} />}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-              <DropdownMenuRadioGroup value={shoppingMode} onValueChange={value => onSetShoppingMode?.(value as ShoppingMode)}>
-                <DropdownMenuRadioItem value="all">All ingredients</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="produce_only">Produce only</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="none">Exclude from shopping</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
+            <DropdownMenuPortal>
+              <DropdownMenuContent onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+                <DropdownMenuRadioGroup value={shoppingMode} onValueChange={value => onSetShoppingMode?.(value as ShoppingMode)}>
+                  <DropdownMenuRadioItem value="all">All ingredients</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="produce_only">Produce only</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="none">Exclude from shopping</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenuPortal>
           </DropdownMenu>
 
           {/* Saved Indicator */}
