@@ -49,6 +49,11 @@ class InstallPromptSettings(SettingsSection):
     snoozedUntil: str | None = None
 
 
+class WhatsNewSettings(SettingsSection):
+    """"What's new" bookkeeping, synced so every device agrees on what was read."""
+    lastSeenRelease: str | None = None
+
+
 class SettingsDTO(SettingsSection):
     schemaVersion: Literal[1] = 1
     profile: ProfileSettings = Field(default_factory=ProfileSettings)
@@ -57,6 +62,7 @@ class SettingsDTO(SettingsSection):
     shoppingList: ShoppingSettings = Field(default_factory=ShoppingSettings)
     aiFeatures: AISettings = Field(default_factory=AISettings)
     installPrompt: InstallPromptSettings = Field(default_factory=InstallPromptSettings)
+    whatsNew: WhatsNewSettings = Field(default_factory=WhatsNewSettings)
 
     @model_validator(mode="before")
     @classmethod

@@ -24,6 +24,7 @@ import { AIFeaturesSection } from "./sections/AIFeaturesSection";
 import { RecipePreferencesSection } from "./sections/RecipePreferencesSection";
 import { ShoppingListSection } from "./sections/ShoppingListSection";
 import { TourReplayCard } from "./TourReplayCard";
+import { WhatsNewCard } from "./WhatsNewCard";
 
 export function SettingsView() {
   const searchParams = useSearchParams();
@@ -183,6 +184,7 @@ export function SettingsView() {
               </div>
 
               <TourReplayCard className="mt-4" />
+              <WhatsNewCard className="mt-4" />
 
               {/* Version Info */}
               <div className="hidden lg:block mt-4 px-4 py-3 text-center">

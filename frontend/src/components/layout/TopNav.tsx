@@ -49,15 +49,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SafeLink } from "@/components/common/SafeLink";
 import { Logo } from "@/components/layout/Logo";
 import { FeedbackDialog } from "@/components/common/FeedbackDialog";
-import { WhatsNewDialog } from "@/components/common/WhatsNewDialog";
 import { WhatsNewPopover } from "@/components/common/WhatsNewPopover";
-import { LATEST_RELEASE_ID, RELEASES, getUnreadReleaseIds } from "@/data/changelog";
 import { appConfig } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { useShoppingList, useRefreshShoppingList, useCurrentUser } from "@/hooks/api";
 import { useTheme } from "@/hooks/ui";
 import { useNavActions } from "@/lib/providers/NavActionsProvider";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
+import { useWhatsNew } from "@/lib/providers/WhatsNewProvider";
 import { useTour } from "@/lib/providers/TourProvider";
 import { usePwaInstall } from "@/lib/providers/PwaInstallProvider";
 
@@ -423,36 +422,6 @@ const emptySubscribe = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
-const LAST_SEEN_RELEASE_KEY = "whatsNewLastSeenRelease";
-const LEGACY_SEEN_COUNT_KEY = "lastSeenChangelogCount";
-
-/**
- * Newest release this browser has seen. The first read after the switch from
- * item counts seeds a baseline: returning users (legacy key present) get the
- * latest release as new; brand-new users start with everything read.
- */
-function readLastSeenRelease(): string {
-  try {
-    const stored = localStorage.getItem(LAST_SEEN_RELEASE_KEY);
-    if (stored) return stored;
-    const returning = localStorage.getItem(LEGACY_SEEN_COUNT_KEY) !== null;
-    const baseline = returning ? (RELEASES[1]?.id ?? LATEST_RELEASE_ID) : LATEST_RELEASE_ID;
-    localStorage.setItem(LAST_SEEN_RELEASE_KEY, baseline);
-    localStorage.removeItem(LEGACY_SEEN_COUNT_KEY);
-    return baseline;
-  } catch {
-    return LATEST_RELEASE_ID;
-  }
-}
-
-function markAllReleasesSeen() {
-  try {
-    localStorage.setItem(LAST_SEEN_RELEASE_KEY, LATEST_RELEASE_ID);
-  } catch {
-    // Storage blocked — the dot simply returns next visit
-  }
-}
-
 const navigation = [
   { name: "Home", href: "/dashboard", icon: LayoutDashboard },
   { name: "Menu", href: "/meal-planner", icon: CalendarDays },
@@ -475,20 +444,12 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
 
   // Dialog state
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
-  const [whatsNewSeen, setWhatsNewSeen] = useState(false);
-  const [whatsNewFocus, setWhatsNewFocus] = useState<string | null>(null);
 
   // Theme (shared model — persists via the settings store)
   const { resolvedTheme, toggleTheme } = useTheme();
 
   // Client-side state (lazy initializers read localStorage without triggering cascading renders)
-  // Captured once per page load so New badges survive opening the popover
-  const [unreadReleaseIds] = useState<ReadonlySet<string>>(() =>
-    typeof window === "undefined"
-      ? new Set<string>()
-      : getUnreadReleaseIds(readLastSeenRelease())
-  );
+  const whatsNew = useWhatsNew();
   const mounted = useSyncExternalStore(
     emptySubscribe,
     getClientSnapshot,
@@ -523,18 +484,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
   }, [refreshShoppingList, handlePlannerUpdated]);
 
   // Derived values
-  const hasNewUpdates = mounted && unreadReleaseIds.size > 0 && !whatsNewSeen;
-
-  const markWhatsNewSeen = () => {
-    markAllReleasesSeen();
-    setWhatsNewSeen(true);
-  };
-
-  const openWhatsNew = (releaseId: string | null = null) => {
-    markWhatsNewSeen();
-    setWhatsNewFocus(releaseId);
-    setWhatsNewOpen(true);
-  };
+  const hasNewUpdates = mounted && whatsNew.hasNew;
 
   const handleSheetNavigate = () => {
     setSheetOpen(false);
@@ -648,11 +598,11 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
 
           {/* What's new */}
           <WhatsNewPopover
-            unreadIds={unreadReleaseIds}
+            unreadIds={whatsNew.unreadIds}
             hasNewUpdates={hasNewUpdates}
-            onOpen={markWhatsNewSeen}
-            onViewAll={() => openWhatsNew()}
-            onViewRelease={openWhatsNew}
+            onOpen={whatsNew.markSeen}
+            onViewAll={() => whatsNew.openWhatsNew()}
+            onViewRelease={whatsNew.openWhatsNew}
           />
 
           {/* User avatar dropdown */}
@@ -736,13 +686,6 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
 
       {/* Dialogs */}
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-      <WhatsNewDialog
-        open={whatsNewOpen}
-        onOpenChange={setWhatsNewOpen}
-        unreadIds={unreadReleaseIds}
-        focusReleaseId={whatsNewFocus}
-        onNavigate={(href) => router.push(href)}
-      />
     </>
   );
 }

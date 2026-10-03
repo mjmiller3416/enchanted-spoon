@@ -31,6 +31,7 @@ class CurrentUserDTO(BaseModel):
     cancel_at_period_end: bool = False
     has_pro_access: bool
     access_reason: str
+    created_at: datetime
 
     @classmethod
     def from_model(cls, user: User) -> CurrentUserDTO:
@@ -46,6 +47,7 @@ class CurrentUserDTO(BaseModel):
             cancel_at_period_end=user.cancel_at_period_end,
             has_pro_access=user.has_pro_access,
             access_reason=user.access_reason,
+            created_at=user.created_at,
         )
 
 

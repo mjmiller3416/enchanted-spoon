@@ -16,6 +16,7 @@ import {
 } from "@/lib/providers/RecipeWizardProvider";
 import { TourProvider } from "@/lib/providers/TourProvider";
 import { PwaInstallProvider } from "@/lib/providers/PwaInstallProvider";
+import { WhatsNewProvider } from "@/lib/providers/WhatsNewProvider";
 import { RecipeWizardView } from "@/app/(app)/recipes/_components/wizard/RecipeWizardView";
 import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
 import { PaywallDialog } from "@/components/common/PaywallDialog";
@@ -67,7 +68,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <RecipeWizardProvider>
             <TourProvider>
               <PwaInstallProvider>
-                <AppLayoutInner>{children}</AppLayoutInner>
+                <WhatsNewProvider>
+                  <AppLayoutInner>{children}</AppLayoutInner>
+                </WhatsNewProvider>
               </PwaInstallProvider>
             </TourProvider>
           </RecipeWizardProvider>

@@ -41,6 +41,15 @@ export interface InstallPromptSettings {
   snoozedUntil: string | null;
 }
 
+/**
+ * "What's new" bookkeeping. Account-synced so phone and desktop agree on
+ * which releases were read. `null` until the first visit seeds a baseline.
+ */
+export interface WhatsNewSettings {
+  /** Newest release id (YYYY-MM-DD) the user has seen */
+  lastSeenRelease: string | null;
+}
+
 export interface AppSettings {
   profile: UserProfile;
   appearance: AppearanceSettings;
@@ -48,6 +57,7 @@ export interface AppSettings {
   shoppingList: ShoppingListSettings;
   aiFeatures: AIFeaturesSettings;
   installPrompt: InstallPromptSettings;
+  whatsNew: WhatsNewSettings;
 }
 
 // ============================================================================
@@ -98,6 +108,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     dismissCount: 0,
     snoozedUntil: null,
   },
+  whatsNew: {
+    lastSeenRelease: null,
+  },
 };
 
 // ============================================================================
@@ -135,6 +148,10 @@ export function deepMergeSettings(defaults: AppSettings, source: SettingsPatch):
     installPrompt: {
       ...defaults.installPrompt,
       ...(source.installPrompt || {}),
+    },
+    whatsNew: {
+      ...defaults.whatsNew,
+      ...(source.whatsNew || {}),
     },
   };
 }
