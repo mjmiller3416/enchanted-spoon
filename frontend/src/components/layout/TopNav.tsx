@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronDown,
   Compass,
+  Download,
   MessageSquarePlus,
   Sparkles,
   Shield,
@@ -48,16 +49,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SafeLink } from "@/components/common/SafeLink";
 import { Logo } from "@/components/layout/Logo";
 import { FeedbackDialog } from "@/components/common/FeedbackDialog";
-import { ChangelogDialog } from "@/components/common/ChangelogDialog";
-import { ChangelogPopover } from "@/components/common/ChangelogPopover";
-import { CHANGELOG_TOTAL_ITEMS } from "@/data/changelog";
+import { WhatsNewPopover } from "@/components/common/WhatsNewPopover";
 import { appConfig } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { useShoppingList, useRefreshShoppingList, useCurrentUser } from "@/hooks/api";
 import { useTheme } from "@/hooks/ui";
 import { useNavActions } from "@/lib/providers/NavActionsProvider";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
+import { useWhatsNew } from "@/lib/providers/WhatsNewProvider";
 import { useTour } from "@/lib/providers/TourProvider";
+import { usePwaInstall } from "@/lib/providers/PwaInstallProvider";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TopNavLink — Inline navigation link for the top nav bar
@@ -258,6 +259,7 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
   const router = useRouter();
   const { isAdmin } = useCurrentUser();
   const { startTour, isActive: tourActive } = useTour();
+  const { canInstall, install } = usePwaInstall();
 
   const handleSignOut = async () => {
     await signOut();
@@ -386,6 +388,16 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
           Take the tour
         </DropdownMenuItem>
 
+        {canInstall && (
+          <DropdownMenuItem
+            onClick={() => void install()}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <Download className="h-4 w-4" strokeWidth={1.5} />
+            Install app
+          </DropdownMenuItem>
+        )}
+
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
@@ -405,7 +417,7 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Hydration detector: false during SSR/hydration render, true after mount —
-// gates client-only UI (theme icon, changelog badge) without a setState effect
+// gates client-only UI (theme icon, What's new dot) without a setState effect
 const emptySubscribe = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
@@ -432,23 +444,12 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
 
   // Dialog state
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [changelogOpen, setChangelogOpen] = useState(false);
-  const [changelogBadgeDismissed, setChangelogBadgeDismissed] = useState(false);
-  const [changelogCountReset, setChangelogCountReset] = useState(false);
-  const [changelogScrollTo, setChangelogScrollTo] = useState<number | null>(null);
 
   // Theme (shared model — persists via the settings store)
   const { resolvedTheme, toggleTheme } = useTheme();
 
   // Client-side state (lazy initializers read localStorage without triggering cascading renders)
-  const [changelogNewItems] = useState(() => {
-    if (typeof window === "undefined") return 0;
-    const lastSeenCount = parseInt(
-      localStorage.getItem("lastSeenChangelogCount") || "0",
-      10
-    );
-    return Math.max(0, CHANGELOG_TOTAL_ITEMS - lastSeenCount);
-  });
+  const whatsNew = useWhatsNew();
   const mounted = useSyncExternalStore(
     emptySubscribe,
     getClientSnapshot,
@@ -483,19 +484,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
   }, [refreshShoppingList, handlePlannerUpdated]);
 
   // Derived values
-  const hasNewUpdates = mounted && changelogNewItems > 0 && !changelogBadgeDismissed;
-  const newItemCount = changelogCountReset ? 0 : changelogNewItems;
-
-  const handleChangelogOpenChange = (open: boolean) => {
-    if (open) {
-      localStorage.setItem("lastSeenChangelogCount", String(CHANGELOG_TOTAL_ITEMS));
-      setChangelogBadgeDismissed(true);
-    } else {
-      setChangelogCountReset(true);
-      setChangelogScrollTo(null);
-    }
-    setChangelogOpen(open);
-  };
+  const hasNewUpdates = mounted && whatsNew.hasNew;
 
   const handleSheetNavigate = () => {
     setSheetOpen(false);
@@ -566,7 +555,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
           </div>
         )}
 
-        {/* Right section: Assistant, Theme toggle, Changelog, Avatar */}
+        {/* Right section: Assistant, Theme toggle, What's new, Avatar */}
         <div className="flex items-center gap-2.5 border-l border-border pl-3">
           {/* Genie assistant trigger */}
           <Tooltip>
@@ -607,19 +596,13 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
             </Tooltip>
           )}
 
-          {/* Changelog / What's New */}
-          <ChangelogPopover
-            newItemCount={newItemCount}
+          {/* What's new */}
+          <WhatsNewPopover
+            unreadIds={whatsNew.unreadIds}
             hasNewUpdates={hasNewUpdates}
-            onOpen={() => {
-              localStorage.setItem("lastSeenChangelogCount", String(CHANGELOG_TOTAL_ITEMS));
-              setChangelogBadgeDismissed(true);
-            }}
-            onViewAll={() => handleChangelogOpenChange(true)}
-            onViewItem={(globalIndex) => {
-              setChangelogScrollTo(globalIndex);
-              handleChangelogOpenChange(true);
-            }}
+            onOpen={whatsNew.markSeen}
+            onViewAll={() => whatsNew.openWhatsNew()}
+            onViewRelease={whatsNew.openWhatsNew}
           />
 
           {/* User avatar dropdown */}
@@ -703,12 +686,6 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
 
       {/* Dialogs */}
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-      <ChangelogDialog
-        open={changelogOpen}
-        onOpenChange={handleChangelogOpenChange}
-        newItemCount={newItemCount}
-        scrollToItem={changelogScrollTo}
-      />
     </>
   );
 }

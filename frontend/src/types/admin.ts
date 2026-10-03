@@ -12,6 +12,7 @@ export interface CurrentUserDTO {
   cancel_at_period_end: boolean;
   has_pro_access: boolean;
   access_reason: string;
+  created_at: string;
 }
 
 export interface AdminUserDTO {

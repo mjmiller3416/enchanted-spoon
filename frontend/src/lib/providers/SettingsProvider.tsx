@@ -42,7 +42,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     ...state, isLoading: !state.isLoaded, retrySave: store.refresh,
     updateSettings: (section, values) => store.update({ [section]: values }),
     updateMultipleSections: store.update,
-    resetSettings: () => store.update(DEFAULT_SETTINGS),
+    // installPrompt/whatsNew are bookkeeping, not preferences — a reset must not re-arm them
+    resetSettings: () => store.update({ ...DEFAULT_SETTINGS, installPrompt: state.settings.installPrompt, whatsNew: state.settings.whatsNew }),
     resetSection: section => store.update({ [section]: DEFAULT_SETTINGS[section] }),
   }}>{children}</SettingsContext.Provider>;
 }

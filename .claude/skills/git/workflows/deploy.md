@@ -74,87 +74,29 @@ Even solo, a PR for production deploys gives you:
    Create deploy PR? (yes / abort)
    ```
 
-3. **Auto-generate changelog entry**
+3. **Write the release notes**
 
-   **Step 3a: Parse commits**
+   Follow `.claude/commands/changelog.md` (the `/changelog` command) — it owns
+   the editorial rules, the `RELEASES` format in
+   `frontend/src/data/changelog.ts`, and the accept/edit/skip prompt.
+
+   **Step 3a: Gather what ships**
    ```bash
-   git log origin/main..origin/staging --pretty=format:"%s" | grep -E "^(feat|fix):"
+   git log origin/main..origin/staging --pretty=format:"%s%n%b" --no-merges
    ```
 
-   **Step 3b: Categorize and convert to user-friendly language**
+   **Step 3b: Draft one release object** (headline, 1–3 highlights,
+   improvements, fixes) for today's date, applying the filter rules —
+   internal, security, integration and admin-only changes stay out.
 
-   Categorization rules:
-   - `feat:` or `feat(*):`     → "New Features"
-   - `fix:` (user-visible)     → "Bug Fixes"
-   - `chore:`, `refactor:`, `docs:`, `test:` → SKIP (internal only)
+   **Step 3c: Show preview and confirm** (`yes / edit / skip`)
 
-   **Step 3c: Generate changelog markdown**
+   - If 'skip': Don't update the release notes this deploy
 
-   Format matching existing style in `frontend/src/data/changelog.ts`:
-   ```markdown
-   ## YYYY-MM-DD - New Features
-   - [User-friendly description with em dashes — for clarifications]
-
-   ## YYYY-MM-DD - Bug Fixes
-   - [User-friendly description]
-
-   ## YYYY-MM-DD - Improvements
-   - [User-friendly description for enhancements]
-   ```
-
-   **Conversion guidelines:**
-   - Remove technical jargon (file names, function names, etc.)
-   - Focus on user impact ("what changed" not "how")
-   - Use proper em dashes (—) not hyphens for clarifications
-   - Mention specific feature areas (Genie, Shopping List, Recipe Browser, Meal Planner, etc.)
-   - Combine related commits into single bullets when appropriate
-   - Use present tense and active voice
-   - Start with action verbs when possible
-
-   **Examples:**
-   ```
-   Commit: feat(planner): add drag and drop reordering
-   Changelog: Drag-and-drop reordering of meals in the Meal Planner sidebar
-
-   Commit: fix(shopping): resolve category collapse bug
-   Changelog: Shopping list categories now auto-collapse when all items are collected
-
-   Commit: feat: implement recipe search with filters
-   Changelog: New multi-select filters in Recipe Browser for easier recipe searching
-
-   Commit: fix(auth): prevent token leak in error responses
-   Changelog: Fixed authentication issue with AI features — image generation and Genie now properly authenticate requests
-   ```
-
-   **Step 3d: Show preview and confirm**
-   ```
-   Generated changelog entry:
-
-   ## 2026-01-31 - New Features
-   - Shopping list sync and real-time updates across devices
-   - New meal planning suggestions based on existing recipes
-
-   ## 2026-01-31 - Bug Fixes
-   - Fixed shopping list category collapse issue when all items collected
-   - Resolved authentication issue with AI features
-
-   Accept this changelog entry? (yes / edit / skip)
-   ```
-
-   - If 'edit': Open in editor, allow modifications
-   - If 'skip': Don't update changelog this deploy
-   - If 'yes': Continue to step 3e
-
-   **Step 3e: Insert into changelog file**
-
-   Read `frontend/src/data/changelog.ts`
-   Insert new section at line 5 (after opening backtick, before first ##)
-   Preserve all existing entries
-
-   **Step 3f: Commit and push changelog**
+   **Step 3d: Commit and push**
    ```bash
-   git add frontend/src/data/changelog.ts
-   git commit -m "docs: update changelog for YYYY-MM-DD release
+   git add frontend/src/data/changelog.ts frontend/public/whats-new
+   git commit -m "docs: update release notes for YYYY-MM-DD release
 
    Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>"
    git push origin staging
@@ -173,13 +115,13 @@ Even solo, a PR for production deploys gives you:
    - feat: shopping list sync and filtering
    - feat: improved meal planner drag-drop
    - fix: resolve auth token refresh
-   - docs: update changelog for YYYY-MM-DD release
+   - docs: update release notes for YYYY-MM-DD release
 
    ### Checklist
    - [ ] Tested on staging
    - [ ] No console errors
    - [ ] Verified on mobile
-   - [ ] Changelog updated
+   - [ ] Release notes updated
 
    ---
    Merging this PR will trigger Railway auto-deploy.

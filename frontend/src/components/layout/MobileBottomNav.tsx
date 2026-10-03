@@ -6,9 +6,11 @@ import {
   CalendarDays,
   BookOpen,
   Compass,
+  Download,
   House,
   ShoppingCart,
   EllipsisVertical,
+  Gift,
   Plus,
   Settings,
   MessageSquarePlus,
@@ -24,6 +26,7 @@ import { useUser, useClerk } from "@clerk/nextjs";
 import { SafeLink } from "@/components/common/SafeLink";
 import { FeedbackDialog } from "@/components/common/FeedbackDialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
   SheetContent,
@@ -35,6 +38,8 @@ import { useShoppingList, useRefreshShoppingList, useCurrentUser } from "@/hooks
 import { useTheme } from "@/hooks/ui";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
 import { useTour } from "@/lib/providers/TourProvider";
+import { usePwaInstall } from "@/lib/providers/PwaInstallProvider";
+import { useWhatsNew } from "@/lib/providers/WhatsNewProvider";
 
 interface NavItem {
   name: string;
@@ -62,6 +67,8 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
   const { isAdmin } = useCurrentUser();
   const { openWizard } = useRecipeWizardDialog();
   const { startTour } = useTour();
+  const { canInstall, install } = usePwaInstall();
+  const { hasNew: hasWhatsNew, openWhatsNew } = useWhatsNew();
   const { resolvedTheme, toggleTheme } = useTheme();
 
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -187,6 +194,7 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
             variant="ghost"
             onClick={() => setIsMoreOpen(true)}
             data-tour="nav-add"
+            aria-label={hasWhatsNew ? "More (new updates)" : undefined}
             className={cn(
               // Layout
               "flex flex-col items-center justify-center",
@@ -200,7 +208,12 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
               "active:scale-95"
             )}
           >
-            <EllipsisVertical className="h-6 w-6" strokeWidth={1.5} />
+            <span className="relative">
+              <EllipsisVertical className="h-6 w-6" strokeWidth={1.5} />
+              {hasWhatsNew && (
+                <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary" />
+              )}
+            </span>
             <span className="text-2xs mt-1 font-medium">More</span>
           </Button>
         </div>
@@ -319,12 +332,37 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
 
             <Button
               variant="ghost"
+              onClick={() => handleMenuAction(() => openWhatsNew())}
+              className="flex items-center justify-start gap-3 px-5 py-3 w-full h-auto rounded-none text-sm text-foreground"
+            >
+              <Gift className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+              What&apos;s new
+              {hasWhatsNew && (
+                <Badge variant="default" size="sm" className="ml-auto">
+                  New
+                </Badge>
+              )}
+            </Button>
+
+            <Button
+              variant="ghost"
               onClick={() => handleMenuAction(startTour)}
               className="flex items-center justify-start gap-3 px-5 py-3 w-full h-auto rounded-none text-sm text-foreground"
             >
               <Compass className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
               Take the tour
             </Button>
+
+            {canInstall && (
+              <Button
+                variant="ghost"
+                onClick={() => handleMenuAction(() => void install())}
+                className="flex items-center justify-start gap-3 px-5 py-3 w-full h-auto rounded-none text-sm text-foreground"
+              >
+                <Download className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+                Install app
+              </Button>
+            )}
 
             <div className="h-px bg-border mx-5 my-1" />
 

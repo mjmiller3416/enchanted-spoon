@@ -36,6 +36,8 @@ export const metadata: Metadata = {
     url: "/",
   },
   twitter: { card: "summary_large_image" },
+  // Home-screen launches on older iOS read these instead of the manifest
+  appleWebApp: { capable: true, title: appConfig.appName },
 };
 
 // Runs synchronously before any content paints so a stored light preference
@@ -73,6 +75,18 @@ const themeInitScript = `(function () {
   } catch (e) {}
 })();`;
 
+// Chromium fires `beforeinstallprompt` once per page load, often before React
+// hydrates, so it's stashed on window here for PwaInstallProvider to pick up.
+// preventDefault suppresses Chrome's own mini-infobar in favor of our prompt.
+// Keep the global/event names in sync with lib/pwa.ts.
+const installPromptCaptureScript = `(function () {
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    window.__esInstallPrompt = e;
+    window.dispatchEvent(new Event("es:installprompt"));
+  });
+})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -85,6 +99,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: installPromptCaptureScript }} />
         <ClerkProvider>
           <QueryProvider>
             {children}

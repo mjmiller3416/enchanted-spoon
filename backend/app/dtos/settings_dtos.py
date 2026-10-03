@@ -42,6 +42,19 @@ class AISettings(SettingsSection):
     showAssistantFab: bool = True
 
 
+class InstallPromptSettings(SettingsSection):
+    """Install-app prompt bookkeeping, synced so an iOS home-screen launch can silence Safari."""
+    installedAt: str | None = None
+    dismissCount: int = Field(default=0, ge=0)
+    snoozedUntil: str | None = None
+
+
+class WhatsNewSettings(SettingsSection):
+    """"What's new" bookkeeping, synced so every device agrees on what was read."""
+    lastSeenRelease: str | None = None
+    dismissedSpotlights: list[str] = Field(default_factory=list)
+
+
 class SettingsDTO(SettingsSection):
     schemaVersion: Literal[1] = 1
     profile: ProfileSettings = Field(default_factory=ProfileSettings)
@@ -49,6 +62,8 @@ class SettingsDTO(SettingsSection):
     recipePreferences: RecipePreferences = Field(default_factory=RecipePreferences)
     shoppingList: ShoppingSettings = Field(default_factory=ShoppingSettings)
     aiFeatures: AISettings = Field(default_factory=AISettings)
+    installPrompt: InstallPromptSettings = Field(default_factory=InstallPromptSettings)
+    whatsNew: WhatsNewSettings = Field(default_factory=WhatsNewSettings)
 
     @model_validator(mode="before")
     @classmethod

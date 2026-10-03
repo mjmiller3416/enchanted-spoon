@@ -1,442 +1,384 @@
 // ============================================
-// CHANGELOG - Edit the markdown below
+// RELEASE NOTES — "What's new"
 // ============================================
-const CHANGELOG_MD = `
-## 2026-09-30 - New Features
-- Shopping List notes: jot down store hours, coupons or anything to double-check. Notes save automatically and follow your account — write them on your computer, read them on your phone at the store
-
-## 2026-09-26 - New Features
-- Menu (formerly Meal Planner): tap a planned meal to open its details in a panel docked beside your menu — sides, cook times, and Genie's suggestions without leaving the page. The open meal stays open when you reload
-- Guided onboarding tour: an 11-step walkthrough of Home, Recipes, Meal Planner, Shopping List and Settings. It starts on its own for new accounts and you can replay it from Settings
-- New accounts start with a sample kitchen: 10 recipes with photos, 4 saved meals, 3 planned meals and the shopping list they produce. Sample items show a "Sample" badge and can be removed or re-added in Settings > Data Management
-
-## 2026-09-26 - Improvements
-- "Meal Planner" is now called "Menu" throughout the app
-- Recipe Browser fits more on screen, shows better images and has easier navigation into recipe details
-- Page headers and editors now look the same across the app, and headers no longer overflow on small screens
-- Meal Planner makes it clearer which meal is selected, and the Shopping List shows item state more clearly
-- Settings and Admin share one navigation, and the account pages have been cleaned up
-- Home page sections and unsent Genie messages now survive a reload
-- The back and forward buttons in your browser now keep your place
-- Backups now include your custom categories, ingredient units and unit conversion rules, and restoring brings them back
-- We're now notified automatically when something breaks, so problems get fixed faster
-
-## 2026-09-26 - Bug Fixes
-- The selected meal card no longer gets cut off on desktop, and the detail panel scrolls when it's taller than your screen
-- Tightened account data isolation — Delete All Data, backups, restores and recipe exports now only ever touch your own account
-- Recipe drafts are protected: an interrupted save picks up where it left off without creating a duplicate
-- Settings changes save reliably, even when you make several quickly
-- Signing in recovers an existing session or a Google/OAuth sign-in instead of getting stuck
-- Favorites stay saved, and one account's data can't appear in another account on the same browser
-- Better error recovery and more accessible controls throughout the app
-- AI usage limits are counted accurately, even when several requests go out at once
-- Importing a recipe from a website is more secure
-
-## 2026-09-02 - New Features
-- Meal Planner header now shows how many of your 20 planner slots are in use
-- Plan & Billing now shows your renewal date as soon as you subscribe — and after cancelling, it correctly shows when your access ends instead of a renewal date
-
-## 2026-09-02 - Bug Fixes
-- Home page meal carousel now displays at the right size on mobile
-- More resilient database connections — fixed rare one-off errors after idle periods
-
-## 2026-08-22 - Bug Fixes
-- Meal Planner now allows up to 20 planned meals, and completed meals waiting to be cleared no longer count against the limit
-- Restored recipe photos that had been displaying the wrong image — all affected photos have been regenerated
-
-## 2026-08-09 - Improvements
-- Groundwork for Pro subscriptions — Stripe checkout, billing portal, and automatic subscription syncing (upgrade flow UI coming soon)
-- AI requests now retry automatically on temporary failures instead of hanging
-- Monthly AI usage limits to keep costs predictable
-
-## 2026-08-09 - Bug Fixes
-- Genie no longer produces empty recipe drafts when generation fails
-- Fixed missing-item errors in ingredient and unit settings showing as server errors
-
-## 2026-08-05 - Bug Fixes
-- Recipe Browser filters, search, and sort now stay applied when you navigate away and come back — not just when opening a recipe
-- Fixed a Shopping List bug where manually added items could land in a duplicate "Other" category instead of joining the existing one
-- Genie chat now lets you know if it couldn't put together a full recipe, instead of handing you one with no ingredients or directions
-- Fixed Meal Planner scrolling on mobile — swiping over a meal card now scrolls the page instead of getting stuck
-
-## 2026-07-20 - New Features
-- External shopping list integration — trusted apps can now push items directly to your Shopping List via a secure API
-
-## 2026-07-14 - New Features
-- Redesigned Home — a new today-first view centered on today's planned meal, with your cooking streak now shown in the header and a guided setup flow for first-time users
-- Unified Meal Creation — one streamlined flow for building meals, now including recipe roulette for random picks, with a direct path from planning your week to generating your shopping list
-- Import Recipe from URL — paste a link to any online recipe in the Recipe Wizard and it fills in automatically
-- New Landing Page — a public landing page featuring live app previews instead of static screenshots
-- Theme Settings — choose Light, Dark, or System from Settings or the mobile menu, with no more dark-mode flash when the page loads
-- Genie on Mobile — a floating assistant button keeps Genie within reach on phones, plus a new "Generate a recipe" shortcut in the Recipe Browser
-
-## 2026-07-14 - Improvements
-- Settings cleanup — placeholder sections removed so Settings shows only working options, and the About section now shows the real app version
-- Accessibility — better keyboard support in the Meal Planner, reduced-motion support for animations, and improved screen-reader labels
-- Refreshed body font for a cleaner reading experience
-
-## 2026-07-14 - Bug Fixes
-- AI badges now correctly distinguish AI-generated recipes from AI-generated photos — recipes with only an AI-generated image no longer show as fully AI-generated
-
-## 2026-07-12 - Bug Fixes
-- Printed recipes now reliably include the recipe photo — previously the photo could be missing from printouts, especially after regenerating a recipe image
-
-## 2026-06-23 - Improvements
-- Faster AI features — AI recipe generation and nutrition estimation now respond more quickly
-- Genie chat is now more responsive while generating replies
-- Recipe Wizard — reduced input lag for a snappier typing experience when adding ingredients
-
-## 2026-06-18 - Improvements
-- Recipe total time is now automatically calculated from prep and cook times
-- Improved AI image generation with enhanced prompts for more accurate recipe photos
-
-## 2026-06-17 - New Features
-- Recipe Wizard — create and edit recipes with a new step-by-step guided workflow featuring method selection, ingredient management, directions, and nutrition facts
-- AI Recipe Generation — ask Genie to generate a complete recipe draft that auto-populates the Recipe Wizard, tailored to your existing recipes and preferences
-- Nutrition Facts — recipes now display detailed nutrition information with an option to include it in printed recipes
-- Quick Meal Creation — create meals from anywhere in the app using the new global creation overlay
-
-## 2026-06-17 - Bug Fixes
-- Fixed Genie responses occasionally failing after AI service updates
-- Improved recipe form accessibility and design consistency
-
-## 2026-03-24 - Improvements
-- Genie Assistant Visibility — the assistant now intelligently manages its visibility based on screen size and user interaction for a cleaner browsing experience
-
-## 2026-03-24 - New Features
-- Mobile Bottom Nav "More" Menu — access additional pages and features from a new expandable menu in the mobile navigation bar
-- Mobile Assistant UX — improved Genie chat experience on mobile devices
-
-## 2026-02-22 - New Features
-- Meal Planner Drag Overlay — Long-press on meal cards in the planner to enter drag-and-drop mode, allowing you to easily rearrange your weekly menu with a visual overlay showing potential drop targets.
-- Dashboard Meal Carousel — Browse your upcoming meals in a swipeable carousel with recipe images and details at a glance.
-- Recipe Browser Filter/Sort (Redesign) — Redesigned filter and sort controls that stay visible as you scroll through recipes.
-- Customizable Ingredient Units & Categories — user-defined units and ingredient categories, accessible from Settings → Shopping List / Recipe Preferences, allowing you to tailor the shopping list to your preferences and pantry organization.
-- Customizable Recipe Categories — create your own recipe categories and assign them to recipes for better organization and filtering in the Recipe Browser.
-- AI-Generated Recipe Badges — recipe cards now display AI-generated badges when generated by Genie.
-- Selective Image Generation — choose between reference and banner image generation.
-- Top-bar Navigation — replaces Sidebar, new layout with quick access to key pages and features.
-- Top-bar Notifications (Redesign) — new bell icon in the top right corner for changelog updates and other important alerts.
-- Top-bar Quick Add Button — new "+" button in the top right corner for quick access to creating meals, recipes, and shopping list items (coming soon!) from anywhere in the app.
-
-## 2026-02-22 - Bug Fixes
-- Shopping List Category Mismatch — eliminated mismatched categories for certain ingredients.
-- Feedback Form — fixed issue where feedback form could not be submitted due to missing authentication token.
-- Multi-Word Ingredient Autocomplete — autocomplete now works with multi-word search terms.
-- Recipe Filter State Persistence — fixed an issue where active filters in the Recipe Browser would reset when navigating away and back to the page.
-- Recipe Form Input Lag — typing in the recipe form now feels faster and more responsive.
-
-## 2026-02-22 - Improvements
-- Settings Autosave — all settings changes now save instantly without needing to click a "Save" button, with a quick confirmation when changes are saved.
-- Page Layouts Updated — improved titles, descriptions, and header content.
-
-## 2026-02-01 - New Features
-- Custom Recipe Groups — organize your recipes into collections like "Weeknight Dinners" or "Holiday Favorites" and filter by group in the Recipe Browser
-- Meal Planner — now auto-selects the next meal after completing one — no need to manually pick the next meal in your queue
-
-## 2026-02-01 - Bug Fixes
-- Fixed cooking streak not updating correctly when clearing completed meals from the planner
-
-## 2026-01-30 - Bug Fixes
-- Fixed duplicate badge display in meal planner selection screen — recipe cards no longer show redundant Main/Side badges
-- Improved selection UX in meal planner — checkmark now appears in top-left corner without shifting the favorite button
-- Fixed dashboard stats to properly exclude cleared and completed meals from the "Meals Planned" count
-- Auto-populate meal name with recipe name when creating meals from the planner
-- Fixed cooking streak widget to properly update when clearing completed meals from the planner
-
-## 2026-01-29 - Bug Fixes
-- Fixed authentication for AI features — image generation and Genie now properly authenticate requests to prevent unauthorized access
-- Resolved infinite loading issue with AI suggestions in the Meal Planner — suggestions now load correctly every time
-- Fixed meal name preservation when editing meals in the planner — names no longer revert to default values
-- Your shopping lists, meal plans, and recipes are now fully private to your account
-
-## 2026-01-24 - New Features
-- Full Data Backup & Restore — create complete JSON backups of all your data (recipes, meals, planner entries, shopping lists, and settings) from Settings → Data Management
-- Configure your default recipe sort order in Settings → Recipe Preferences — choose between A-Z, Most Recent, or Cook Time
-- New Meal Planning settings section — set your default servings (1-12) and choose whether your week starts on Sunday or Monday
-- New Shopping List settings section — choose when checked items are cleared (Manual, On Refresh, or Daily)
-
-## 2026-01-24 - Improvements
-- Quick Add widget now suggests ingredients as you type, matching the autocomplete behavior from the recipe editor — selecting an ingredient auto-fills the category
-- Shopping list categories now display custom icons instead of generic emojis — each category (Produce, Meat, Dairy, Spices, etc.) has its own distinct icon
-- Recipe icons are now smarter with priority-based matching — specific keywords like "salmon" match before generic ones like "fish" for more accurate icons
-- Expanded recipe icon coverage with 25+ new food keywords mapped to icons, reducing emoji fallbacks
-
-## 2026-01-21 - Improvements
-- Genie now prioritizes your saved recipes when making suggestions
-
-## 2026-01-21 - Bug Fixes
-- Fixed dropdown menus appearing incorrectly on some pages
-
-## 2026-01-20 - New Features
-- Drag-and-drop reordering of meals in the Meal Planner sidebar
-
-## 2026-01-20 - Improvements
-- AI image generation now shows a progress bar so you can see each step as your recipe image is created
-- Meals in the planner are now automatically saved when you add them — no extra steps needed
-
-## 2026-01-20 - Bug Fixes
-- Fixed issue where Genie could create duplicate recipes when generating suggestions
-
-## 2026-01-19 - Improvements
-- Genie now provides 6-10 creative recipe ideas immediately when you ask for suggestions, instead of asking questions first
-- Improved chat experience with smooth animations and scroll indicators
-
-## 2026-01-18 - Improvements
-- Recipe pages now display beautiful banner images at the top for a more immersive cooking experience
-
-## 2026-01-17 - Bug Fixes
-- Fixed issue with printing recipes. Content now stays together on the same page.
-
-## 2026-01-14 - New Features
-- Add recipe specific AI suggestions to the Meal Planner
-- Quick Add feature for adding shopping list items directly from the Dashboard
-
-## 2026-01-13 - New Features
-- Shopping list toggle now has three modes: include all ingredients, include only produce, or exclude entirely — click the cart icon on meal cards to cycle through options
-- Hover over the shopping cart icon to see a tooltip explaining the current mode
-
-## 2026-01-10 - New Features
-- Genie Assistant can now create recipes when prompted - just ask it to "create a recipe for ..."
-
-## 2026-01-10 - Improvements
-- Genie now knows about your saved meals, meal plan, and shopping list.
-- Suggestions from the Genie are now more relevant, using your existing meals, shopping list, and preferences to tailor its responses.
-
-## 2026-01-10 - Bug Fixes
-- Print layout now keeps the recipe image and content together on the same page
-- Flagged shopping items now stay flagged when you make changes to your meal plan
-- Chef's Tips on the Dashboard now shows a wider variety of cooking tips instead of repeating the same ones
-
-## 2026-01-04 - Bug Fixes
-- Fixed issue with adding meals to the planner from the Recipe Browser
-
-## 2026-01-04 - Improvements
-- Added multi-select filters to the Meal Planner for easier meal searching and filtering
-
-## 2026-01-04 - New Features
-- Revamped Meal Planner UI 
-
-## 2026-01-02 - Improvements
-- Genie now saves your chat history between sessions
-- Genie responses are now faster
-- Genie chat now opens in a popup window
-
-## 2026-01-02 - New Features
-- Recipe Roulette: Randomly suggests recipes based on your existing recipes, meal planner, or favorites
-
-## 2026-01-01 - Bug Fixes
-- Fixed issue where shopping list did not update correctly after removing all meals from the planner
-- Fixed various bugs related to the Shopping List and Meal Planner pages
-
-## 2026-01-01 - Improvements
-- Added "Create Meal" button to Meal Planner sidebar - quick access to meal creation
-- "Add Meal" button in Meal Planner now opens the "Saved Meals" tab by default for faster access
-
-## 2026-01-01 - New Features
-- Add flags to shopping list items to mark them as important or "don't forget" - flagged items appear at the top of their category and have a visual indicator
-- AI-powered Genie chatbot on the Dashboard — get cooking tips, recipe ideas, and meal suggestions instantly
-
-## 2025-12-31 - Improvements
-- Improved responsiveness of the sidebar on mobile devices
-
-## 2025-12-30 - New Features
-- Exclude individual meals from your shopping list — click the cart icon on any meal card in the planner sidebar (green = included, red = excluded)
-
-## 2025-12-30 - Improvements
-- Shopping list page now loads faster
-
-## 2025-12-29 - New Features
-- Track your cooking streak on the Dashboard — see consecutive days cooked and this week's activity at a glance
-- New Dashboard homepage with at-a-glance stats, meal queue, shopping list preview, and AI-powered Chef's Tips
-- Manually added shopping list items can now be assigned to specific categories (Produce, Dairy, Meat, etc.) instead of always appearing in "Other"
-- Add items manually to your shopping list with the new inline form — perfect for pantry staples and non-recipe items
-- Click your profile avatar in the sidebar to access Settings
-
-## 2025-12-29 - Improvements
-- Shopping list categories now auto-collapse when all items are collected
-- Collapsed and expanded category states persist between page visits
-- New "Hide collected" toggle replaces "Clear collected" — filter your view without losing data
-- Recipe ingredients now display in a logical order with Meat and Seafood first, followed by produce, dairy, and pantry items
-- Sidebar now fits better on smaller screens
-
-## 2025-12-29 - Bug Fixes
-- Meal Queue on the dashboard now displays meals correctly
-- Shopping list categories now auto-expand when new items are added to a completed category
-- Shopping list badge in sidebar now updates in real-time when adding, removing, or completing meals in the planner
-- Dashboard widgets (Meal Queue, Shopping List, Cooking Streak) now refresh instantly when planner changes — no page reload needed
-- Cooking streak widget now marks the correct day when completing meals
-- Shopping list properly clears recipe items when all meals are removed from the planner
-- "Mac Salad" now correctly appears in the Deli section of the shopping list
-
-## 2025-12-28 - New Features
-- Quickly add saved meals to your planner from the new "Saved Meals" tab — search by name or filter by favorites
-- Configure custom unit conversions for shopping list items in Settings → Shopping List (e.g., convert 51 Tbs of butter to 7 sticks)
-
-## 2025-12-28 - New Features
-- Favorite meals directly from the meal planner with the new Favorite button — favorited meals show a heart indicator in the weekly menu
-- Customize which quick filters appear in the Recipe Browser from Settings → Recipe Preferences (choose up to 5)
-- Customize the AI image generation prompt in Settings → AI Features with syntax highlighting for the {recipe_name} placeholder
-- New "New" filter in Meal Planner lets you quickly find recipes added in the last 7 days
-- Filter shopping list by recipe using the new sidebar that shows which recipes contribute each ingredient
-- Hover over shopping list items to see a breakdown of quantities by recipe
-
-## 2025-12-28 - Bug Fixes
-- "Favorites" and "New" quick filter pills in the Recipe Browser now work correctly
-- Fixed meal cards in the create/edit meal dialog to display at a consistent size
-- Weekly menu in Meal Planner now scrolls properly when there are many items
-- Shopping list items now uncheck automatically when their quantity increases from adding new recipes
-- Meal planner now auto-selects the first uncompleted meal when you open the page
-- Removed duplicate "Pico De Gallo" ingredient that appeared in wrong category
-- Ingredient units like "Tbs" now display with proper capitalization on recipe pages
-- Fixed loading issues on the Recipes page
-
-## 2025-12-28 - Improvements
-- Shopping list now intelligently combines ingredients by unit type — quantities in the same dimension (cups + tbsp, lbs + oz) are merged, while incompatible units (lbs vs cups) appear as separate items
-- Print recipes with customizable options — choose to include or exclude the image, chef's notes, and cooking time to fit more content on a single page
-- Ingredient quantities now accept leading decimals like .5 or .25 (no need to type 0.5)
-- Clicking "Add Ingredient" now automatically focuses the new ingredient name field
-- Active filter pills now stay on a single row with horizontal scrolling instead of wrapping
-- Shopping list stats now display in a more logical order: Remaining → Collected → Total
-
-## 2025-12-27 - Improvements
-- Shopping list now shows quantities before item names for easier scanning while shopping
-- Shopping list quantities now display as fractions (½, ¼) instead of decimals
-- Side dish cards now enlarge slightly when you hover over them in the meal planner
-- Improved sidebar navigation
-
-## 2025-12-27 - Bug Fixes
-- Quick filter chips no longer add duplicate entries to the active filters display
-- Fixed pages jumping when opening dropdowns and dialogs
-- The "Favorites Only" filter in Recipe Browser now works correctly
-- Card shadows now display with properly rounded corners
-
-## 2025-12-27 - New Features
-- Quickly access recently viewed recipes from the sidebar
-
-## 2025-12-27 - Improvements
-- Drag-and-drop reordering of ingredients when adding or editing recipes
-- Fixed ingredient autocomplete for multi-word ingredients like 'olive oil'
-- Removed duplicate 'Ranch Seasoning' ingredient from database
-`;
-
-// ============================================
-// Parser & Helpers
-// ============================================
-import { Star, Bug, Zap, Sparkles, type LucideIcon } from "lucide-react";
-
-export interface ChangelogEntry {
-  version: string;
-  date: string;
+// Newest release first. Written for users, not developers — see the
+// editorial rules in .claude/commands/changelog.md before adding entries.
+//
+// - id: release date (YYYY-MM-DD). Unread tracking compares ids as strings,
+//   so a second release on the same day takes a letter suffix (2026-10-03b).
+// - headline: one line that sells the release.
+// - highlights: 1–3 things worth trying, each optionally with a screenshot
+//   (public/whats-new/*.webp) and a "Try it" link into the app.
+// - improvements / fixes: short one-liners, shown collapsed.
+// - spotlight: puts a "New" badge on the feature itself for 30 days after
+//   release (see SpotlightId and NewFeatureBadge).
+
+/**
+ * In-app "New" badge targets. Add an id here, set it on the highlight, and
+ * render <NewFeatureBadge spotlight="…" /> next to the feature.
+ */
+export type SpotlightId = "shopping-notes";
+
+export interface ReleaseHighlight {
   title: string;
-  changes: string[];
+  body: string;
+  /** Screenshot under /public/whats-new — 16:9 crops read best */
+  image?: { src: string; alt: string };
+  /** In-app destination for the "Try it" button */
+  href?: string;
+  /** Button label (defaults to "Try it") */
+  cta?: string;
+  /** Badge the feature itself as New for a while after release */
+  spotlight?: SpotlightId;
 }
 
-export interface ChangelogItem {
-  change: string;
-  category: string;
-  rawDate: string;
-  date: string;
-  globalIndex: number;
+export interface Release {
+  id: string;
+  headline: string;
+  highlights: ReleaseHighlight[];
+  improvements?: string[];
+  fixes?: string[];
 }
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
+export const RELEASES: Release[] = [
+  {
+    id: "2026-10-03",
+    headline: "Put Enchanted Spoon on your home screen",
+    highlights: [
+      {
+        title: "Install the app on your phone",
+        body: "Add Enchanted Spoon to your home screen and it opens full screen, one tap away — handy at the store. Find “Install app” in the More menu; on iPhone we'll walk you through Add to Home Screen.",
+      },
+      {
+        title: "A better “What's new”",
+        body: "Updates now arrive as short release notes with screenshots and a button to try each feature. Find them under the gift icon, in the More menu on phones, or in Settings.",
+      },
+    ],
+    improvements: [
+      "New features wear a “New” badge where they live in the app until you try them",
+      "What you've read in What's new is remembered across your devices",
+    ],
+  },
+  {
+    id: "2026-09-30",
+    headline: "Notes for your shopping trip",
+    highlights: [
+      {
+        title: "Shopping List notes",
+        body: "Jot down store hours, coupons or anything to double-check. Notes save as you type and follow your account, so you can write them at home and read them at the store.",
+        image: {
+          src: "/whats-new/shopping-notes.webp",
+          alt: "The Shopping List with the notes pad open",
+        },
+        href: "/shopping-list",
+        cta: "Open Shopping List",
+        spotlight: "shopping-notes",
+      },
+    ],
+  },
+  {
+    id: "2026-09-26",
+    headline: "Meal details at a glance, and a friendlier first visit",
+    highlights: [
+      {
+        title: "Meal details beside your Menu",
+        body: "Tap a planned meal to see its sides, cook times and Genie's suggestions in a panel next to your Menu — no page change needed.",
+        image: {
+          src: "/whats-new/menu-meal-details.webp",
+          alt: "The Menu with a meal's details open in a side panel",
+        },
+        href: "/meal-planner",
+        cta: "Open Menu",
+      },
+      {
+        title: "A one-minute tour",
+        body: "A quick walkthrough of Home, Recipes, Menu, Shopping List and Settings. Replay it any time from Settings.",
+        href: "/settings",
+        cta: "Go to Settings",
+      },
+      {
+        title: "A sample kitchen to explore",
+        body: "New accounts start with 10 recipes, 4 meals, a planned Menu and the shopping list it makes. Remove or bring back the samples in Settings → Data Management.",
+        href: "/settings?section=dataManagement",
+        cta: "Manage samples",
+      },
+    ],
+    improvements: [
+      "“Meal Planner” is now called “Menu” throughout the app",
+      "The Recipe Browser fits more recipes on screen, with sharper photos and easier navigation into each recipe",
+      "Page headers look the same across the app and no longer overflow on small screens",
+      "It's clearer which meal is selected on your Menu, and Shopping List items show their state more clearly",
+      "Settings pages have been tidied up",
+      "Home sections and unsent Genie messages are kept when you reload",
+      "Your browser's back and forward buttons keep your place",
+      "Backups now include your custom categories, ingredient units and unit conversions",
+    ],
+    fixes: [
+      "The selected meal card is no longer cut off on desktop, and the meal panel scrolls when it's taller than your screen",
+      "An interrupted recipe save picks up where it left off without creating a duplicate",
+      "Settings save reliably, even when you change several quickly",
+      "Signing in picks up an existing session instead of getting stuck",
+      "Favorites stay saved",
+      "Better error recovery and more accessible controls throughout the app",
+    ],
+  },
+  {
+    id: "2026-09-02",
+    headline: "Small touches to Menu and billing",
+    highlights: [
+      {
+        title: "Menu slots at a glance",
+        body: "The Menu header shows how many of your 20 meal slots are in use.",
+        href: "/meal-planner",
+        cta: "Open Menu",
+      },
+    ],
+    improvements: [
+      "Plan & Billing shows your renewal date as soon as you subscribe — or, after cancelling, when your access ends",
+    ],
+    fixes: ["The meal carousel on Home is the right size on phones"],
+  },
+  {
+    id: "2026-08-22",
+    headline: "Filters that stick, and a round of fixes",
+    highlights: [
+      {
+        title: "Recipe filters that stay put",
+        body: "Your Recipe Browser search, filters and sort are still there when you leave and come back.",
+        href: "/recipes",
+        cta: "Browse recipes",
+      },
+    ],
+    improvements: [
+      "AI features retry automatically on temporary hiccups instead of hanging",
+    ],
+    fixes: [
+      "Your Menu holds up to 20 planned meals, and finished meals waiting to be cleared don't count against the limit",
+      "Recipe photos that were showing the wrong image have been fixed",
+      "Items you add to the Shopping List join their category instead of landing in a duplicate “Other” section",
+      "Genie tells you when it couldn't put together a full recipe, instead of handing you an empty one",
+      "Swiping over a meal card on your phone scrolls the page instead of getting stuck",
+    ],
+  },
+  {
+    id: "2026-07-14",
+    headline: "A new Home, and one place to build meals",
+    highlights: [
+      {
+        title: "A new Home",
+        body: "Home now centers on tonight's meal, with your cooking streak up top and a guided setup for new accounts.",
+        href: "/dashboard",
+        cta: "Go Home",
+      },
+      {
+        title: "Build meals in one place",
+        body: "One streamlined flow for creating meals — Recipe Roulette included for random picks — with a direct path from planning your week to your shopping list.",
+        href: "/meal-planner?addMeal=1",
+        cta: "Build a meal",
+      },
+      {
+        title: "Import a recipe from a link",
+        body: "Paste a link to an online recipe into the Recipe Wizard and it fills itself in.",
+        href: "/recipes",
+        cta: "Go to Recipes",
+      },
+    ],
+    improvements: [
+      "Choose a Light, Dark or System theme in Settings or the mobile menu — and no more dark flash when a page loads",
+      "A floating Genie button keeps the assistant within reach on phones, plus a “Generate a recipe” shortcut in the Recipe Browser",
+      "Better keyboard support on the Menu, reduced-motion support and clearer screen-reader labels",
+      "A cleaner, easier-to-read font",
+      "Settings only shows options that work, and About shows the real app version",
+    ],
+    fixes: [
+      "AI badges tell AI-generated recipes apart from recipes that only have an AI-generated photo",
+      "Printed recipes reliably include the recipe photo",
+    ],
+  },
+  {
+    id: "2026-06-23",
+    headline: "The Recipe Wizard, and recipes written by Genie",
+    highlights: [
+      {
+        title: "Recipe Wizard",
+        body: "Create and edit recipes step by step: method, ingredients, directions and nutrition.",
+        href: "/recipes",
+        cta: "Go to Recipes",
+      },
+      {
+        title: "Ask Genie for a recipe",
+        body: "Genie writes a complete recipe draft, tailored to the recipes you already have, and drops it straight into the wizard.",
+      },
+      {
+        title: "Nutrition facts",
+        body: "Recipes show detailed nutrition information, and you can include it when you print.",
+      },
+    ],
+    improvements: [
+      "Create a meal from anywhere with the + button",
+      "Total time is worked out for you from prep and cook times",
+      "More accurate AI recipe photos",
+      "Faster AI recipe generation, nutrition estimates and Genie replies",
+      "Less lag when typing ingredients",
+    ],
+    fixes: ["Genie replies no longer fail after AI service updates"],
+  },
+  {
+    id: "2026-03-24",
+    headline: "A better phone experience",
+    highlights: [
+      {
+        title: "A More menu on phones",
+        body: "Tap More in the bottom bar for Settings, feedback, Genie and the rest of the app.",
+      },
+    ],
+    improvements: [
+      "Genie is easier to use on phones",
+      "Genie stays out of the way on smaller screens until you need it",
+    ],
+  },
+  {
+    id: "2026-02-22",
+    headline: "A new look, and categories of your own",
+    highlights: [
+      {
+        title: "Top navigation",
+        body: "Navigation moved to a bar across the top of the screen, with a + button for adding recipes and meals from anywhere.",
+      },
+      {
+        title: "Your own categories and units",
+        body: "Create recipe categories, ingredient categories and units that match how you cook and shop.",
+        href: "/settings?section=recipePreferences",
+        cta: "Open Settings",
+      },
+      {
+        title: "Recipe groups",
+        body: "Collect recipes into groups like “Weeknight Dinners” or “Holiday Favorites” and filter by them in the Recipe Browser.",
+        href: "/recipes",
+        cta: "Go to Recipes",
+      },
+    ],
+    improvements: [
+      "Long-press a meal on your Menu to drag it into a new spot",
+      "Swipe through upcoming meals on Home",
+      "Recipe filters stay visible as you scroll",
+      "Recipes Genie created are marked with an AI badge",
+      "Choose which recipe image to generate: the card photo or the banner",
+      "Settings save instantly — no Save button needed",
+      "Completing a meal automatically selects the next one on your Menu",
+    ],
+    fixes: [
+      "Some ingredients no longer land in the wrong Shopping List category",
+      "The feedback form submits reliably",
+      "Autocomplete works for multi-word ingredients like “olive oil”",
+      "Your cooking streak updates correctly when you clear completed meals",
+      "Typing in the recipe form is more responsive",
+    ],
+  },
+  {
+    id: "2026-01-30",
+    headline: "Meet Genie — plus backups and planning upgrades",
+    highlights: [
+      {
+        title: "Meet Genie",
+        body: "An AI assistant that knows your recipes, meals, Menu and shopping list. Ask for ideas, cooking tips or a brand-new recipe.",
+      },
+      {
+        title: "Backup & restore",
+        body: "Download a complete backup of your recipes, meals, Menu and shopping list from Settings → Data Management, and restore it any time.",
+        href: "/settings?section=dataManagement",
+        cta: "Open Data Management",
+      },
+      {
+        title: "Recipe Roulette",
+        body: "Can't decide? Let Roulette pick from your recipes, your Menu or your favorites.",
+      },
+    ],
+    improvements: [
+      "Tap the cart icon on a meal to include all its ingredients, only produce, or nothing in your Shopping List",
+      "Flag Shopping List items as “don't forget” — they stay at the top of their category",
+      "Genie's suggestions favor recipes you've already saved",
+      "Quick Add on Home suggests ingredients as you type",
+      "Every Shopping List category has its own icon, and recipe icons cover 25+ more foods",
+      "Recipe pages open with a big banner photo",
+      "See progress while a recipe photo is being generated",
+      "Set your default recipe sort, servings and first day of the week in Settings",
+      "Genie keeps your chat history between visits",
+    ],
+    fixes: [
+      "Recipes print with the photo and text together on one page",
+      "Flagged items stay flagged when your Menu changes",
+      "Genie no longer creates duplicate recipes",
+      "Meal suggestions on your Menu load every time",
+      "Meal names are kept when you edit a meal",
+    ],
+  },
+  {
+    id: "2025-12-31",
+    headline: "Where it all started",
+    highlights: [
+      {
+        title: "A Shopping List that adds up",
+        body: "Ingredients combine across recipes — cups with tablespoons, pounds with ounces — and quantities show as fractions.",
+      },
+      {
+        title: "Cooking streak",
+        body: "See how many days in a row you've cooked.",
+      },
+      {
+        title: "Print recipes your way",
+        body: "Choose whether to include the photo, notes and cook time.",
+      },
+    ],
+    improvements: [
+      "Add your own items to the Shopping List and pick their category",
+      "Filter the Shopping List by recipe and see how much each recipe needs",
+      "Hide collected items without losing them",
+      "Favorite meals right from your Menu",
+      "Custom unit conversions, like turning tablespoons of butter into sticks",
+      "Choose which quick filters appear in the Recipe Browser",
+      "Drag to reorder ingredients when editing a recipe",
+    ],
+  },
+];
+
+// ============================================
+// Helpers
+// ============================================
+
+export const LATEST_RELEASE_ID = RELEASES[0]?.id ?? "";
+
+/** "September 30, 2026" — the id's date part, read as a local calendar date */
+export function formatReleaseDate(id: string): string {
+  return new Date(`${id.slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 }
 
-function parseChangelog(markdown: string): ChangelogEntry[] {
-  const entries: ChangelogEntry[] = [];
-  const sections = markdown.split(/^## /gm).filter(Boolean);
-
-  for (const section of sections) {
-    const lines = section.trim().split("\n");
-    const headerMatch = lines[0].match(/^(\d{4}-\d{2}-\d{2})\s*-\s*(.+)$/);
-    if (!headerMatch) continue;
-
-    const [, version, title] = headerMatch;
-    const changes = lines
-      .slice(1)
-      .filter((line) => line.startsWith("- "))
-      .map((line) => line.slice(2).trim());
-
-    entries.push({
-      version,
-      date: formatDate(version),
-      title: title.trim(),
-      changes,
-    });
-  }
-
-  return entries;
-}
-
-export const CHANGELOG_ENTRIES = parseChangelog(CHANGELOG_MD);
-
-// Calculate total number of individual change items
-export const CHANGELOG_TOTAL_ITEMS = CHANGELOG_ENTRIES.reduce(
-  (sum, entry) => sum + entry.changes.length,
-  0
-);
-
-// Helper to get the cumulative item count up to (but not including) a given entry
-export function getItemCountBeforeEntry(entryIndex: number): number {
-  return CHANGELOG_ENTRIES.slice(0, entryIndex).reduce(
-    (sum, entry) => sum + entry.changes.length,
-    0
+/** The release that introduced a spotlighted feature */
+export function getSpotlightRelease(spotlight: SpotlightId): Release | undefined {
+  return RELEASES.find((release) =>
+    release.highlights.some((highlight) => highlight.spotlight === spotlight)
   );
 }
 
-// Flatten all entries into individual change items (newest first)
-export function getFlattenedChanges(limit?: number): ChangelogItem[] {
-  const items: ChangelogItem[] = [];
-  let globalIndex = 0;
-
-  for (const entry of CHANGELOG_ENTRIES) {
-    for (const change of entry.changes) {
-      items.push({
-        change,
-        category: entry.title,
-        rawDate: entry.version,
-        date: entry.date,
-        globalIndex,
-      });
-      globalIndex++;
-      if (limit && items.length >= limit) return items;
-    }
-  }
-
-  return items;
+/** Releases newer than `lastSeenId` (all of them when nothing was seen). */
+export function getUnreadReleaseIds(lastSeenId: string | null): Set<string> {
+  return new Set(
+    RELEASES.filter((release) => !lastSeenId || release.id > lastSeenId).map(
+      (release) => release.id
+    )
+  );
 }
 
-// Parse "Title — description" pattern from change text
-export function parseChangeText(text: string): { title: string; description: string | null } {
-  const separatorIndex = text.indexOf("\u2014");
-  if (separatorIndex === -1) {
-    return { title: text, description: null };
-  }
-  return {
-    title: text.slice(0, separatorIndex).trim(),
-    description: text.slice(separatorIndex + 1).trim(),
-  };
-}
-
-// Get icon component based on changelog category
-export function getCategoryIcon(title: string): LucideIcon {
-  if (title.toLowerCase().includes("feature")) return Star;
-  if (title.toLowerCase().includes("fix")) return Bug;
-  if (title.toLowerCase().includes("improvement")) return Zap;
-  return Sparkles;
-}
-
-// Get accent color class based on changelog category
-export function getCategoryColor(title: string): string {
-  if (title.toLowerCase().includes("feature")) return "text-primary";
-  if (title.toLowerCase().includes("fix")) return "text-secondary";
-  if (title.toLowerCase().includes("improvement")) return "text-muted-foreground";
-  return "text-muted-foreground";
+/** "3 improvements · 2 fixes" — summary label for the collapsed lists */
+export function describeMinorChanges(release: Release): string | null {
+  const parts: string[] = [];
+  const improvements = release.improvements?.length ?? 0;
+  const fixes = release.fixes?.length ?? 0;
+  if (improvements) parts.push(`${improvements} improvement${improvements === 1 ? "" : "s"}`);
+  if (fixes) parts.push(`${fixes} fix${fixes === 1 ? "" : "es"}`);
+  return parts.length ? parts.join(" · ") : null;
 }
