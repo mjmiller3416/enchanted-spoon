@@ -52,6 +52,7 @@ class InstallPromptSettings(SettingsSection):
 class WhatsNewSettings(SettingsSection):
     """"What's new" bookkeeping, synced so every device agrees on what was read."""
     lastSeenRelease: str | None = None
+    dismissedSpotlights: list[str] = Field(default_factory=list)
 
 
 class SettingsDTO(SettingsSection):

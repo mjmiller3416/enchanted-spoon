@@ -90,6 +90,22 @@ Rules:
    ```
 4. Use realistic sample data, never a real person's account details.
 
+## Step 4b: Spotlight (optional, at most one per release)
+
+For a headline feature that lives in a specific spot in the UI, add an
+in-app "New" badge. Existing accounts see it for 30 days after the release
+until they use the feature; accounts created later never do.
+
+1. Add an id to `SpotlightId` in `frontend/src/data/changelog.ts`
+   (e.g. `"shopping-notes" | "recipe-import"`).
+2. Set `spotlight: "<id>"` on the highlight.
+3. Render `<NewFeatureBadge spotlight="<id>" />` beside the feature's label,
+   and call `useSpotlight("<id>").dismiss()` when the user first uses it
+   (focus, open, click). Example: `ShoppingNotes.tsx`.
+
+Remove stale ids from `SpotlightId` (and their badges) once they're past
+the 30-day window.
+
 ## Step 5: Insert, show, confirm
 
 1. Prepend the release object to `RELEASES`.

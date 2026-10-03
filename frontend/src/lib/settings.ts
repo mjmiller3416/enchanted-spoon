@@ -48,6 +48,8 @@ export interface InstallPromptSettings {
 export interface WhatsNewSettings {
   /** Newest release id (YYYY-MM-DD) the user has seen */
   lastSeenRelease: string | null;
+  /** Spotlight ids whose in-app "New" badge the user has already acted on */
+  dismissedSpotlights: string[];
 }
 
 export interface AppSettings {
@@ -110,6 +112,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   whatsNew: {
     lastSeenRelease: null,
+    dismissedSpotlights: [],
   },
 };
 

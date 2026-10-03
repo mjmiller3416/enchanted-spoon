@@ -10,6 +10,14 @@
 // - highlights: 1–3 things worth trying, each optionally with a screenshot
 //   (public/whats-new/*.webp) and a "Try it" link into the app.
 // - improvements / fixes: short one-liners, shown collapsed.
+// - spotlight: puts a "New" badge on the feature itself for 30 days after
+//   release (see SpotlightId and NewFeatureBadge).
+
+/**
+ * In-app "New" badge targets. Add an id here, set it on the highlight, and
+ * render <NewFeatureBadge spotlight="…" /> next to the feature.
+ */
+export type SpotlightId = "shopping-notes";
 
 export interface ReleaseHighlight {
   title: string;
@@ -20,6 +28,8 @@ export interface ReleaseHighlight {
   href?: string;
   /** Button label (defaults to "Try it") */
   cta?: string;
+  /** Badge the feature itself as New for a while after release */
+  spotlight?: SpotlightId;
 }
 
 export interface Release {
@@ -44,6 +54,7 @@ export const RELEASES: Release[] = [
         },
         href: "/shopping-list",
         cta: "Open Shopping List",
+        spotlight: "shopping-notes",
       },
     ],
   },
@@ -326,6 +337,13 @@ export function formatReleaseDate(id: string): string {
     month: "long",
     day: "numeric",
   });
+}
+
+/** The release that introduced a spotlighted feature */
+export function getSpotlightRelease(spotlight: SpotlightId): Release | undefined {
+  return RELEASES.find((release) =>
+    release.highlights.some((highlight) => highlight.spotlight === spotlight)
+  );
 }
 
 /** Releases newer than `lastSeenId` (all of them when nothing was seen). */

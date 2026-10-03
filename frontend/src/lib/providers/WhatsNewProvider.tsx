@@ -14,11 +14,20 @@ import { useRouter } from "next/navigation";
 import { useSettings } from "@/hooks/persistence/useSettings";
 import { useCurrentUser } from "@/hooks/api";
 import { WhatsNewDialog } from "@/components/common/WhatsNewDialog";
-import { LATEST_RELEASE_ID, RELEASES, getUnreadReleaseIds } from "@/data/changelog";
+import {
+  LATEST_RELEASE_ID,
+  RELEASES,
+  getSpotlightRelease,
+  getUnreadReleaseIds,
+  type SpotlightId,
+} from "@/data/changelog";
 
 /** Pre-sync, per-browser keys — read once to seed the account, then removed */
 const LEGACY_LAST_SEEN_KEY = "whatsNewLastSeenRelease";
 const LEGACY_SEEN_COUNT_KEY = "lastSeenChangelogCount";
+/** How long a feature keeps its in-app "New" badge after release */
+const SPOTLIGHT_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface WhatsNewContextValue {
   /** A release newer than the account's last seen one exists */
@@ -29,6 +38,10 @@ interface WhatsNewContextValue {
   markSeen: () => void;
   /** Open the dialog (optionally at a release) and mark everything seen */
   openWhatsNew: (releaseId?: string | null) => void;
+  /** The feature's "New" badge should show (recent, new to this account, unused) */
+  isSpotlightActive: (spotlight: SpotlightId) => boolean;
+  /** The user tried the feature — retire its badge on every device */
+  dismissSpotlight: (spotlight: SpotlightId) => void;
 }
 
 const WhatsNewContext = createContext<WhatsNewContextValue | null>(null);
@@ -65,7 +78,8 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { settings, isLoaded, error, updateSettings } = useSettings();
   const { data: currentUser } = useCurrentUser();
-  const lastSeen = settings.whatsNew.lastSeenRelease;
+  const { lastSeenRelease: lastSeen, dismissedSpotlights } = settings.whatsNew;
+  const [mountedAt] = useState(() => Date.now());
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [focusReleaseId, setFocusReleaseId] = useState<string | null>(null);
@@ -101,14 +115,37 @@ export function WhatsNewProvider({ children }: { children: ReactNode }) {
     [markSeen]
   );
 
+  const isSpotlightActive = useCallback(
+    (spotlight: SpotlightId) => {
+      if (!isLoaded || !createdAt || dismissedSpotlights.includes(spotlight)) return false;
+      const release = getSpotlightRelease(spotlight);
+      if (!release) return false;
+      const releasedAt = Date.parse(`${release.id.slice(0, 10)}T00:00:00`);
+      // Accounts created after the release met the feature during onboarding
+      const newToAccount = Date.parse(createdAt) < releasedAt;
+      return newToAccount && mountedAt - releasedAt < SPOTLIGHT_DAYS * DAY_MS;
+    },
+    [isLoaded, createdAt, dismissedSpotlights, mountedAt]
+  );
+
+  const dismissSpotlight = useCallback(
+    (spotlight: SpotlightId) => {
+      if (dismissedSpotlights.includes(spotlight)) return;
+      updateSettings("whatsNew", { dismissedSpotlights: [...dismissedSpotlights, spotlight] });
+    },
+    [dismissedSpotlights, updateSettings]
+  );
+
   const value = useMemo<WhatsNewContextValue>(
     () => ({
       hasNew,
       unreadIds: unreadIds ?? new Set<string>(),
       markSeen,
       openWhatsNew,
+      isSpotlightActive,
+      dismissSpotlight,
     }),
-    [hasNew, unreadIds, markSeen, openWhatsNew]
+    [hasNew, unreadIds, markSeen, openWhatsNew, isSpotlightActive, dismissSpotlight]
   );
 
   return (
@@ -129,4 +166,18 @@ export function useWhatsNew(): WhatsNewContextValue {
   const value = useContext(WhatsNewContext);
   if (!value) throw new Error("useWhatsNew requires WhatsNewProvider");
   return value;
+}
+
+/**
+ * useSpotlight — badge state for one feature. Inert outside the provider so
+ * feature components still render on their own (previews, tests).
+ */
+export function useSpotlight(spotlight: SpotlightId): { active: boolean; dismiss: () => void } {
+  const value = useContext(WhatsNewContext);
+  const active = value?.isSpotlightActive(spotlight) ?? false;
+  const dismissSpotlight = value?.dismissSpotlight;
+  const dismiss = useCallback(() => {
+    if (active) dismissSpotlight?.(spotlight);
+  }, [active, dismissSpotlight, spotlight]);
+  return { active, dismiss };
 }

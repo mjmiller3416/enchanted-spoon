@@ -12,6 +12,7 @@ import { StreakChip } from "./StreakChip";
 import { TonightCard } from "./TonightCard";
 import { GetStartedCard, GetStartedBanner } from "./GetStartedCard";
 import { InstallAppBanner } from "@/components/common/InstallAppBanner";
+import { WhatsNewBanner } from "./WhatsNewBanner";
 import { useDashboardStats, usePlannerEntries, useShoppingList } from "@/hooks/api";
 import { useGetStartedComplete } from "@/hooks/persistence";
 
@@ -144,6 +145,7 @@ export function HomeView() {
             </div>
           )}
 
+          <WhatsNewBanner className="mb-6 shrink-0" />
           <InstallAppBanner context="home" className="mb-6 shrink-0" />
 
           {/* Tonight hero + shopping status */}

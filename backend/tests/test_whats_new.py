@@ -23,6 +23,15 @@ def test_whats_new_patch_persists_without_touching_other_sections(db_session, te
     assert SettingsService(db_session, second_user.id).read().whatsNew.lastSeenRelease is None
 
 
+def test_dismissed_spotlights_default_empty_and_replace_on_patch(db_session, test_user):
+    service = SettingsService(db_session, test_user.id)
+    assert service.read().whatsNew.dismissedSpotlights == []
+    service.write(SettingsDTO.model_validate({"whatsNew": {"lastSeenRelease": "2026-09-30"}}), replace=False)
+    result = service.write(SettingsDTO.model_validate({"whatsNew": {"dismissedSpotlights": ["shopping-notes"]}}), replace=False)
+    assert result.whatsNew.dismissedSpotlights == ["shopping-notes"]
+    assert result.whatsNew.lastSeenRelease == "2026-09-30"
+
+
 def test_current_user_dto_exposes_account_creation_date(test_user):
     dto = CurrentUserDTO.from_model(test_user)
     assert dto.created_at == test_user.created_at

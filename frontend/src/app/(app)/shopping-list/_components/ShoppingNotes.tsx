@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { NewFeatureBadge } from "@/components/common/NewFeatureBadge";
 import { useSaveShoppingNotes, useShoppingNotes } from "@/hooks/api";
+import { useSpotlight } from "@/lib/providers/WhatsNewProvider";
 
 const MAX_LENGTH = 5000;
 const AUTOSAVE_DELAY_MS = 800;
@@ -29,6 +31,8 @@ interface ShoppingNotesProps {
 export function ShoppingNotes({ variant, className }: ShoppingNotesProps) {
   const { data, isLoading } = useShoppingNotes();
   const { mutate, isPending } = useSaveShoppingNotes();
+  // Using the pad retires its "New" badge
+  const { dismiss: dismissSpotlight } = useSpotlight("shopping-notes");
 
   // null = no unsaved edits, show the server copy
   const [draft, setDraft] = useState<string | null>(null);
@@ -82,6 +86,7 @@ export function ShoppingNotes({ variant, className }: ShoppingNotesProps) {
         size="sm"
         value={value}
         onChange={(e) => setDraft(e.target.value)}
+        onFocus={dismissSpotlight}
         onBlur={handleBlur}
         maxLength={MAX_LENGTH}
         disabled={isLoading}
@@ -101,8 +106,9 @@ export function ShoppingNotes({ variant, className }: ShoppingNotesProps) {
     return (
       <Card className={cn("p-4 gap-3", className)}>
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold tracking-wider uppercase text-muted-foreground">
+          <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-muted-foreground">
             Notes
+            <NewFeatureBadge spotlight="shopping-notes" />
           </h2>
           {status}
         </div>
@@ -112,13 +118,21 @@ export function ShoppingNotes({ variant, className }: ShoppingNotesProps) {
   }
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setOpen} className={className}>
+    <Collapsible
+      open={isOpen}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) dismissSpotlight();
+      }}
+      className={className}
+    >
       <Card className="p-2 gap-0">
         <CollapsibleTrigger asChild>
           <Button variant="ghost" className="w-full justify-between">
             <span className="flex items-center gap-2 min-w-0">
               <NotebookPen className="size-4 shrink-0" strokeWidth={1.5} />
               Notes
+              <NewFeatureBadge spotlight="shopping-notes" />
               {!isOpen && saved.trim() && (
                 <span className="font-normal truncate text-muted-foreground">
                   {saved.trim().split("\n")[0]}
