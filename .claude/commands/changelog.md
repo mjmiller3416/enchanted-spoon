@@ -1,139 +1,106 @@
-# Changelog Entry Generator
+# Release Notes ("What's new") Generator
 
-Generate a changelog entry from completed TODO items and add it to the changelog.
+Write a release entry for the in-app "What's new" dialog, the top-bar popover
+and the public `/whats-new` page. This file is the **single source of the
+editorial rules** — `/git deploy` follows it too.
 
 ## Arguments (optional)
 
 $ARGUMENTS
 
-## Instructions
+## Audience
 
-### Step 1: Get Changelog Content
+Everyone who uses the app: beta testers today, the public soon. The public
+`/whats-new` page is indexed. Write for a home cook, not for the developer.
 
-**Check the argument format to determine the workflow:**
+## Step 1: Gather the changes
 
-#### Option A: TODO Reference (e.g., `#14`)
+- **Plain-text argument:** use it as the raw material.
+- **No argument:** collect what is about to ship:
+  ```bash
+  git log origin/main..origin/staging --pretty=format:"%s%n%b" --no-merges
+  ```
+  Squash-merge commits carry useful bullet bodies — read them, not just subjects.
 
-If the argument matches `#N` where N is a number:
+## Step 2: Filter — what makes the cut
 
-1. Read `frontend/TODO.md`
-2. Find the item with heading `### N.` (e.g., `### 14. Reorder Shopping List Stats Layout`)
-3. Extract the item's **title** (the heading text after the number)
-4. Move the item to the `## ✅ Completed` section:
-   - Remove the entire item block (heading + all content until next `###` or section)
-   - Add it to the top of the Completed section (after `## ✅ Completed`)
-   - Remove the number prefix from the heading (e.g., `### 14. Title` → `### Title`)
-5. Use the title as the changelog content
-6. Save the updated TODO.md
+Include only changes a user could **see or feel**. Leave out:
 
-#### Option B: Direct Description
+- Infrastructure, monitoring, logging, CI, dependency bumps, refactors
+- "Groundwork for…" / anything not usable yet
+- Private integrations (Tada, Hearth, anything behind `X-API-Key`)
+- Admin-only tools
+- Security fixes and data-isolation details — never describe a vulnerability
+  on a public page. At most "Better reliability throughout the app".
+- Billing/usage-limit internals (a user-visible billing screen change is fine)
+- Fixes for bugs nobody would have noticed, and data clean-ups ("removed a
+  duplicate ingredient")
 
-If the argument is plain text (not a `#N` reference):
-- Use the provided text directly as the changelog content
+Use **current feature names**: Home, Menu, Recipes / Recipe Browser,
+Recipe Wizard, Shopping List, Genie, Settings. Never "Dashboard", "Meal
+Planner", "sidebar". When a feature is renamed, update older entries too.
 
-#### Option C: No Arguments
+## Step 3: Shape the release
 
-If no arguments provided, read `frontend/TODO.md`, find items in the `## ✅ Completed` section, and ask:
+Releases live in `frontend/src/data/changelog.ts` as typed objects in
+`RELEASES` (newest first):
 
-```
-Found these completed items:
-1. [Item 1]
-2. [Item 2]
-
-Which items to include? (all / specific numbers / custom description)
-```
-
-### Step 2: Generate Entry
-
-Create a markdown entry with today's date:
-
-```markdown
-## YYYY-MM-DD - [Title]
-- [Change 1 in user-friendly language]
-- [Change 2 in user-friendly language]
-```
-
-**Guidelines:**
-- Title: "Latest Updates", "New Features", "Bug Fixes", or "Improvements"
-- Write changes from user's perspective (not developer's)
-- Good: "Drag-and-drop reordering of ingredients"
-- Bad: "Implemented dnd-kit in IngredientRow.tsx"
-
-### Step 3: Update Changelog File
-
-1. Read `frontend/src/data/changelog.ts`
-2. Find the `CHANGELOG_MD` template literal
-3. **Prepend** the new entry after the opening backtick
-4. Save the file
-
-**Example - Before:**
-```typescript
-const CHANGELOG_MD = `
-## 2024-12-27 - Latest Updates
-- Existing change
-`;
+```ts
+{
+  id: "2026-10-03",                 // release date; 2nd release same day → "2026-10-03b"
+  headline: "Notes for your shopping trip",   // one line that sells it, ≤ 60 chars
+  highlights: [                     // 1–3 things worth trying
+    {
+      title: "Shopping List notes",           // feature name, 2–5 words
+      body: "Jot down store hours…",          // 1–2 sentences: what + why it helps
+      image: {                                // optional, see Step 4
+        src: "/whats-new/shopping-notes.webp",
+        alt: "The Shopping List with the notes pad open",
+      },
+      href: "/shopping-list",                 // optional in-app "Try it" target
+      cta: "Open Shopping List",              // optional button label
+    },
+  ],
+  improvements: ["…"],              // optional one-liners, shown collapsed
+  fixes: ["…"],                     // optional one-liners, shown collapsed
+}
 ```
 
-**Example - After:**
-```typescript
-const CHANGELOG_MD = `
-## 2024-12-28 - New Features
-- New feature description
+Rules:
 
-## 2024-12-27 - Latest Updates
-- Existing change
-`;
-```
+- **One release per deploy.** Never split one day into Features / Fixes /
+  Improvements entries — that's what the three fields are for.
+- **Highlights** are new features or big visible changes. If a release is all
+  fixes, pick the most noticeable one as the highlight.
+- **About 8 items total.** Combine related changes; drop the rest.
+- One-liners: plain sentences, present tense, no trailing period, no "Fixed…"
+  prefix (they already sit under "Fixes"). Describe the result:
+  "Favorites stay saved", not "Fixed favorites not saving".
+- Use typographic quotes (“ ”) and em dashes (—).
+- `href` must be an in-app route (`/dashboard`, `/meal-planner`, `/recipes`,
+  `/shopping-list`, `/settings?section=…`).
 
-### Step 4: Confirm
+## Step 4: Screenshot (optional, for headline features)
 
-**For TODO reference (`#N`):**
-```
-✅ Done!
+1. Run the app (see the `verify` skill) and open the feature in dark mode.
+2. Capture the relevant region at roughly 16:9, about 1200px wide.
+3. Convert to WebP into `frontend/public/whats-new/<feature>.webp`:
+   ```bash
+   cd frontend && node -e "require('sharp')('in.png').resize({width:1200,withoutEnlargement:true}).webp({quality:80}).toFile('public/whats-new/<feature>.webp')"
+   ```
+4. Use realistic sample data, never a real person's account details.
 
-- Moved TODO #N "[Title]" to Completed section
-- Added changelog entry for [date]:
-  - [Change description]
+## Step 5: Insert, show, confirm
 
-The "What's New" indicator will appear for users who haven't seen this update.
-```
+1. Prepend the release object to `RELEASES`.
+2. Show the user the release (headline, highlights, lists) and ask
+   `Accept? (yes / edit / skip)` before committing.
+3. Commit:
+   ```bash
+   git add frontend/src/data/changelog.ts frontend/public/whats-new
+   git commit -m "docs: update release notes for YYYY-MM-DD release
 
-**For direct description or selection:**
-```
-✅ Changelog updated!
+   Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>"
+   ```
 
-Added entry for [date]:
-## [Title]
-- [Changes...]
-
-The "What's New" indicator will appear for users who haven't seen this update.
-```
-
-## File Location
-
-- **Changelog file**: `frontend/src/data/changelog.ts`
-- **TODO source**: `frontend/TODO.md` (Completed section)
-
-## Usage Examples
-
-```
-/changelog #14
-```
-→ Finds TODO item 14, moves it to Completed, adds to changelog
-
-```
-/changelog Added dark mode support
-```
-→ Creates changelog entry with "Added dark mode support"
-
-```
-/changelog
-```
-→ Lists completed items and asks which to include
-
-## Notes
-
-- Entries must be **prepended** (newest first) to trigger the new update indicator
-- The date in `## YYYY-MM-DD` becomes the version - must be unique
-- Multiple entries on the same day can use the same date
-- TODO items are identified by their `### N.` heading pattern
+Users who haven't seen the new release get a dot on the What's new button.

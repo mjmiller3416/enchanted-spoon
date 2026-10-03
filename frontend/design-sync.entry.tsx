@@ -42,8 +42,6 @@ export * from "@/components/ui/toggle-group";
 export * from "@/components/ui/tooltip";
 
 // ── shared domain components ───────────────────────────────────────────────
-export * from "@/components/common/ChangelogDialog";
-export * from "@/components/common/ChangelogPopover";
 export * from "@/components/common/CircularImage";
 export * from "@/components/common/FavoriteButton";
 export * from "@/components/common/FilterBar";
@@ -55,6 +53,9 @@ export * from "@/components/common/ScrollToTopButton";
 export * from "@/components/common/StatCard";
 export * from "@/components/forms/QuantityInput";
 export * from "@/components/common/QueryError";
+export * from "@/components/common/ReleaseCard";
+export * from "@/components/common/WhatsNewDialog";
+export * from "@/components/common/WhatsNewPopover";
 export * from "@/components/layout/Logo";
 export * from "@/components/layout/EditorDialogContent";
 export * from "@/components/layout/PageHeader";

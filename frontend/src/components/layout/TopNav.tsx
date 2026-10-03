@@ -49,9 +49,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SafeLink } from "@/components/common/SafeLink";
 import { Logo } from "@/components/layout/Logo";
 import { FeedbackDialog } from "@/components/common/FeedbackDialog";
-import { ChangelogDialog } from "@/components/common/ChangelogDialog";
-import { ChangelogPopover } from "@/components/common/ChangelogPopover";
-import { CHANGELOG_TOTAL_ITEMS } from "@/data/changelog";
+import { WhatsNewDialog } from "@/components/common/WhatsNewDialog";
+import { WhatsNewPopover } from "@/components/common/WhatsNewPopover";
+import { LATEST_RELEASE_ID, RELEASES, getUnreadReleaseIds } from "@/data/changelog";
 import { appConfig } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { useShoppingList, useRefreshShoppingList, useCurrentUser } from "@/hooks/api";
@@ -418,10 +418,40 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Hydration detector: false during SSR/hydration render, true after mount —
-// gates client-only UI (theme icon, changelog badge) without a setState effect
+// gates client-only UI (theme icon, What's new dot) without a setState effect
 const emptySubscribe = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
+
+const LAST_SEEN_RELEASE_KEY = "whatsNewLastSeenRelease";
+const LEGACY_SEEN_COUNT_KEY = "lastSeenChangelogCount";
+
+/**
+ * Newest release this browser has seen. The first read after the switch from
+ * item counts seeds a baseline: returning users (legacy key present) get the
+ * latest release as new; brand-new users start with everything read.
+ */
+function readLastSeenRelease(): string {
+  try {
+    const stored = localStorage.getItem(LAST_SEEN_RELEASE_KEY);
+    if (stored) return stored;
+    const returning = localStorage.getItem(LEGACY_SEEN_COUNT_KEY) !== null;
+    const baseline = returning ? (RELEASES[1]?.id ?? LATEST_RELEASE_ID) : LATEST_RELEASE_ID;
+    localStorage.setItem(LAST_SEEN_RELEASE_KEY, baseline);
+    localStorage.removeItem(LEGACY_SEEN_COUNT_KEY);
+    return baseline;
+  } catch {
+    return LATEST_RELEASE_ID;
+  }
+}
+
+function markAllReleasesSeen() {
+  try {
+    localStorage.setItem(LAST_SEEN_RELEASE_KEY, LATEST_RELEASE_ID);
+  } catch {
+    // Storage blocked — the dot simply returns next visit
+  }
+}
 
 const navigation = [
   { name: "Home", href: "/dashboard", icon: LayoutDashboard },
@@ -445,23 +475,20 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
 
   // Dialog state
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [changelogOpen, setChangelogOpen] = useState(false);
-  const [changelogBadgeDismissed, setChangelogBadgeDismissed] = useState(false);
-  const [changelogCountReset, setChangelogCountReset] = useState(false);
-  const [changelogScrollTo, setChangelogScrollTo] = useState<number | null>(null);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [whatsNewSeen, setWhatsNewSeen] = useState(false);
+  const [whatsNewFocus, setWhatsNewFocus] = useState<string | null>(null);
 
   // Theme (shared model — persists via the settings store)
   const { resolvedTheme, toggleTheme } = useTheme();
 
   // Client-side state (lazy initializers read localStorage without triggering cascading renders)
-  const [changelogNewItems] = useState(() => {
-    if (typeof window === "undefined") return 0;
-    const lastSeenCount = parseInt(
-      localStorage.getItem("lastSeenChangelogCount") || "0",
-      10
-    );
-    return Math.max(0, CHANGELOG_TOTAL_ITEMS - lastSeenCount);
-  });
+  // Captured once per page load so New badges survive opening the popover
+  const [unreadReleaseIds] = useState<ReadonlySet<string>>(() =>
+    typeof window === "undefined"
+      ? new Set<string>()
+      : getUnreadReleaseIds(readLastSeenRelease())
+  );
   const mounted = useSyncExternalStore(
     emptySubscribe,
     getClientSnapshot,
@@ -496,18 +523,17 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
   }, [refreshShoppingList, handlePlannerUpdated]);
 
   // Derived values
-  const hasNewUpdates = mounted && changelogNewItems > 0 && !changelogBadgeDismissed;
-  const newItemCount = changelogCountReset ? 0 : changelogNewItems;
+  const hasNewUpdates = mounted && unreadReleaseIds.size > 0 && !whatsNewSeen;
 
-  const handleChangelogOpenChange = (open: boolean) => {
-    if (open) {
-      localStorage.setItem("lastSeenChangelogCount", String(CHANGELOG_TOTAL_ITEMS));
-      setChangelogBadgeDismissed(true);
-    } else {
-      setChangelogCountReset(true);
-      setChangelogScrollTo(null);
-    }
-    setChangelogOpen(open);
+  const markWhatsNewSeen = () => {
+    markAllReleasesSeen();
+    setWhatsNewSeen(true);
+  };
+
+  const openWhatsNew = (releaseId: string | null = null) => {
+    markWhatsNewSeen();
+    setWhatsNewFocus(releaseId);
+    setWhatsNewOpen(true);
   };
 
   const handleSheetNavigate = () => {
@@ -579,7 +605,7 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
           </div>
         )}
 
-        {/* Right section: Assistant, Theme toggle, Changelog, Avatar */}
+        {/* Right section: Assistant, Theme toggle, What's new, Avatar */}
         <div className="flex items-center gap-2.5 border-l border-border pl-3">
           {/* Genie assistant trigger */}
           <Tooltip>
@@ -620,19 +646,13 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
             </Tooltip>
           )}
 
-          {/* Changelog / What's New */}
-          <ChangelogPopover
-            newItemCount={newItemCount}
+          {/* What's new */}
+          <WhatsNewPopover
+            unreadIds={unreadReleaseIds}
             hasNewUpdates={hasNewUpdates}
-            onOpen={() => {
-              localStorage.setItem("lastSeenChangelogCount", String(CHANGELOG_TOTAL_ITEMS));
-              setChangelogBadgeDismissed(true);
-            }}
-            onViewAll={() => handleChangelogOpenChange(true)}
-            onViewItem={(globalIndex) => {
-              setChangelogScrollTo(globalIndex);
-              handleChangelogOpenChange(true);
-            }}
+            onOpen={markWhatsNewSeen}
+            onViewAll={() => openWhatsNew()}
+            onViewRelease={openWhatsNew}
           />
 
           {/* User avatar dropdown */}
@@ -716,11 +736,12 @@ export function TopNav({ onOpenAssistant }: TopNavProps) {
 
       {/* Dialogs */}
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-      <ChangelogDialog
-        open={changelogOpen}
-        onOpenChange={handleChangelogOpenChange}
-        newItemCount={newItemCount}
-        scrollToItem={changelogScrollTo}
+      <WhatsNewDialog
+        open={whatsNewOpen}
+        onOpenChange={setWhatsNewOpen}
+        unreadIds={unreadReleaseIds}
+        focusReleaseId={whatsNewFocus}
+        onNavigate={(href) => router.push(href)}
       />
     </>
   );
