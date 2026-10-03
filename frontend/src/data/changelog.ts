@@ -42,6 +42,24 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: "2026-10-03",
+    headline: "Put Enchanted Spoon on your home screen",
+    highlights: [
+      {
+        title: "Install the app on your phone",
+        body: "Add Enchanted Spoon to your home screen and it opens full screen, one tap away — handy at the store. Find “Install app” in the More menu; on iPhone we'll walk you through Add to Home Screen.",
+      },
+      {
+        title: "A better “What's new”",
+        body: "Updates now arrive as short release notes with screenshots and a button to try each feature. Find them under the gift icon, in the More menu on phones, or in Settings.",
+      },
+    ],
+    improvements: [
+      "New features wear a “New” badge where they live in the app until you try them",
+      "What you've read in What's new is remembered across your devices",
+    ],
+  },
+  {
     id: "2026-09-30",
     headline: "Notes for your shopping trip",
     highlights: [
