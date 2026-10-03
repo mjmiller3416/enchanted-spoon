@@ -15,6 +15,7 @@ import {
   useRecipeWizardDialog,
 } from "@/lib/providers/RecipeWizardProvider";
 import { TourProvider } from "@/lib/providers/TourProvider";
+import { PwaInstallProvider } from "@/lib/providers/PwaInstallProvider";
 import { RecipeWizardView } from "@/app/(app)/recipes/_components/wizard/RecipeWizardView";
 import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
 import { PaywallDialog } from "@/components/common/PaywallDialog";
@@ -65,7 +66,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <AssistantProvider>
           <RecipeWizardProvider>
             <TourProvider>
-              <AppLayoutInner>{children}</AppLayoutInner>
+              <PwaInstallProvider>
+                <AppLayoutInner>{children}</AppLayoutInner>
+              </PwaInstallProvider>
             </TourProvider>
           </RecipeWizardProvider>
         </AssistantProvider>

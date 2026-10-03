@@ -6,6 +6,7 @@ import {
   CalendarDays,
   BookOpen,
   Compass,
+  Download,
   House,
   ShoppingCart,
   EllipsisVertical,
@@ -35,6 +36,7 @@ import { useShoppingList, useRefreshShoppingList, useCurrentUser } from "@/hooks
 import { useTheme } from "@/hooks/ui";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
 import { useTour } from "@/lib/providers/TourProvider";
+import { usePwaInstall } from "@/lib/providers/PwaInstallProvider";
 
 interface NavItem {
   name: string;
@@ -62,6 +64,7 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
   const { isAdmin } = useCurrentUser();
   const { openWizard } = useRecipeWizardDialog();
   const { startTour } = useTour();
+  const { canInstall, install } = usePwaInstall();
   const { resolvedTheme, toggleTheme } = useTheme();
 
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -325,6 +328,17 @@ export function MobileBottomNav({ onOpenAssistant }: MobileBottomNavProps) {
               <Compass className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
               Take the tour
             </Button>
+
+            {canInstall && (
+              <Button
+                variant="ghost"
+                onClick={() => handleMenuAction(() => void install())}
+                className="flex items-center justify-start gap-3 px-5 py-3 w-full h-auto rounded-none text-sm text-foreground"
+              >
+                <Download className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+                Install app
+              </Button>
+            )}
 
             <div className="h-px bg-border mx-5 my-1" />
 

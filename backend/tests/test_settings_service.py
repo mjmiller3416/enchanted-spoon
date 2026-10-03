@@ -32,3 +32,13 @@ def test_nested_patch_preserves_unrelated_fields_and_other_users(db_session, tes
 def test_invalid_settings_are_rejected():
     with pytest.raises(ValidationError):
         SettingsDTO.model_validate({"appearance": {"theme": "invisible"}})
+
+
+def test_install_prompt_patch_merges_and_defaults(db_session, test_user):
+    service = SettingsService(db_session, test_user.id)
+    assert service.read().installPrompt.installedAt is None
+    service.write(SettingsDTO.model_validate({"installPrompt": {"dismissCount": 1, "snoozedUntil": "2026-10-17T00:00:00Z"}}), replace=False)
+    result = service.write(SettingsDTO.model_validate({"installPrompt": {"installedAt": "2026-10-03T12:00:00Z"}}), replace=False)
+    assert result.installPrompt.dismissCount == 1
+    assert result.installPrompt.snoozedUntil == "2026-10-17T00:00:00Z"
+    assert result.installPrompt.installedAt == "2026-10-03T12:00:00Z"

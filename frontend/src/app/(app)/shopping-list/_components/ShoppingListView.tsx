@@ -33,6 +33,7 @@ import { QuickAddForm } from "@/components/forms/QuickAddForm";
 import { getErrorMessage } from "@/lib/utils";
 import { IngredientSourceSidebar } from "./IngredientSourceSidebar";
 import { ShoppingNotes } from "./ShoppingNotes";
+import { InstallAppBanner } from "@/components/common/InstallAppBanner";
 import { useSettings } from "@/hooks/persistence/useSettings";
 
 /**
@@ -417,6 +418,8 @@ export function ShoppingListView() {
       actions={headerActions}
       pinActionsToNav
     >
+      <InstallAppBanner context="shopping" className="mb-4" />
+
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
         <StatCard

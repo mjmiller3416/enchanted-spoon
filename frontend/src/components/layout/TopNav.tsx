@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronDown,
   Compass,
+  Download,
   MessageSquarePlus,
   Sparkles,
   Shield,
@@ -58,6 +59,7 @@ import { useTheme } from "@/hooks/ui";
 import { useNavActions } from "@/lib/providers/NavActionsProvider";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
 import { useTour } from "@/lib/providers/TourProvider";
+import { usePwaInstall } from "@/lib/providers/PwaInstallProvider";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TopNavLink — Inline navigation link for the top nav bar
@@ -258,6 +260,7 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
   const router = useRouter();
   const { isAdmin } = useCurrentUser();
   const { startTour, isActive: tourActive } = useTour();
+  const { canInstall, install } = usePwaInstall();
 
   const handleSignOut = async () => {
     await signOut();
@@ -385,6 +388,16 @@ function TopNavUserMenu({ onOpenAssistant, onOpenFeedback }: TopNavUserMenuProps
           <Compass className="h-4 w-4" strokeWidth={1.5} />
           Take the tour
         </DropdownMenuItem>
+
+        {canInstall && (
+          <DropdownMenuItem
+            onClick={() => void install()}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <Download className="h-4 w-4" strokeWidth={1.5} />
+            Install app
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuSeparator />
 
