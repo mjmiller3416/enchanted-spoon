@@ -42,6 +42,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: "2026-10-15",
+    headline: "Genie can fill in your Shopping List",
+    highlights: [
+      {
+        title: "Add to your list with Genie",
+        body: "Ask Genie to “add milk, eggs and 2 lbs of ground turkey to my list” and it's done — quantities and store sections included. Anything already on your list is skipped, and Undo is one tap away.",
+      },
+    ],
+  },
+  {
     id: "2026-10-03",
     headline: "Put Enchanted Spoon on your home screen",
     highlights: [
