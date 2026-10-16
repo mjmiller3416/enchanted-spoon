@@ -160,6 +160,15 @@ class ExternalItemUpsertResultDTO(BaseModel):
     created: bool  # True if a new row was inserted, False if an existing one was updated
     item: ShoppingItemResponseDTO
 
+
+class ManualItemsAddResultDTO(BaseModel):
+    """DTO for the result of a deduplicated batch of manual adds (e.g. from Genie)."""
+
+    added: List[ShoppingItemResponseDTO] = []  # Newly created rows
+    reactivated: List[ShoppingItemResponseDTO] = []  # Checked-off rows moved back to "need"
+    already_listed: List[str] = []  # Names skipped because they're already needed
+
+
 class ShoppingListResponseDTO(BaseModel):
     """DTO for complete shopping list response."""
 

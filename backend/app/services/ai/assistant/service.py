@@ -4,9 +4,10 @@ Core AI assistant service logic.
 Handles chat interface, context building, and response processing.
 """
 
-from typing import Optional, List
+from typing import Callable, Optional, List
 
 from app.dtos.assistant_dtos import AssistantMessageDTO
+from app.dtos.shopping_dtos import ManualItemCreateDTO, ManualItemsAddResultDTO
 from app.services.ai.gemini_client import get_gemini_client
 
 from .prompts import MODEL_NAME, API_KEY_ENV_VAR, get_full_system_prompt
@@ -16,6 +17,11 @@ from .context import (
     should_include_ingredients,
     should_include_shopping_list,
 )
+
+# Persists a batch of shopping items for the current user; None means the write failed
+ShoppingItemAdder = Callable[
+    [List[ManualItemCreateDTO]], Optional[ManualItemsAddResultDTO]
+]
 
 
 class AssistantServiceCore:
@@ -31,6 +37,7 @@ class AssistantServiceCore:
         message: str,
         conversation_history: Optional[List[AssistantMessageDTO]] = None,
         user_context_data: Optional[dict] = None,
+        add_shopping_items: Optional[ShoppingItemAdder] = None,
     ) -> dict:
         """Main entry point for all assistant interactions.
 
@@ -38,15 +45,18 @@ class AssistantServiceCore:
         - Suggest recipes
         - Generate a full recipe
         - Answer a cooking question
+        - Add items to the shopping list
 
         Args:
             message: The user's message.
             conversation_history: Optional list of previous messages.
             user_context_data: Dict with saved_recipes, meal_plan, etc.
+            add_shopping_items: Writes items to the user's shopping list. The
+                service holds no DB session, so the caller supplies the write.
 
         Returns:
-            dict with 'type' (chat|suggestions|recipe|error), 'response', and
-            optionally 'recipe' or 'tool_args'.
+            dict with 'type' (chat|suggestions|recipe|shopping|error), 'response',
+            and optionally 'recipe', 'shopping_update', or 'tool_args'.
         """
         try:
             client = get_gemini_client(API_KEY_ENV_VAR)
@@ -72,7 +82,9 @@ class AssistantServiceCore:
             )
 
             # Process the response
-            return await self._process_response(response, user_context_data, contents)
+            return await self._process_response(
+                response, user_context_data, contents, add_shopping_items
+            )
 
         except Exception as e:
             return {
@@ -148,7 +160,11 @@ class AssistantServiceCore:
         return contents
 
     async def _process_response(
-        self, response, user_context_data: Optional[dict], contents: list
+        self,
+        response,
+        user_context_data: Optional[dict],
+        contents: list,
+        add_shopping_items: Optional[ShoppingItemAdder] = None,
     ) -> dict:
         """Process Gemini response, handling function calls."""
         if not response or not response.candidates:
@@ -202,6 +218,7 @@ class AssistantServiceCore:
                 user_context_data,
                 contents,
                 model_turn,
+                add_shopping_items,
             )
 
         # No tool call — this was a plain conversational reply.
@@ -220,6 +237,7 @@ class AssistantServiceCore:
         context_data: Optional[dict],
         contents: list,
         model_turn=None,
+        add_shopping_items: Optional[ShoppingItemAdder] = None,
     ) -> dict:
         """Execute a function call and return appropriate response.
 

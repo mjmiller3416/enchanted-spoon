@@ -6,6 +6,7 @@ import { shoppingApi } from "@/lib/api";
 import type {
   ShoppingListResponseDTO,
   ManualItemCreateDTO,
+  ManualItemsAddResultDTO,
   ShoppingNotesDTO,
 } from "@/types/shopping";
 
@@ -161,6 +162,30 @@ export function useDeleteItem() {
   return useMutation({
     mutationFn: async (id: number) => shoppingApi.deleteItem(id, await getToken()),
     onSettled: () => { void queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() }); },
+  });
+}
+
+/**
+ * Undo a batch add (Genie): delete the rows it created and re-check the rows
+ * it moved back to "need". Items it skipped as already listed are untouched.
+ */
+export function useUndoShoppingAdd() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    meta: { errorMessage: "Couldn't undo those additions" },
+    mutationFn: async (update: ManualItemsAddResultDTO) => {
+      const token = await getToken();
+      await Promise.all([
+        ...update.added.map((item) => shoppingApi.deleteItem(item.id, token)),
+        ...update.reactivated.map((item) => shoppingApi.updateItem(item.id, { have: true }, token)),
+      ]);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() });
+      window.dispatchEvent(new Event("shopping-list-updated"));
+    },
   });
 }
 

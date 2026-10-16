@@ -5,7 +5,7 @@ Handles manual item creation, updates, deletions, and status toggles.
 """
 
 # -- Imports -------------------------------------------------------------------------------------
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -14,6 +14,7 @@ from ...dtos.shopping_dtos import (
     BulkStateUpdateDTO,
     ExternalItemUpsertDTO,
     ManualItemCreateDTO,
+    ManualItemsAddResultDTO,
     ShoppingItemResponseDTO,
     ShoppingItemUpdateDTO,
 )
@@ -54,6 +55,86 @@ class ItemManagementMixin:
         except SQLAlchemyError:
             self.session.rollback()
             return None
+
+    def add_manual_items(
+        self, create_dtos: List[ManualItemCreateDTO]
+    ) -> Optional[ManualItemsAddResultDTO]:
+        """
+        Add a batch of manual items, skipping anything already on the list.
+
+        Names match case-insensitively against every item on the list (any source).
+        A match still needed is skipped; a match already checked off is moved back
+        to "need" instead of being duplicated. The batch commits as one transaction.
+
+        Args:
+            create_dtos (List[ManualItemCreateDTO]): Items to add.
+
+        Returns:
+            Optional[ManualItemsAddResultDTO]: What was added, reactivated, or
+            skipped, or None if the batch failed.
+        """
+        try:
+            # Prefer a still-needed row when several share a name, so a needed
+            # match is reported as a duplicate rather than reactivating another
+            existing: Dict[str, ShoppingItem] = {}
+            for item in self.shopping_repo.get_all_shopping_items(self.user_id):
+                key = self._dedupe_key(item.ingredient_name)
+                if key not in existing or (existing[key].have and not item.have):
+                    existing[key] = item
+
+            added: List[ShoppingItem] = []
+            reactivated: List[ShoppingItem] = []
+            already_listed: List[str] = []
+
+            for dto in create_dtos:
+                key = self._dedupe_key(dto.ingredient_name)
+                match = existing.get(key)
+                if match is None:
+                    created = self.shopping_repo.create_shopping_item(
+                        ShoppingItem.create_manual(
+                            ingredient_name=dto.ingredient_name,
+                            quantity=dto.quantity,
+                            unit=dto.unit,
+                            category=dto.category,
+                        ),
+                        self.user_id,
+                    )
+                    existing[key] = created
+                    added.append(created)
+                elif match.have:
+                    match.have = False
+                    self.shopping_repo.update_item(match)
+                    reactivated.append(match)
+                else:
+                    already_listed.append(match.ingredient_name)
+
+            self.session.commit()
+            return ManualItemsAddResultDTO(
+                added=[self._item_to_response_dto(i) for i in added],
+                reactivated=[self._item_to_response_dto(i) for i in reactivated],
+                already_listed=already_listed,
+            )
+
+        except SQLAlchemyError:
+            self.session.rollback()
+            return None
+
+    @staticmethod
+    def _dedupe_key(name: str) -> str:
+        """
+        Loose match key so "Eggs" finds "Egg" and "Tomatoes" finds "Tomato".
+
+        Only the trailing plural is folded. Both sides go through the same rules,
+        so the key only has to be consistent, not a correct singular.
+        """
+        key = " ".join(name.lower().split())
+        if key.endswith("ies") and len(key) > 4:
+            return key[:-3] + "y"
+        if key.endswith(("oes", "ches", "shes", "xes")):
+            return key[:-2]
+        if key.endswith("s") and not key.endswith(("ss", "us")) and len(key) > 3:
+            return key[:-1]
+        return key
 
     # -- External Item Ingest --------------------------------------------------------------------
     def upsert_external_item(

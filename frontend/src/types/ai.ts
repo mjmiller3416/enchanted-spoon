@@ -1,5 +1,7 @@
 // src/types/ai.ts
 
+import type { ManualItemsAddResultDTO } from "./shopping";
+
 // ============================================================================
 // Image Generation Types
 // ============================================================================
@@ -72,6 +74,8 @@ export interface AssistantResponseDTO {
   recipe?: RecipeGeneratedDTO;
   reference_image_data?: string;
   banner_image_data?: string;
+  // Shopping list changes (if the AI added items on request)
+  shopping_update?: ManualItemsAddResultDTO | null;
 }
 
 // ============================================================================

@@ -29,6 +29,12 @@ INGREDIENT_QUERY_KEYWORDS = [
 # When to load shopping list
 SHOPPING_LIST_KEYWORDS = [
     "shopping list",
+    "grocery list",
+    "groceries",
+    "to my list",
+    "to the list",
+    "on my list",
+    "on the list",
     "what i have",
     "what i've got",
     "from my list",

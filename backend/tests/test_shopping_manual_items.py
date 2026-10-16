@@ -87,3 +87,71 @@ class TestAddManualItem:
         )
         assert first is not None and second is not None
         assert first.category == second.category == "other"
+
+
+class TestAddManualItems:
+    """Batch add used by Genie: skips items already needed, revives checked-off ones."""
+
+    def test_new_items_are_added(self, service: ShoppingService):
+        result = service.add_manual_items(
+            [make_dto(ingredient_name="Milk"), make_dto(ingredient_name="Eggs", quantity=12)]
+        )
+        assert result is not None
+        assert [i.ingredient_name for i in result.added] == ["Milk", "Eggs"]
+        assert result.reactivated == [] and result.already_listed == []
+        assert len(service.get_shopping_list().items) == 2
+
+    def test_needed_item_is_skipped_case_insensitively(self, service: ShoppingService):
+        service.add_manual_item(make_dto(ingredient_name="Milk"))
+
+        result = service.add_manual_items([make_dto(ingredient_name="milk")])
+
+        assert result is not None
+        assert result.added == []
+        assert result.already_listed == ["Milk"]
+        assert len(service.get_shopping_list().items) == 1
+
+    @pytest.mark.parametrize(
+        "listed, requested",
+        [("Egg", "Eggs"), ("Tomato", "tomatoes"), ("Berry", "Berries"),
+         ("Peach", "Peaches"), ("Paper Towel", "paper  towels")],
+    )
+    def test_plural_matches_singular(self, service: ShoppingService, listed, requested):
+        service.add_manual_item(make_dto(ingredient_name=listed))
+
+        result = service.add_manual_items([make_dto(ingredient_name=requested)])
+
+        assert result is not None
+        assert result.added == [] and result.already_listed == [listed]
+
+    @pytest.mark.parametrize("listed, requested", [("Hummus", "Humm"), ("Swiss", "Swis")])
+    def test_non_plural_endings_are_not_folded(self, service: ShoppingService, listed, requested):
+        service.add_manual_item(make_dto(ingredient_name=listed))
+
+        result = service.add_manual_items([make_dto(ingredient_name=requested)])
+
+        assert result is not None
+        assert [i.ingredient_name for i in result.added] == [requested]
+
+    def test_checked_off_item_moves_back_to_need(self, service: ShoppingService):
+        existing = service.add_manual_item(make_dto(ingredient_name="Milk"))
+        service.update_item(existing.id, ShoppingItemUpdateDTO(have=True))
+
+        result = service.add_manual_items([make_dto(ingredient_name="Milk")])
+
+        assert result is not None
+        assert result.added == []
+        assert [i.id for i in result.reactivated] == [existing.id]
+        items = service.get_shopping_list().items
+        assert len(items) == 1 and items[0].have is False
+
+    def test_needed_row_wins_over_checked_off_duplicate(self, service: ShoppingService):
+        checked = service.add_manual_item(make_dto(ingredient_name="Milk"))
+        service.update_item(checked.id, ShoppingItemUpdateDTO(have=True))
+        service.add_manual_item(make_dto(ingredient_name="Milk"))
+
+        result = service.add_manual_items([make_dto(ingredient_name="Milk")])
+
+        assert result is not None
+        assert result.already_listed == ["Milk"]
+        assert result.reactivated == []

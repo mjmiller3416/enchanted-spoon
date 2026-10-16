@@ -3,6 +3,11 @@
 Defines the tools/functions available to the AI for structured interactions.
 """
 
+from app.services.user_ingredient_category_service import BUILT_IN_INGREDIENT_CATEGORIES
+
+# Store sections Genie may file a shopping item under (every account has these)
+SHOPPING_CATEGORIES = [c["value"] for c in BUILT_IN_INGREDIENT_CATEGORIES]
+
 # ============================================================================
 # FUNCTION DEFINITIONS FOR GEMINI
 # ============================================================================
@@ -88,6 +93,43 @@ TOOL_DEFINITIONS = [
                 },
             },
             "required": ["question_type"],
+        },
+    },
+    {
+        "name": "add_to_shopping_list",
+        "description": "Add one or more items to the user's shopping list. Use ONLY when the user explicitly asks to add, put, or save items to their shopping/grocery list. Items already on the list are skipped automatically. Returns what was actually added.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "items": {
+                    "type": "ARRAY",
+                    "description": "The items to add, one entry per distinct item.",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "name": {
+                                "type": "STRING",
+                                "description": "Plain grocery item name in Title Case, without quantity or unit (e.g. 'Ground Beef', 'Milk').",
+                            },
+                            "quantity": {
+                                "type": "NUMBER",
+                                "description": "Amount, only if the user gave one. Default: 1",
+                            },
+                            "unit": {
+                                "type": "STRING",
+                                "description": "Unit, only if the user gave one (e.g. 'lbs', 'oz', 'can', 'bag').",
+                            },
+                            "category": {
+                                "type": "STRING",
+                                "enum": SHOPPING_CATEGORIES,
+                                "description": "Store section the item belongs in.",
+                            },
+                        },
+                        "required": ["name"],
+                    },
+                },
+            },
+            "required": ["items"],
         },
     },
 ]

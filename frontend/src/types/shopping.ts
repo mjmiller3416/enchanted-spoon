@@ -35,6 +35,13 @@ export interface ShoppingItemResponseDTO extends ShoppingItemBaseDTO {
   recipe_sources: RecipeSourceDTO[];  // Recipe sources with usage counts
 }
 
+/** Result of a deduplicated batch of manual adds (e.g. Genie adding items on request) */
+export interface ManualItemsAddResultDTO {
+  added: ShoppingItemResponseDTO[];        // Newly created rows
+  reactivated: ShoppingItemResponseDTO[];  // Checked-off rows moved back to "need"
+  already_listed: string[];                // Names skipped because they're already needed
+}
+
 export interface ShoppingListResponseDTO {
   items: ShoppingItemResponseDTO[];
   total_items: number;

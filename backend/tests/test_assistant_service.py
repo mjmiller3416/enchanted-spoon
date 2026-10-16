@@ -137,3 +137,121 @@ async def test_thought_parts_are_ignored():
 
     assert result["type"] == "chat"
     assert result["response"] == "The real answer ✨"
+
+
+# ---------------------------------------------------------------------------
+# add_to_shopping_list tool
+# ---------------------------------------------------------------------------
+
+def _shopping_result(added=(), reactivated=(), already_listed=()):
+    from app.dtos.shopping_dtos import ManualItemsAddResultDTO, ShoppingItemResponseDTO
+
+    def item(i, name):
+        return ShoppingItemResponseDTO(
+            id=i, ingredient_name=name, quantity=1, source="manual"
+        )
+
+    return ManualItemsAddResultDTO(
+        added=[item(i, n) for i, n in enumerate(added, 1)],
+        reactivated=[item(i, n) for i, n in enumerate(reactivated, 100)],
+        already_listed=list(already_listed),
+    )
+
+
+async def test_shopping_tool_writes_items_and_reports_outcome():
+    """The write happens first and its real outcome is handed to the model."""
+    service = _make_service()
+    service._finalize_after_tool_call = MagicMock(return_value="Done! 🛒")
+    result = _shopping_result(added=["Milk"], already_listed=["Eggs"])
+    adder = MagicMock(return_value=result)
+
+    out = await service._handle_function_call(
+        "add_to_shopping_list",
+        {"items": [
+            {"name": "Milk", "category": "dairy"},
+            {"name": "Eggs", "quantity": 12},
+        ]},
+        None,
+        [],
+        None,
+        adder,
+    )
+
+    dtos = adder.call_args.args[0]
+    assert [d.ingredient_name for d in dtos] == ["Milk", "Eggs"]
+    assert dtos[0].category == "dairy" and dtos[0].quantity == 1
+    assert dtos[1].category == "other" and dtos[1].quantity == 12
+    assert service._finalize_after_tool_call.call_args.kwargs["result"] == {
+        "added": ["Milk"],
+        "moved_back_to_need": [],
+        "already_on_list": ["Eggs"],
+    }
+    assert out["type"] == "shopping"
+    assert out["response"] == "Done! 🛒"
+    assert out["shopping_update"] is result
+
+
+async def test_shopping_tool_drops_invalid_and_repeated_items():
+    service = _make_service()
+    service._finalize_after_tool_call = MagicMock(return_value="ok")
+    adder = MagicMock(return_value=_shopping_result(added=["Milk"]))
+
+    await service._handle_function_call(
+        "add_to_shopping_list",
+        {"items": [
+            {"name": "Milk", "category": "not-a-category"},
+            {"name": "  milk "},
+            {"name": ""},
+            {"quantity": 2},
+        ]},
+        None,
+        [],
+        None,
+        adder,
+    )
+
+    dtos = adder.call_args.args[0]
+    assert len(dtos) == 1
+    assert dtos[0].ingredient_name == "Milk" and dtos[0].category == "other"
+
+
+async def test_shopping_tool_failed_write_never_claims_success():
+    """A failed write returns a canned apology without asking the model."""
+    service = _make_service()
+    service._finalize_after_tool_call = MagicMock()
+
+    out = await service._handle_function_call(
+        "add_to_shopping_list",
+        {"items": [{"name": "Milk"}]},
+        None,
+        [],
+        None,
+        MagicMock(return_value=None),
+    )
+
+    service._finalize_after_tool_call.assert_not_called()
+    assert out["type"] == "chat"
+    assert "couldn't update" in out["response"]
+    assert "shopping_update" not in out
+
+
+async def test_shopping_tool_without_writer_does_not_crash():
+    """Callers that don't supply a writer (legacy endpoint) get a graceful reply."""
+    service = _make_service()
+
+    out = await service._handle_function_call(
+        "add_to_shopping_list", {"items": [{"name": "Milk"}]}, None, [], None
+    )
+
+    assert out["type"] == "chat"
+    assert "shopping_update" not in out
+
+
+async def test_shopping_tool_fallback_text_describes_outcome():
+    service = _make_service()
+
+    text = service._describe_shopping_update(
+        {"added": ["Milk", "Bread"], "moved_back_to_need": ["Eggs"], "already_on_list": ["Butter"]}
+    )
+
+    assert text == "Added Milk, Bread and Eggs to your shopping list! 🛒 Butter is already on there."
