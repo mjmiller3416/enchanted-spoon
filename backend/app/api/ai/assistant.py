@@ -18,6 +18,7 @@ from app.services.ai.assistant.context import (
 )
 from app.services.ai.image_generation import get_image_generation_service
 from app.services.ai.user_context_builder import UserContextBuilder
+from app.services.shopping import ShoppingService
 from app.models.user import User
 from app.services.usage_service import UsageService
 from app.api.errors import internal_error
@@ -37,9 +38,11 @@ async def chat_with_assistant(
     - Suggest recipes
     - Generate a full recipe
     - Answer a cooking question
+    - Add items to the shopping list
 
     Uses Gemini function calling to intelligently route requests.
     """
+    shopping_service = ShoppingService(session, current_user.id)
     try:
         # Convert history to dict format for keyword detection
         history_dicts = None
@@ -66,6 +69,7 @@ async def chat_with_assistant(
             message=request.message,
             conversation_history=request.conversation_history,
             user_context_data=context_data,
+            add_shopping_items=shopping_service.add_manual_items,
         )
 
         if result.get("type") == "error":
@@ -107,6 +111,7 @@ async def chat_with_assistant(
             recipe=recipe,
             reference_image_data=reference_image_data,
             banner_image_data=banner_image_data,
+            shopping_update=result.get("shopping_update"),
         )
 
     except HTTPException:

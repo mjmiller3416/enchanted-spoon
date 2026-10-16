@@ -3,6 +3,7 @@
 import { useCallback, useRef, useEffect } from "react";
 import { Sparkles, Send, X, Minimize2, Maximize2, Minus, FileText, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { useAssistantDialog } from "@/lib/providers/AssistantProvider";
 import { useChatScroll } from "@/hooks/ui";
 import { useRecipeWizardDialog } from "@/lib/providers/RecipeWizardProvider";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ChatMessageList } from "./ChatMessageList";
+import { ShoppingUpdateCard } from "./ShoppingUpdateCard";
 
 interface AssistantChatContentProps {
   onClose: () => void;
@@ -29,7 +31,11 @@ export function AssistantChatContent({
   isMobile = false,
 }: AssistantChatContentProps) {
   const { openWizardWithRecipe } = useRecipeWizardDialog();
-  const { input, setInput, messages, clearHistory, pendingRecipe, setPendingRecipe, sendMessage, isSending } = useAssistantDialog();
+  const {
+    input, setInput, messages, clearHistory, pendingRecipe, setPendingRecipe, sendMessage, isSending,
+    shoppingUpdate, dismissShoppingUpdate, undoShoppingUpdate, isUndoingShoppingUpdate,
+  } = useAssistantDialog();
+  const router = useRouter();
   const { messagesEndRef, scrollContainerRef, showTopFade, showBottomFade } = useChatScroll(messages.length, isSending);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -55,7 +61,13 @@ export function AssistantChatContent({
     onClose();
   }, [pendingRecipe, openWizardWithRecipe, setPendingRecipe, onClose]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleViewShoppingList = useCallback(() => {
+    dismissShoppingUpdate();
+    onClose();
+    router.push("/shopping-list");
+  }, [dismissShoppingUpdate, onClose, router]);
+
+  const handleKeyDown =(e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -156,6 +168,7 @@ export function AssistantChatContent({
           <AnimatePresence>
             {pendingRecipe && !isSending && (
               <motion.div
+                key="recipe-draft"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -169,6 +182,23 @@ export function AssistantChatContent({
                   <FileText className="h-4 w-4" strokeWidth={1.5} />
                   View Recipe Draft
                 </Button>
+              </motion.div>
+            )}
+            {shoppingUpdate && !isSending && (
+              <motion.div
+                key="shopping-update"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="flex justify-start"
+              >
+                <ShoppingUpdateCard
+                  update={shoppingUpdate}
+                  isUndoing={isUndoingShoppingUpdate}
+                  onUndo={undoShoppingUpdate}
+                  onViewList={handleViewShoppingList}
+                />
               </motion.div>
             )}
           </AnimatePresence>

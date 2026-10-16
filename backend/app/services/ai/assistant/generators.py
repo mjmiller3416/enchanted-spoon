@@ -5,13 +5,14 @@ Handles recipe suggestions, full recipe generation, and cooking question answers
 """
 
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from app.dtos.recipe_generation_dtos import (
     RecipeGeneratedDTO,
     RecipeGenerationPreferencesDTO,
     RecipeGenerationRequestDTO,
 )
+from app.dtos.shopping_dtos import ManualItemCreateDTO
 from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.recipe_generation import get_recipe_generation_service
 from app.services.ai.recipe_generation.service import (
@@ -21,7 +22,8 @@ from app.services.ai.recipe_generation.service import (
 from app.services.ai.response_utils import extract_text_from_response
 
 from .prompts import MODEL_NAME, API_KEY_ENV_VAR
-from .tools import TOOL_DEFINITIONS
+from .service import ShoppingItemAdder
+from .tools import SHOPPING_CATEGORIES, TOOL_DEFINITIONS
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,7 @@ class GeneratorsMixin:
         context_data: Optional[dict],
         contents: list,
         model_turn=None,
+        add_shopping_items: Optional[ShoppingItemAdder] = None,
     ) -> dict:
         """Execute a function call and return appropriate response."""
 
@@ -72,6 +75,11 @@ class GeneratorsMixin:
             # For cooking questions, we use a follow-up call to get a proper response
             return self._generate_cooking_answer(args, contents, model_turn)
 
+        elif tool_name == "add_to_shopping_list":
+            return self._add_items_to_shopping_list(
+                args, contents, model_turn, add_shopping_items
+            )
+
         # Fallback
         return {"type": "chat", "response": None}
 
@@ -82,6 +90,7 @@ class GeneratorsMixin:
         tool_name: str,
         instruction: str,
         fallback: str,
+        result: Optional[dict] = None,
     ) -> str:
         """Continue a Gemini function-calling turn to produce the final text.
 
@@ -106,6 +115,8 @@ class GeneratorsMixin:
             instruction: Natural-language instruction describing the text to
                 generate (carried in the function_response payload).
             fallback: Text to return if the model yields no usable text.
+            result: Optional tool outcome merged into the function_response so
+                the model confirms what actually happened (overrides ``status``).
 
         Returns:
             The generated text, or ``fallback`` if none was produced.
@@ -122,7 +133,11 @@ class GeneratorsMixin:
                         {
                             "function_response": {
                                 "name": tool_name,
-                                "response": {"status": "ok", "instruction": instruction},
+                                "response": {
+                                    "status": "ok",
+                                    "instruction": instruction,
+                                    **(result or {}),
+                                },
                             }
                         }
                     ],
@@ -226,6 +241,108 @@ Use your friendly Genie personality."""
             "response": final_text,
             "tool_args": args,
         }
+
+    def _add_items_to_shopping_list(
+        self,
+        args: dict,
+        contents: list,
+        model_turn=None,
+        add_shopping_items: Optional[ShoppingItemAdder] = None,
+    ) -> dict:
+        """Write the requested items to the shopping list, then confirm the outcome.
+
+        The write happens before the follow-up model call so Genie's reply is
+        based on what actually landed (added / moved back / already listed)
+        rather than on what it intended to do.
+        """
+        items = self._parse_shopping_items(args.get("items"))
+        if not items:
+            return {
+                "type": "chat",
+                "response": "Happy to add things to your list — what should I put on it? 🛒",
+                "tool_args": args,
+            }
+
+        result = add_shopping_items(items) if add_shopping_items else None
+        if result is None:
+            # Canned on purpose: a model-written reply here risks claiming success
+            return {
+                "type": "chat",
+                "response": (
+                    "Hmm, I couldn't update your shopping list just now — "
+                    "mind trying again in a sec?"
+                ),
+                "tool_args": args,
+            }
+
+        summary = {
+            "added": [i.ingredient_name for i in result.added],
+            "moved_back_to_need": [i.ingredient_name for i in result.reactivated],
+            "already_on_list": result.already_listed,
+        }
+        instruction = (
+            "Confirm the shopping list update in 1-2 short sentences. 'added' items "
+            "were newly added; 'moved_back_to_need' items were checked off and are "
+            "needed again (just say they're added); 'already_on_list' items were "
+            "skipped because they're already on the list. Only mention items from "
+            "these lists. Use 1-2 emojis."
+        )
+        final_text = self._finalize_after_tool_call(
+            contents,
+            model_turn,
+            "add_to_shopping_list",
+            instruction,
+            self._describe_shopping_update(summary),
+            result=summary,
+        )
+
+        return {
+            "type": "shopping",
+            "response": final_text,
+            "shopping_update": result,
+            "tool_args": args,
+        }
+
+    @staticmethod
+    def _parse_shopping_items(raw_items) -> List[ManualItemCreateDTO]:
+        """Convert the tool's item list into validated DTOs, dropping bad or repeat entries."""
+        items: List[ManualItemCreateDTO] = []
+        seen: set[str] = set()
+        for raw in raw_items or []:
+            try:
+                raw = dict(raw)
+                category = str(raw.get("category") or "").strip().lower()
+                dto = ManualItemCreateDTO(
+                    ingredient_name=raw.get("name") or "",
+                    quantity=raw.get("quantity") or 1,
+                    unit=raw.get("unit") or None,
+                    category=category if category in SHOPPING_CATEGORIES else "other",
+                )
+            except (TypeError, ValueError) as e:  # pydantic ValidationError is a ValueError
+                logger.warning(f"[Assistant] Skipping invalid shopping item {raw!r}: {e}")
+                continue
+            key = dto.ingredient_name.lower()
+            if key not in seen:
+                seen.add(key)
+                items.append(dto)
+        return items
+
+    @staticmethod
+    def _describe_shopping_update(summary: dict) -> str:
+        """Plain confirmation used when the model returns no follow-up text."""
+
+        def join(names: List[str]) -> str:
+            return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+        added = summary["added"] + summary["moved_back_to_need"]
+        listed = summary["already_on_list"]
+        parts = []
+        if added:
+            parts.append(f"Added {join(added)} to your shopping list! 🛒")
+        if listed:
+            verb = "is" if len(listed) == 1 else "are"
+            parts.append(f"{join(listed)} {verb} already on there.")
+        return " ".join(parts)
 
     async def _generate_recipe_from_args(
         self, args: dict, context_data: Optional[dict] = None

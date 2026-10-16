@@ -84,6 +84,7 @@ export {
   useToggleFlagged,
   useAddManualItem,
   useDeleteItem,
+  useUndoShoppingAdd,
   useClearManualItems,
   useClearCompletedItems,
   useGenerateShoppingList,

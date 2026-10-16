@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 
 from .recipe_generation_dtos import GeneratedIngredientDTO, RecipeGeneratedDTO
+from .shopping_dtos import ManualItemsAddResultDTO
 
 # Matches the frontend's MAX_MESSAGES cap in hooks/persistence/useChatHistory.ts
 MAX_CONVERSATION_HISTORY = 50
@@ -38,6 +39,8 @@ class AssistantResponseDTO(BaseModel):
     recipe: Optional[RecipeGeneratedDTO] = None
     reference_image_data: Optional[str] = None  # Base64 encoded (1:1 square)
     banner_image_data: Optional[str] = None  # Base64 encoded (21:9 ultrawide)
+    # Shopping list changes (if the AI added items on request)
+    shopping_update: Optional[ManualItemsAddResultDTO] = None
 
 
 class AssistantRecipeRequestDTO(BaseModel):
