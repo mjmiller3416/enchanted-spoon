@@ -42,6 +42,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: "2026-10-20",
+    headline: "A steadier Shopping List",
+    highlights: [
+      {
+        title: "No more flickering top bar",
+        body: "Flagging or checking off items while you scroll no longer makes the top bar jump — your Shopping List buttons stay put.",
+        href: "/shopping-list",
+        cta: "Open Shopping List",
+      },
+    ],
+  },
+  {
     id: "2026-10-15",
     headline: "Genie can fill in your Shopping List",
     highlights: [
