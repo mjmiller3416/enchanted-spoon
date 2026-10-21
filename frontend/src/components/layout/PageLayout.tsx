@@ -105,16 +105,26 @@ export function PageLayout(props: PageLayoutProps) {
   const headerRef = useRef<HTMLDivElement>(null);
   const { setNavActions, setPinned, clearNavActions } = useNavActions();
 
-  // Register actions with nav context when pinActionsToNav is enabled
+  // `actions` is usually fresh JSX each render, so effects that tear down nav
+  // state key off its presence; keying off identity un-pins and re-pins the
+  // nav on every parent re-render, which flickers the bar.
+  const hasActions = !!actions;
+
+  // Push the latest actions to the nav context when pinActionsToNav is enabled
   useEffect(() => {
     if (!pinActionsToNav || !actions) return;
     setNavActions(actions);
+  }, [pinActionsToNav, actions, setNavActions]);
+
+  // Clear nav actions only when pinning stops or the page unmounts
+  useEffect(() => {
+    if (!pinActionsToNav || !hasActions) return;
     return () => clearNavActions();
-  }, [pinActionsToNav, actions, setNavActions, clearNavActions]);
+  }, [pinActionsToNav, hasActions, clearNavActions]);
 
   // Observe header visibility to toggle pinned state
   useEffect(() => {
-    if (!pinActionsToNav || !actions || !headerRef.current) return;
+    if (!pinActionsToNav || !hasActions || !headerRef.current) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => setPinned(!entry.isIntersecting),
@@ -128,7 +138,7 @@ export function PageLayout(props: PageLayoutProps) {
 
     observer.observe(headerRef.current);
     return () => observer.disconnect();
-  }, [pinActionsToNav, actions, setPinned]);
+  }, [pinActionsToNav, hasActions, setPinned]);
 
   // Build the header content (shared across modes)
   // Priority: headerContent > (title + actions) > actions only > back button only
