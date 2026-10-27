@@ -1,5 +1,6 @@
 // src/types/ai.ts
 
+import type { PlannerEntryResponseDTO } from "./planner";
 import type { ManualItemsAddResultDTO } from "./shopping";
 
 // ============================================================================
@@ -76,6 +77,8 @@ export interface AssistantResponseDTO {
   banner_image_data?: string;
   // Shopping list changes (if the AI added items on request)
   shopping_update?: ManualItemsAddResultDTO | null;
+  // Planner entries created (if the AI planned meals on request)
+  planner_update?: PlannerEntryResponseDTO[] | null;
 }
 
 // ============================================================================

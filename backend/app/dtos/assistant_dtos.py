@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 
+from .planner_dtos import PlannerEntryResponseDTO
 from .recipe_generation_dtos import GeneratedIngredientDTO, RecipeGeneratedDTO
 from .shopping_dtos import ManualItemsAddResultDTO
 
@@ -41,6 +42,8 @@ class AssistantResponseDTO(BaseModel):
     banner_image_data: Optional[str] = None  # Base64 encoded (21:9 ultrawide)
     # Shopping list changes (if the AI added items on request)
     shopping_update: Optional[ManualItemsAddResultDTO] = None
+    # Planner entries created (if the AI planned meals on request)
+    planner_update: Optional[List[PlannerEntryResponseDTO]] = None
 
 
 class AssistantRecipeRequestDTO(BaseModel):

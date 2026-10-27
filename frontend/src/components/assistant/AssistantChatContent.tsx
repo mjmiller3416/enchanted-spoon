@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ChatMessageList } from "./ChatMessageList";
 import { ShoppingUpdateCard } from "./ShoppingUpdateCard";
+import { PlannerUpdateCard } from "./PlannerUpdateCard";
 
 interface AssistantChatContentProps {
   onClose: () => void;
@@ -34,6 +35,7 @@ export function AssistantChatContent({
   const {
     input, setInput, messages, clearHistory, pendingRecipe, setPendingRecipe, sendMessage, isSending,
     shoppingUpdate, dismissShoppingUpdate, undoShoppingUpdate, isUndoingShoppingUpdate,
+    plannerUpdate, dismissPlannerUpdate, undoPlannerUpdate, isUndoingPlannerUpdate,
   } = useAssistantDialog();
   const router = useRouter();
   const { messagesEndRef, scrollContainerRef, showTopFade, showBottomFade } = useChatScroll(messages.length, isSending);
@@ -66,6 +68,12 @@ export function AssistantChatContent({
     onClose();
     router.push("/shopping-list");
   }, [dismissShoppingUpdate, onClose, router]);
+
+  const handleViewPlanner = useCallback(() => {
+    dismissPlannerUpdate();
+    onClose();
+    router.push("/meal-planner");
+  }, [dismissPlannerUpdate, onClose, router]);
 
   const handleKeyDown =(e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -198,6 +206,23 @@ export function AssistantChatContent({
                   isUndoing={isUndoingShoppingUpdate}
                   onUndo={undoShoppingUpdate}
                   onViewList={handleViewShoppingList}
+                />
+              </motion.div>
+            )}
+            {plannerUpdate && !isSending && (
+              <motion.div
+                key="planner-update"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="flex justify-start"
+              >
+                <PlannerUpdateCard
+                  entries={plannerUpdate}
+                  isUndoing={isUndoingPlannerUpdate}
+                  onUndo={undoPlannerUpdate}
+                  onViewPlanner={handleViewPlanner}
                 />
               </motion.div>
             )}

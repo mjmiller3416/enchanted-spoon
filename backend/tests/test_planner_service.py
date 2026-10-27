@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.dtos.meal_dtos import MealCreateDTO
 from app.dtos.planner_dtos import (
     CookingStreakDTO,
     PlannerEntryResponseDTO,
@@ -197,6 +198,98 @@ class TestPlannerServiceAddEntry:
 
         assert isinstance(result, PlannerEntryResponseDTO)
         assert result.meal_id == extra_meal.id
+
+
+# ---------------------------------------------------------------------------
+# Add New Meals (meals composed on the fly, e.g. by Genie)
+# ---------------------------------------------------------------------------
+
+def _make_recipes(db_session, user, *names):
+    """Insert one recipe per name for the given user and return them in order."""
+    recipes = [
+        Recipe(recipe_name=name, recipe_category="Beef", meal_type="Dinner", user_id=user.id)
+        for name in names
+    ]
+    db_session.add_all(recipes)
+    db_session.flush()
+    return recipes
+
+
+@patch.object(PlannerServiceCore, "_sync_shopping_list")
+class TestPlannerServiceAddNewMeals:
+    """Tests for PlannerService.add_new_meals_to_planner."""
+
+    def test_creates_unsaved_meals_and_entries_in_order(
+        self, mock_sync, db_session, test_user
+    ):
+        """Each DTO becomes a transient meal with one planner entry, synced once."""
+        tacos, chili, rice = _make_recipes(db_session, test_user, "Tacos", "Chili", "Rice")
+        service = PlannerService(db_session, test_user.id)
+
+        results = service.add_new_meals_to_planner([
+            MealCreateDTO(meal_name="Tacos", main_recipe_id=tacos.id,
+                          side_recipe_ids=[rice.id, tacos.id, rice.id]),
+            MealCreateDTO(meal_name="Chili", main_recipe_id=chili.id),
+        ])
+
+        assert [r.meal_name for r in results] == ["Tacos", "Chili"]
+        # Repeated sides and the main itself are dropped
+        assert results[0].side_recipe_ids == [rice.id]
+        assert results[0].position < results[1].position
+        meals = [db_session.get(Meal, r.meal_id) for r in results]
+        assert all(m.is_saved is False and m.user_id == test_user.id for m in meals)
+        mock_sync.assert_called_once()
+
+    def test_empty_batch_is_a_no_op(self, mock_sync, db_session, test_user):
+        service = PlannerService(db_session, test_user.id)
+
+        assert service.add_new_meals_to_planner([]) == []
+        mock_sync.assert_not_called()
+
+    def test_unknown_or_foreign_recipe_creates_nothing(
+        self, mock_sync, db_session, test_user, second_user
+    ):
+        """A recipe the user doesn't own fails the whole batch."""
+        (mine,) = _make_recipes(db_session, test_user, "Mine")
+        (theirs,) = _make_recipes(db_session, second_user, "Theirs")
+        service = PlannerService(db_session, test_user.id)
+
+        with pytest.raises(InvalidMealError, match=str(theirs.id)):
+            service.add_new_meals_to_planner([
+                MealCreateDTO(meal_name="Mine", main_recipe_id=mine.id),
+                MealCreateDTO(meal_name="Mine", main_recipe_id=mine.id,
+                              side_recipe_ids=[theirs.id]),
+            ])
+
+        mock_sync.assert_not_called()
+
+    def test_over_capacity_raises(self, mock_sync, db_session, test_user, sample_recipe):
+        """The whole batch must fit in the open slots."""
+        # One slot left
+        for i in range(MAX_PLANNER_ENTRIES - 1):
+            meal = Meal(meal_name=f"Filler {i}", main_recipe_id=sample_recipe.id,
+                        user_id=test_user.id, is_saved=True)
+            db_session.add(meal)
+            db_session.flush()
+            db_session.add(PlannerEntry(meal_id=meal.id, user_id=test_user.id, position=i))
+        db_session.flush()
+        service = PlannerService(db_session, test_user.id)
+        dto = MealCreateDTO(meal_name="Pasta", main_recipe_id=sample_recipe.id)
+
+        with pytest.raises(PlannerFullError, match="maximum capacity"):
+            service.add_new_meals_to_planner([dto, dto])
+
+    def test_removing_the_entry_deletes_its_meal(
+        self, mock_sync, db_session, test_user, sample_recipe
+    ):
+        """Undo path: the meal is transient, so removing its entry cleans it up."""
+        service = PlannerService(db_session, test_user.id)
+        (entry,) = service.add_new_meals_to_planner(
+            [MealCreateDTO(meal_name="Pasta", main_recipe_id=sample_recipe.id)]
+        )
+
+        assert service.remove_entry(entry.id) is True
+        assert db_session.get(Meal, entry.meal_id) is None
 
 
 # ---------------------------------------------------------------------------

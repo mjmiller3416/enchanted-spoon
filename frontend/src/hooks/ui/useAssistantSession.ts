@@ -4,9 +4,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useChatHistory } from "@/hooks/persistence/useChatHistory";
 import { useAssistantChat } from "@/hooks/api/useAI";
 import { shoppingQueryKeys, useUndoShoppingAdd } from "@/hooks/api/useShopping";
-import { dispatchShoppingUpdate } from "@/hooks/api/events";
+import { useUndoPlannerAdd } from "@/hooks/api/usePlanner";
+import { dashboardQueryKeys, plannerQueryKeys } from "@/hooks/api/queryKeys";
+import { dispatchPlannerUpdate, dispatchShoppingUpdate } from "@/hooks/api/events";
 import { classifyAiGateError } from "@/lib/paywall";
 import type { RecipeGeneratedDTO } from "@/types/ai";
+import type { PlannerEntryResponseDTO } from "@/types/planner";
 import type { ManualItemsAddResultDTO } from "@/types/shopping";
 
 /** Lives with the account session, not the popup. Images remain in memory only. */
@@ -19,16 +22,20 @@ export function useAssistantSession() {
   } | null>(null);
   // Last shopping add Genie made — offered for undo until the next message
   const [shoppingUpdate, setShoppingUpdate] = useState<ManualItemsAddResultDTO | null>(null);
+  // Last batch of meals Genie planned — same undo window as shopping adds
+  const [plannerUpdate, setPlannerUpdate] = useState<PlannerEntryResponseDTO[] | null>(null);
   const { messages, addMessage, clearHistory } = useChatHistory();
   const queryClient = useQueryClient();
   const chatMutation = useAssistantChat();
   const undoMutation = useUndoShoppingAdd();
+  const undoPlannerMutation = useUndoPlannerAdd();
   const sending = useRef(false);
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || sending.current) return;
     sending.current = true;
     setInput("");
     setShoppingUpdate(null);
+    setPlannerUpdate(null);
     addMessage({ role: "user", content: text });
     try {
       const response = await chatMutation.mutateAsync({ message: text, conversationHistory: messages });
@@ -39,6 +46,14 @@ export function useAssistantSession() {
         setShoppingUpdate(update);
         void queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() });
         dispatchShoppingUpdate();
+      }
+      const planned = response.planner_update;
+      if (planned && planned.length > 0) {
+        setPlannerUpdate(planned);
+        void queryClient.invalidateQueries({ queryKey: plannerQueryKeys.entries() });
+        void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.stats() });
+        void queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() });
+        dispatchPlannerUpdate();
       }
       addMessage({ role: "assistant", content: response.response || "I've created a recipe for you." });
     } catch (error) {
@@ -58,9 +73,21 @@ export function useAssistantSession() {
       // Failure toast comes from the mutation's meta.errorMessage; keep the card to retry
     }
   }, [shoppingUpdate, undoMutation, addMessage]);
-  const clear = () => { if (!sending.current) { clearHistory(); setPendingRecipe(null); setShoppingUpdate(null); } };
+  const undoPlannerUpdate = useCallback(async () => {
+    if (!plannerUpdate || undoPlannerMutation.isPending) return;
+    try {
+      await undoPlannerMutation.mutateAsync(plannerUpdate);
+      setPlannerUpdate(null);
+      // Kept in history so Genie knows the plan was reversed
+      addMessage({ role: "assistant", content: "Undone — I took those meals back off your planner." });
+    } catch {
+      // Failure toast comes from the mutation's meta.errorMessage; keep the card to retry
+    }
+  }, [plannerUpdate, undoPlannerMutation, addMessage]);
+  const clear = () => { if (!sending.current) { clearHistory(); setPendingRecipe(null); setShoppingUpdate(null); setPlannerUpdate(null); } };
   return {
     input, setInput, pendingRecipe, setPendingRecipe, messages, clearHistory: clear, sendMessage, isSending: chatMutation.isPending,
     shoppingUpdate, dismissShoppingUpdate: () => setShoppingUpdate(null), undoShoppingUpdate, isUndoingShoppingUpdate: undoMutation.isPending,
+    plannerUpdate, dismissPlannerUpdate: () => setPlannerUpdate(null), undoPlannerUpdate, isUndoingPlannerUpdate: undoPlannerMutation.isPending,
   };
 }

@@ -7,6 +7,8 @@ Handles chat interface, context building, and response processing.
 from typing import Callable, Optional, List
 
 from app.dtos.assistant_dtos import AssistantMessageDTO
+from app.dtos.meal_dtos import MealCreateDTO
+from app.dtos.planner_dtos import PlannerEntryResponseDTO
 from app.dtos.shopping_dtos import ManualItemCreateDTO, ManualItemsAddResultDTO
 from app.services.ai.gemini_client import get_gemini_client
 
@@ -23,6 +25,12 @@ ShoppingItemAdder = Callable[
     [List[ManualItemCreateDTO]], Optional[ManualItemsAddResultDTO]
 ]
 
+# Loads the user's recipe library to plan from (UserContextBuilder.build_recipe_catalog)
+RecipeCatalogLoader = Callable[[], List[dict]]
+
+# Creates the planned meals and adds them to the user's planner; raises on failure
+PlannerMealAdder = Callable[[List[MealCreateDTO]], List[PlannerEntryResponseDTO]]
+
 
 class AssistantServiceCore:
     """Core AI assistant service with chat interface and response processing."""
@@ -38,6 +46,8 @@ class AssistantServiceCore:
         conversation_history: Optional[List[AssistantMessageDTO]] = None,
         user_context_data: Optional[dict] = None,
         add_shopping_items: Optional[ShoppingItemAdder] = None,
+        load_recipe_catalog: Optional[RecipeCatalogLoader] = None,
+        add_planner_meals: Optional[PlannerMealAdder] = None,
     ) -> dict:
         """Main entry point for all assistant interactions.
 
@@ -46,6 +56,7 @@ class AssistantServiceCore:
         - Generate a full recipe
         - Answer a cooking question
         - Add items to the shopping list
+        - Plan meals from saved recipes onto the meal planner
 
         Args:
             message: The user's message.
@@ -53,10 +64,13 @@ class AssistantServiceCore:
             user_context_data: Dict with saved_recipes, meal_plan, etc.
             add_shopping_items: Writes items to the user's shopping list. The
                 service holds no DB session, so the caller supplies the write.
+            load_recipe_catalog: Reads the recipe library meals are planned from.
+            add_planner_meals: Creates planned meals and adds them to the planner.
 
         Returns:
-            dict with 'type' (chat|suggestions|recipe|shopping|error), 'response',
-            and optionally 'recipe', 'shopping_update', or 'tool_args'.
+            dict with 'type' (chat|suggestions|recipe|shopping|planner|error),
+            'response', and optionally 'recipe', 'shopping_update',
+            'planner_update', or 'tool_args'.
         """
         try:
             client = get_gemini_client(API_KEY_ENV_VAR)
@@ -83,7 +97,12 @@ class AssistantServiceCore:
 
             # Process the response
             return await self._process_response(
-                response, user_context_data, contents, add_shopping_items
+                response,
+                user_context_data,
+                contents,
+                add_shopping_items,
+                load_recipe_catalog=load_recipe_catalog,
+                add_planner_meals=add_planner_meals,
             )
 
         except Exception as e:
@@ -165,6 +184,9 @@ class AssistantServiceCore:
         user_context_data: Optional[dict],
         contents: list,
         add_shopping_items: Optional[ShoppingItemAdder] = None,
+        *,
+        load_recipe_catalog: Optional[RecipeCatalogLoader] = None,
+        add_planner_meals: Optional[PlannerMealAdder] = None,
     ) -> dict:
         """Process Gemini response, handling function calls."""
         if not response or not response.candidates:
@@ -219,6 +241,8 @@ class AssistantServiceCore:
                 contents,
                 model_turn,
                 add_shopping_items,
+                load_recipe_catalog=load_recipe_catalog,
+                add_planner_meals=add_planner_meals,
             )
 
         # No tool call — this was a plain conversational reply.
@@ -238,6 +262,9 @@ class AssistantServiceCore:
         contents: list,
         model_turn=None,
         add_shopping_items: Optional[ShoppingItemAdder] = None,
+        *,
+        load_recipe_catalog: Optional[RecipeCatalogLoader] = None,
+        add_planner_meals: Optional[PlannerMealAdder] = None,
     ) -> dict:
         """Execute a function call and return appropriate response.
 

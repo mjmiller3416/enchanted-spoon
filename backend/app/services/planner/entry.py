@@ -9,8 +9,11 @@ from typing import List, Optional
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from ...dtos.meal_dtos import MealCreateDTO
 from ...dtos.planner_dtos import PlannerEntryResponseDTO
+from ...models.meal import Meal
 from ...repositories.planner import MAX_PLANNER_ENTRIES
+from ..meal.service import MealServiceCore
 
 
 # -- Domain Exceptions ---------------------------------------------------------------------------
@@ -140,6 +143,78 @@ class EntryManagementMixin:
         except SQLAlchemyError as e:
             self.session.rollback()
             raise RuntimeError(f"Failed to add meals to planner: {e}") from e
+
+    def add_new_meals_to_planner(
+        self, meals: List[MealCreateDTO]
+    ) -> List[PlannerEntryResponseDTO]:
+        """
+        Create unsaved meals and plan each one, all in a single transaction.
+
+        For meals composed on the fly (e.g. Genie planning dinners) rather than
+        picked from saved meals. The meals are transient, so removing an entry
+        later deletes its meal too. ``is_saved`` and ``tags`` on the DTOs are ignored.
+
+        Args:
+            meals: Meals to create, in the order they should appear
+
+        Returns:
+            Created planner entries as DTOs, in input order
+
+        Raises:
+            PlannerFullError: If adding would exceed capacity
+            InvalidMealError: If any main or side recipe doesn't exist or isn't
+                owned by the user (nothing is created)
+        """
+        if not meals:
+            return []
+
+        try:
+            current_count = self.repo.count_incomplete(self.user_id)
+            if current_count + len(meals) > MAX_PLANNER_ENTRIES:
+                raise PlannerFullError(
+                    f"Cannot add {len(meals)} meals: would exceed "
+                    f"maximum capacity ({MAX_PLANNER_ENTRIES})"
+                )
+
+            # Validate every referenced recipe in one query
+            recipe_ids = {m.main_recipe_id for m in meals}
+            recipe_ids.update(sid for m in meals for sid in m.side_recipe_ids)
+            valid_ids = set(self.meal_repo.validate_recipe_ids(list(recipe_ids), self.user_id))
+            invalid_ids = sorted(recipe_ids - valid_ids)
+            if invalid_ids:
+                raise InvalidMealError(f"Recipe IDs {invalid_ids} do not exist")
+
+            entries = []
+            for dto in meals:
+                meal = Meal(
+                    meal_name=dto.meal_name,
+                    main_recipe_id=dto.main_recipe_id,
+                    is_saved=False,
+                )
+                meal.side_recipe_ids = MealServiceCore._normalize_side_ids(
+                    dto.side_recipe_ids, dto.main_recipe_id
+                )
+                meal = self.meal_repo.create_meal(meal, self.user_id)
+                entries.append(self.repo.add_entry(meal.id, self.user_id))
+
+            self.session.commit()
+
+            # One sync for the whole batch
+            self._sync_shopping_list()
+
+            result = []
+            for entry in entries:
+                entry = self.repo.get_by_id(entry.id, self.user_id)
+                result.append(self._entry_to_response_dto(entry))
+
+            return result
+
+        except (PlannerFullError, InvalidMealError):
+            self.session.rollback()
+            raise
+        except SQLAlchemyError as e:
+            self.session.rollback()
+            raise RuntimeError(f"Failed to add new meals to planner: {e}") from e
 
     # -- Transient Meal Cleanup ------------------------------------------------------------------
     def _cleanup_transient_meal(self, meal_id: int) -> None:
