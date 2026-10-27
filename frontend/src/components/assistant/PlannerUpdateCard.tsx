@@ -12,7 +12,7 @@ interface PlannerUpdateCardProps {
   onViewPlanner: () => void;
 }
 
-/** Confirms meals Genie put on the meal planner, with a jump to the planner and an undo. */
+/** Confirms meals Genie put on the Menu (meal planner), with a jump to it and an undo. */
 export function PlannerUpdateCard({ entries, isUndoing, onUndo, onViewPlanner }: PlannerUpdateCardProps) {
   const count = entries.length;
 
@@ -23,7 +23,7 @@ export function PlannerUpdateCard({ entries, isUndoing, onUndo, onViewPlanner }:
         Planned {count} {count === 1 ? "meal" : "meals"}
       </span>
       <Button variant="ghost" size="sm" onClick={onViewPlanner} disabled={isUndoing}>
-        View planner
+        View Menu
       </Button>
       <Button variant="ghost" size="sm" onClick={onUndo} disabled={isUndoing}>
         {isUndoing ? (

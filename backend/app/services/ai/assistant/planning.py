@@ -28,7 +28,7 @@ MAX_SIDES_PER_MEAL = 3
 PLAN_TEMPERATURE = 0.7
 
 PLANNER_FAILED_REPLY = (
-    "Hmm, I couldn't update your meal planner just now — mind trying again in a sec?"
+    "Hmm, I couldn't update your Menu just now — mind trying again in a sec?"
 )
 
 # Structured output for the planning call; ids are checked against the library after
@@ -105,7 +105,7 @@ class MealPlanningMixin:
             return {
                 "type": "chat",
                 "response": (
-                    f"Your meal planner is full ({MAX_PLANNER_ENTRIES} meals) — mark a few "
+                    f"Your Menu is full ({MAX_PLANNER_ENTRIES} meals) — mark a few "
                     "as cooked or clear some out and I'll happily fill it back up! 📅"
                 ),
                 "tool_args": args,
@@ -149,7 +149,7 @@ class MealPlanningMixin:
         if not meals:
             # Nothing in the library fit; explain why without claiming a write
             instruction = (
-                "Nothing was added to her meal planner: none of her saved recipes fit "
+                "Nothing was added to her Menu: none of her saved recipes fit "
                 "the request. Explain the gap from 'notes' in 1-2 short sentences and "
                 "offer to create a recipe that fits or to plan with looser rules. "
                 "Use 1 emoji."
@@ -184,12 +184,13 @@ class MealPlanningMixin:
             "not_added_planner_full": requested - meal_count,
         }
         instruction = (
-            "Confirm the meal planner update. Say how many meals were added, then list "
-            "every meal in 'added_meals' as a markdown bullet: the main in bold, then "
-            "its sides after a dash (e.g. '- **Beef Tacos** — Mexican Rice, Street "
-            "Corn'). If 'notes' is not empty, mention that gap in one short sentence. "
+            "Confirm the update to her Menu (her meal planner). Say how many meals "
+            "were added, then list every meal in 'added_meals' as a markdown bullet: "
+            "the main in bold, then its sides after a dash (e.g. '- **Beef Tacos** — "
+            "Mexican Rice, Street Corn'). If 'notes' is not empty, mention that gap in "
+            "one short sentence. "
             "If 'not_added_planner_full' is above 0, say that many didn't fit because "
-            "her planner is full. Only mention meals from 'added_meals'. End by "
+            "her Menu is full. Only mention meals from 'added_meals'. End by "
             "offering to swap anything out. Use 1-2 emojis."
         )
         final_text = self._finalize_after_tool_call(
@@ -315,7 +316,7 @@ class MealPlanningMixin:
     def _describe_planner_update(summary: dict) -> str:
         """Plain confirmation used when the model returns no follow-up text."""
         count = len(summary["added_meals"])
-        lines = [f"Added {count} {'meal' if count == 1 else 'meals'} to your planner! 📅", ""]
+        lines = [f"Added {count} {'meal' if count == 1 else 'meals'} to your Menu! 📅", ""]
         for meal in summary["added_meals"]:
             sides = f" — {', '.join(meal['sides'])}" if meal["sides"] else ""
             lines.append(f"- **{meal['main']}**{sides}")

@@ -79,7 +79,7 @@ export function useAssistantSession() {
       await undoPlannerMutation.mutateAsync(plannerUpdate);
       setPlannerUpdate(null);
       // Kept in history so Genie knows the plan was reversed
-      addMessage({ role: "assistant", content: "Undone — I took those meals back off your planner." });
+      addMessage({ role: "assistant", content: "Undone — I took those meals back off your Menu." });
     } catch {
       // Failure toast comes from the mutation's meta.errorMessage; keep the card to retry
     }

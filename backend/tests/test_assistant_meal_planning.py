@@ -310,7 +310,7 @@ def test_fallback_text_lists_meals_and_gaps():
     })
 
     assert text == (
-        "Added 2 meals to your planner! 📅\n\n"
+        "Added 2 meals to your Menu! 📅\n\n"
         "- **Beef Tacos** — Mexican Rice, Street Corn\n"
         "- **Chicken Parm**\n\n"
         "No Mexican chicken saved."
