@@ -13,6 +13,10 @@ from app.repositories.shopping import ShoppingRepo
 from app.dtos.recipe_dtos import RecipeFilterDTO
 from app.services.user_category_service import UserCategoryService
 
+# Meal-planning catalog caps (keeps the planning prompt bounded for huge libraries)
+MAX_CATALOG_RECIPES = 400
+MAX_CATALOG_INGREDIENTS = 8
+
 
 class UserContextBuilder:
     """Builds structured user context data for AI prompts."""
@@ -110,6 +114,35 @@ class UserContextBuilder:
                     result[recipe.recipe_name] = ingredients
 
         return result
+
+    def build_recipe_catalog(self) -> List[dict]:
+        """Get the recipe library Genie plans meals from (favorites first, then newest).
+
+        Unlike the saved-recipes summary this carries IDs and key ingredients, so
+        the planner can match requests like "ground beef" and reference recipes
+        exactly. Only loaded when Genie is actually asked to plan meals.
+
+        Returns:
+            List of {id, name, category, meal_type, total_time, is_favorite, ingredients}.
+        """
+        recipes = list(self.recipe_repo.filter_recipes(RecipeFilterDTO(), self.user_id))
+        # Higher id = created later; avoids comparing mixed naive/aware datetimes
+        recipes.sort(key=lambda r: (not r.is_favorite, -r.id))
+
+        return [
+            {
+                "id": r.id,
+                "name": r.recipe_name,
+                "category": r.recipe_category,
+                "meal_type": r.meal_type,
+                "total_time": r.total_time,
+                "is_favorite": r.is_favorite,
+                "ingredients": [
+                    ri.ingredient.ingredient_name for ri in r.ingredients if ri.ingredient
+                ][:MAX_CATALOG_INGREDIENTS],
+            }
+            for r in recipes[:MAX_CATALOG_RECIPES]
+        ]
 
     def _get_meal_plan(self) -> List[dict]:
         """Get current meal plan entries."""

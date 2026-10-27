@@ -42,6 +42,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: "2026-10-27",
+    headline: "Genie can plan your Menu",
+    highlights: [
+      {
+        title: "Plan meals with Genie",
+        body: "Ask Genie to “add 4 dinners to my Menu — 3 with ground beef, 1 chicken, and a side or two each” and it builds them from your saved recipes, sides included. If something you asked for isn't in your recipes, Genie says so instead of swapping in something else, and Undo is one tap away.",
+        href: "/meal-planner",
+        cta: "Open Menu",
+      },
+    ],
+  },
+  {
     id: "2026-10-20",
     headline: "A steadier Shopping List",
     highlights: [

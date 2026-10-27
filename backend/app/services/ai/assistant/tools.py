@@ -132,4 +132,22 @@ TOOL_DEFINITIONS = [
             "required": ["items"],
         },
     },
+    {
+        "name": "add_meals_to_planner",
+        "description": "Plan meals from the user's saved recipes and add them to her meal planner. Use ONLY when the user explicitly asks to add, plan, or put meals on her meal planner/menu. Recipes (mains and sides) are picked from her saved library by a dedicated planning step. Returns the meals actually added.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "meal_count": {
+                    "type": "INTEGER",
+                    "description": "How many meals to add. Default: 1",
+                },
+                "requirements": {
+                    "type": "STRING",
+                    "description": "Everything she asked for about these meals, restated completely: proteins or ingredients per meal, cuisines, dish types, specific recipes by name, time limits, things to avoid, and side-dish rules (e.g. '3 with ground beef, 1 with chicken; at least one pasta dish and one Mexican dish; 1-2 side dishes per meal').",
+                },
+            },
+            "required": ["meal_count", "requirements"],
+        },
+    },
 ]

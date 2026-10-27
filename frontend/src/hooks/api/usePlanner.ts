@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
-import { plannerApi } from "@/lib/api";
+import { ApiError, plannerApi } from "@/lib/api";
 import { plannerQueryKeys, shoppingQueryKeys, dashboardQueryKeys } from "./queryKeys";
 import { dispatchPlannerUpdate } from "./events";
 import type {
@@ -271,6 +271,38 @@ export function useRemoveEntry() {
         });
       }
 
+      queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() });
+      dispatchPlannerUpdate();
+    },
+  });
+}
+
+/**
+ * Undo a batch of meals Genie planned: remove each entry it created. Their
+ * meals are unsaved, so the backend deletes them along with the entries.
+ * Sequential on purpose — every removal re-syncs the shopping list. An entry
+ * that's already gone (removed by hand, or by an earlier partial undo) counts
+ * as undone, so retrying after a failure is safe.
+ */
+export function useUndoPlannerAdd() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    meta: { errorMessage: "Couldn't undo those meals" },
+    mutationFn: async (entries: PlannerEntryResponseDTO[]) => {
+      const token = await getToken();
+      for (const entry of entries) {
+        try {
+          await plannerApi.removeEntry(entry.id, token);
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 404)) throw error;
+        }
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: plannerQueryKeys.entries() });
       queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.stats() });
       queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() });
       dispatchPlannerUpdate();

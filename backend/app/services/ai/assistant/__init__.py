@@ -7,14 +7,16 @@ from typing import Optional
 
 from .service import AssistantServiceCore
 from .generators import GeneratorsMixin
+from .planning import MealPlanningMixin
 
 
-class AssistantService(GeneratorsMixin, AssistantServiceCore):
+class AssistantService(MealPlanningMixin, GeneratorsMixin, AssistantServiceCore):
     """Unified AI assistant service combining all functionality.
 
     Inherits from:
     - AssistantServiceCore: Core chat logic, context building, response processing
     - GeneratorsMixin: AI generation methods (suggestions, recipes, cooking answers)
+    - MealPlanningMixin: Planning meals from saved recipes onto the meal planner
     """
 
     pass

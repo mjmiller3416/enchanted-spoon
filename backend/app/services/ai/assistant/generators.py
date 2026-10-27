@@ -22,7 +22,7 @@ from app.services.ai.recipe_generation.service import (
 from app.services.ai.response_utils import extract_text_from_response
 
 from .prompts import MODEL_NAME, API_KEY_ENV_VAR
-from .service import ShoppingItemAdder
+from .service import PlannerMealAdder, RecipeCatalogLoader, ShoppingItemAdder
 from .tools import SHOPPING_CATEGORIES, TOOL_DEFINITIONS
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,9 @@ class GeneratorsMixin:
         contents: list,
         model_turn=None,
         add_shopping_items: Optional[ShoppingItemAdder] = None,
+        *,
+        load_recipe_catalog: Optional[RecipeCatalogLoader] = None,
+        add_planner_meals: Optional[PlannerMealAdder] = None,
     ) -> dict:
         """Execute a function call and return appropriate response."""
 
@@ -78,6 +81,17 @@ class GeneratorsMixin:
         elif tool_name == "add_to_shopping_list":
             return self._add_items_to_shopping_list(
                 args, contents, model_turn, add_shopping_items
+            )
+
+        elif tool_name == "add_meals_to_planner":
+            # Implemented by MealPlanningMixin
+            return self._add_meals_to_planner(
+                args,
+                context_data,
+                contents,
+                model_turn,
+                load_recipe_catalog,
+                add_planner_meals,
             )
 
         # Fallback
