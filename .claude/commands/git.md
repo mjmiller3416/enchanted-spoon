@@ -1,6 +1,6 @@
 # Git Workflow Automation
 
-Automate git operations with strict conventions for branches, commits, and pull requests.
+Automate git operations with strict conventions for branches, commits, merges and deploys. No PRs, no approval stops.
 
 ## Arguments
 
@@ -18,14 +18,13 @@ $ARGUMENTS
 | Argument | Workflow File | Description |
 |----------|---------------|-------------|
 | `start <type> <desc>` | `workflows/start.md` | Create a new branch from staging |
-| `hotfix <desc>` | `workflows/hotfix.md` | Create emergency fix branch from main (production) |
+| `hotfix <desc>` | `workflows/start.md` | No separate path: start a `fix/` branch; the normal flow ships in minutes |
 | `commit [message]` | `workflows/commit.md` | Stage, validate, and commit changes |
 | `sync` | `workflows/sync.md` | Rebase current branch onto latest staging |
-| `merge` | `workflows/merge.md` | Squash merge current branch into staging |
-| `deploy` | `workflows/deploy.md` | Create PR from staging -> main (production) |
-| `backport` | `workflows/backport.md` | Sync hotfixes from main back to staging |
+| `merge` | `workflows/merge.md` | Squash-merge into staging, then fast-forward main (deploys) |
+| `deploy` | `workflows/deploy.md` | Fast-forward main to staging (production; no PR) |
+| `backport` | `workflows/backport.md` | Bring commits only on main back into staging |
 | `cleanup` | `workflows/cleanup.md` | Remove merged/stale branches and close resolved issues |
-| `pr [base-branch]` | `workflows/pr.md` | Push branch and create pull request |
 | _(no args)_ | `workflows/status.md` | Show status and suggest next action |
 
 **Read the workflow file at:** `.claude/skills/git/workflows/<workflow>.md`

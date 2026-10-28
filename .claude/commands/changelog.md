@@ -2,7 +2,7 @@
 
 Write a release entry for the in-app "What's new" dialog, the top-bar popover
 and the public `/whats-new` page. This file is the **single source of the
-editorial rules** — `/git deploy` follows it too.
+editorial rules** — `/git merge` follows it too.
 
 ## Arguments (optional)
 
@@ -109,8 +109,8 @@ the 30-day window.
 ## Step 5: Insert, show, confirm
 
 1. Prepend the release object to `RELEASES`.
-2. Show the user the release (headline, highlights, lists) and ask
-   `Accept? (yes / edit / skip)` before committing.
+2. Show the release (headline, highlights, lists) in your summary. No
+   accept/edit/skip prompt: commit it.
 3. Commit:
    ```bash
    git add frontend/src/data/changelog.ts frontend/public/whats-new

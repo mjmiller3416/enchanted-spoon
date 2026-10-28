@@ -1,191 +1,70 @@
-# Workflow: `merge`
+# Workflow: merge (`/git merge`)
 
-**Usage:** `/git merge`
+Squash-merge the current typed branch into `staging`, push it, deploy
+(fast-forward `main` to `staging`) and delete the branch. No confirmation at
+any step.
 
-Merges your current feature branch directly into staging. This is the **primary way to integrate completed features** in a solo workflow (no PR needed for feature -> staging).
-
-## When to Use
-
-- Feature is complete and ready for integration
-- You've tested your changes locally
-- You want fast iteration without PR overhead
-
-## Steps
-
-1. **Pre-flight checks**
-   ```bash
-   git status                         # Check for uncommitted changes
+1. **Pre-flight.**
+   ```
+   git status --short
    git fetch origin
-   git log origin/staging..HEAD       # Your commits to merge
+   git log --oneline origin/staging..HEAD
+   ```
+   Uncommitted changes from this task → `/git commit` first. No commits → nothing to merge; stop.
+   On `main` or `staging` → move the work to a branch first (`workflows/commit.md` step 2).
+
+2. **Behind staging?** `git rev-list --count HEAD..origin/staging` > 0 → run `/git sync` first, without asking.
+
+3. **Tests.** For the areas touched: from `backend/`: `venv/Scripts/python -m pytest tests -q`; from `frontend/`: `npm run lint`, `npx tsc --noEmit` and `npm test`. A failure → fix it on the branch, commit, rerun. If you can't fix it, stop here: the work stays committed on the branch, report the failure. Never merge red.
+
+4. **Release notes.** If the branch has user-facing changes, follow `.claude/commands/changelog.md` to write them up in `frontend/src/data/changelog.ts` (add to today's release if `RELEASES` already has one, otherwise prepend a new one) and commit on the branch: `docs: update release notes for YYYY-MM-DD release`. No accept/edit/skip prompt: put the release text in the summary. Internal, security, integration and admin-only changes get no entry; nothing user-facing → skip this step.
+
+5. **Squash message.** The subject follows the branch type (`feature` → `feat`, `fix` → `fix`, `refactor` → `refactor`, others → `chore`/`docs`/`test`):
+   ```
+   feat: shopping list sync and filtering
+
+   - add real-time sync for list items
+   - add filtering and sort options
+
+   Squashed from feature/shopping-sync (4 commits)
+
+   Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>
    ```
 
-   **If uncommitted changes:**
+6. **Merge.**
    ```
-   You have uncommitted changes. Commit them first with `/git commit`
+   git switch staging
+   git pull --ff-only origin staging
+   git merge --squash <branch>
+   git commit -m "<subject>" -m "<body>"
    ```
+   Conflicts during `merge --squash` → `git reset --merge`, `git switch <branch>`, `/git sync` (resolve there), rerun the tests, and come back to this step.
 
-   **If no commits:**
+7. **Production-only commits?** Usually the merge commits of old deploy PRs.
    ```
-   No commits on this branch. Nothing to merge.
+   git rev-list --count staging..origin/main
    ```
+   Anything but 0 → `git merge --no-edit origin/main`, so the push to `main` below is a fast-forward.
 
-2. **Check branch is synced**
-   ```bash
-   git rev-list --count HEAD..origin/staging
+8. **Push staging.**
    ```
-
-   **If behind staging:**
-   ```
-   Your branch is behind staging by 3 commits.
-
-   You should sync first to avoid merge conflicts:
-      /git sync
-
-   Or continue anyway? (sync first / merge anyway)
-   ```
-
-3. **Show merge preview**
-   ```
-   Merge Preview
-
-   Branch: feature/shopping-list -> staging
-   Commits to merge: 4
-
-   Commits:
-   - abc1234 feat: add shopping list sync
-   - def5678 feat: add list filtering
-   - ghi9012 feat: add sort options
-   - jkl3456 fix: resolve edge case
-
-   Merge strategy: Squash merge (single commit on staging)
-
-   Proceed? (yes / abort)
-   ```
-
-4. **Perform the merge**
-   ```bash
-   git checkout staging
-   git pull origin staging
-   git merge --squash feature/shopping-list
-   git commit -m "feat: shopping list sync and filtering
-
-   - Add real-time sync for shopping list items
-   - Add list filtering and sorting
-   - Fix edge case in item removal
-
-   Squashed from: feature/shopping-list (4 commits)
-   Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>"
-   ```
-
-   > **Why squash merge?** It keeps staging history clean -- one commit per feature
-   > instead of all your WIP commits. The detailed history lives in git reflog
-   > if you ever need it.
-
-5. **Push merge to remote**
-
-   After a successful merge, immediately push staging to origin:
-   ```bash
    git push origin staging
    ```
+   Rejected (something landed meanwhile) → `git pull --rebase origin staging`, then push again.
 
-   **If push fails:**
+9. **Deploy.** Follow `workflows/deploy.md` from step 2.
+
+10. **Verify, then delete the branch.** `git branch -d` refuses after a squash merge (git can't see the ancestry), so prove the work is in staging first:
    ```
-   Failed to push staging to origin.
-
-   Options:
-   1. Pull and retry (may have new remote commits)
-   2. Abort (your local staging has the merge -- push manually later)
+   git fetch origin
+   git merge-tree --write-tree origin/staging <branch>
+   git rev-parse "origin/staging^{tree}"
    ```
-
-6. **Delete feature branch**
-
-   Once the merge is pushed, clean up the feature branch:
-   ```bash
-   git branch -d feature/shopping-list           # Delete local branch
-   git push origin --delete feature/shopping-list # Delete remote branch (if pushed)
+   First line of the first output == second output → the branch adds nothing that staging lacks. Then:
    ```
-
-   > **Note:** `git branch -d` (lowercase) is a safe delete -- it only works
-   > if the branch has been fully merged. This prevents accidental data loss.
-
-7. **Confirm success**
+   git branch -D <branch>
+   git push origin --delete <branch>
    ```
-   Merged to staging!
+   (The remote delete fails harmlessly if the branch was never pushed.) If the trees differ, keep the branch and say so in the summary.
 
-   Commit: xyz7890 feat: shopping list sync and filtering
-   Pushed: origin/staging
-   Branch: feature/shopping-list (deleted local + remote)
-
-   Staging is now ready for testing.
-
-   When ready for production: /git deploy
-   ```
-
-## Merge Commit Message
-
-The squash merge commit message should:
-- Summarize the feature (first line = PR title equivalent)
-- List key changes as bullet points
-- Reference the source branch
-- Include co-author line
-
-**Example commit message:**
-```
-feat: shopping list sync and filtering
-
-- Add real-time sync for shopping list items
-- Add list filtering by recipe source
-- Add sort options (A-Z, category, recipe)
-- Fix edge case in item quantity merging
-
-Squashed from: feature/shopping-list (4 commits)
-Co-Authored-By: Claude <Model Name> <noreply@anthropic.com>
-```
-
-## Error Handling
-
-**Branch has conflicts with staging:**
-```
-Merge conflict detected
-
-Conflicting files:
-- frontend/src/hooks/api/useShopping.ts
-
-You need to resolve conflicts before merging.
-
-Options:
-1. Sync branch first (/git sync) then retry merge
-2. Manually resolve and continue
-3. Abort merge
-```
-
-**Failed to delete branch:**
-```
-Warning: Could not delete remote branch
-
-The merge succeeded but remote branch deletion failed.
-You can manually delete it later:
-   git push origin --delete feature/shopping-list
-```
-
-## Cleaning Up Old Branches
-
-If you accumulate stale branches over time:
-
-```bash
-# List branches that have been merged to staging
-git branch --merged staging
-
-# List branches that no longer exist on remote
-git fetch --prune
-git branch -vv | grep ': gone]'
-
-# Delete local branches merged to staging (safe)
-git branch --merged staging | grep -v "staging\|main" | xargs git branch -d
-
-# Delete local branches tracking deleted remotes
-git fetch --prune
-git branch -vv | grep ': gone]' | awk '{print $1}' | xargs git branch -D
-```
-
-**Warning**: Only delete branches you're certain are merged. The `-d` flag prevents deletion of unmerged work.
+11. **Confirm.** The squash commit (hash + subject), now on `staging` and `main`, branch deleted, Railway deploying staging and production.

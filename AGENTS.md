@@ -292,7 +292,7 @@ For detailed troubleshooting and configuration, see [.Codex/HOOKS.md](.Codex/HOO
 
 ### Commands
 
-- `/git` - Git workflow automation (start, commit, sync, merge, deploy, pr)
+- `/git` - Git workflow automation, no PRs or approval stops (start, commit, sync, merge, deploy, backport, cleanup, status)
 - `/todo` - Generate TODO items
 - `/changelog` - Generate changelog entries
 

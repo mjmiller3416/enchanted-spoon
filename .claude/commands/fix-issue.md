@@ -129,18 +129,8 @@ After implementation, provide:
    - What was tested
    - Test results
 
-3. **Next Steps**:
-   ```bash
-   # Review changes
-   git status
-   git diff
-
-   # When ready, commit using git skill
-   /git commit
-
-   # Create PR when ready
-   /git pr
-   ```
+3. **Shipped**: ship through the normal git flow without waiting for review: `/git commit`, then
+   `/git merge` (tests, squash into staging, fast-forward main). Report the shipped commit.
 
 ## Error Handling
 
@@ -270,8 +260,7 @@ Labels: `feature`, `frontend`, `backend`
 
 - Maximum 15 todos in the task list
 - Don't create documentation files unless explicitly required
-- Don't commit automatically - leave for user review
-- Don't create PR automatically - use `/git pr` command
+- Ship through the normal git flow when done (`/git commit`, `/git merge`); no PR, no waiting for review
 - Don't make destructive changes without confirmation
 
 ## Success Criteria
