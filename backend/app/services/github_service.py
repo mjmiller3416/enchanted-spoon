@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+from urllib.parse import urlsplit
 from typing import Optional
 
 import httpx
@@ -64,14 +65,29 @@ class GitHubService:
         by ``user_ref`` (an opaque internal id), never their email, and the
         message is published as a plain-text block.
 
-        Returns the issue URL on success, or None if GitHub is not configured.
+        Returns the issue URL on success. Missing configuration fails explicitly.
 
         Raises:
             GitHubIssueError: If the API call fails.
         """
         if not self._configured:
             logger.warning("GITHUB_TOKEN or GITHUB_REPO not set — skipping issue creation")
-            return None
+            raise GitHubIssueError("Feedback delivery is unavailable")
+
+        # Free text must never be automatically published to a public tracker.
+        # Check the actual destination on every submission; configuration alone
+        # is not evidence of its visibility. A failed lookup fails closed.
+        try:
+            repository = httpx.get(
+                f"https://api.github.com/repos/{self.repo}",
+                headers={"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"},
+                timeout=10.0,
+            )
+            repository.raise_for_status()
+            if repository.json().get("private") is not True:
+                raise GitHubIssueError("Feedback requires a private support destination")
+        except (httpx.HTTPError, ValueError) as exc:
+            raise GitHubIssueError("Unable to verify private feedback delivery") from exc
 
         label = CATEGORY_TO_LABEL.get(category, "feedback")
         summary = " ".join(message.split())[:80]
@@ -86,6 +102,13 @@ class GitHubService:
             _as_plain_text_block(_neutralize_mentions(message)),
         ]
 
+        metadata = dict(metadata or {})
+        if "page_url" in metadata:
+            # Publish only a path: queries/fragments may contain auth or user data.
+            try:
+                metadata["page_url"] = urlsplit(str(metadata["page_url"])).path
+            except ValueError:
+                metadata.pop("page_url", None)
         context = [
             (key, " ".join(str(metadata[key]).split())[:MAX_METADATA_VALUE_LENGTH])
             for key in ALLOWED_METADATA_KEYS
@@ -117,7 +140,7 @@ class GitHubService:
             resp.raise_for_status()
             return resp.json()["html_url"]
         except httpx.HTTPStatusError as e:
-            logger.error("GitHub API error %s: %s", e.response.status_code, e.response.text)
+            logger.error("GitHub API error %s", e.response.status_code)
             raise GitHubIssueError(f"GitHub API returned {e.response.status_code}") from e
         except httpx.HTTPError as e:
             logger.error("GitHub API request failed: %s", e)

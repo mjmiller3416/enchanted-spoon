@@ -130,6 +130,14 @@ class BillingService:
             CheckoutSessionError: Checkout session creation failed.
         """
         self._require_configured()
+        from app.core.startup import is_production
+
+        if is_production() and (
+            not (self.settings.stripe_secret_key or "").startswith(("sk_live_", "rk_live_"))
+            or not self.settings.stripe_webhook_secret
+            or not self.settings.frontend_url.startswith("https://")
+        ):
+            raise StripeNotConfiguredError("Paid checkout is not ready. Please contact support.")
         customer_id = self.get_or_create_customer(user)
 
         try:

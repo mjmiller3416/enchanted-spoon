@@ -53,7 +53,7 @@ class AssistantRecipeRequestDTO(BaseModel):
     conversation_history: Optional[List[AssistantMessageDTO]] = Field(
         None, max_length=MAX_CONVERSATION_HISTORY
     )
-    generate_image: bool = True
+    generate_image: bool = False
 
 
 class AssistantRecipeResponseDTO(BaseModel):

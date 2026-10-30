@@ -291,41 +291,39 @@ class TestRecipeGenerationSuccess:
 # ---------------------------------------------------------------------------
 
 class TestRecipeImageGeneration:
-    """Tests for image generation integration."""
-
-    @patch("app.services.ai.recipe_generation.service.RecipeGenerationService._generate_images")
-    async def test_images_generated_when_requested(self, mock_gen_images, recipe_service):
-        """Image data is included when generate_image=True."""
-        service, mock_client = recipe_service
-
-        mock_client.models.generate_content.return_value = _make_gemini_response(
-            _full_recipe_json()
-        )
-        mock_gen_images.return_value = ("ref_base64_data", "banner_base64_data")
-
+    async def test_images_require_metered_callback(self, recipe_service):
+        service, client = recipe_service
+        client.models.generate_content.return_value = _make_gemini_response(_full_recipe_json())
         result = await service.generate(_make_request(generate_image=True))
-
-        assert result.success is True
-        assert result.reference_image_data == "ref_base64_data"
-        assert result.banner_image_data == "banner_base64_data"
-        mock_gen_images.assert_called_once_with("Spicy Thai Green Curry")
-
-    @patch("app.services.ai.recipe_generation.service.RecipeGenerationService._generate_images")
-    async def test_image_failure_is_nonfatal(self, mock_gen_images, recipe_service):
-        """Image generation failure returns None images but recipe still succeeds."""
-        service, mock_client = recipe_service
-
-        mock_client.models.generate_content.return_value = _make_gemini_response(
-            _full_recipe_json()
-        )
-        mock_gen_images.return_value = (None, None)
-
-        result = await service.generate(_make_request(generate_image=True))
-
-        assert result.success is True
-        assert result.recipe is not None
+        assert result.success
         assert result.reference_image_data is None
         assert result.banner_image_data is None
+
+    async def test_images_generated_through_callback(self, recipe_service):
+        from unittest.mock import AsyncMock
+        service, client = recipe_service
+        client.models.generate_content.return_value = _make_gemini_response(_full_recipe_json())
+        images = AsyncMock(return_value=("reference", "banner"))
+        result = await service.generate(_make_request(generate_image=True), image_generator=images)
+        assert result.reference_image_data == "reference"
+        assert result.banner_image_data == "banner"
+        images.assert_awaited_once_with("Spicy Thai Green Curry")
+
+    async def test_unexpected_optional_photo_error_keeps_recipe(self, recipe_service):
+        from unittest.mock import AsyncMock
+        service, client = recipe_service
+        client.models.generate_content.return_value = _make_gemini_response(_full_recipe_json())
+        result = await service.generate(_make_request(generate_image=True), image_generator=AsyncMock(side_effect=RuntimeError))
+        assert result.success and result.recipe
+        assert result.reference_image_data is None
+
+    async def test_photo_cap_does_not_fail_recipe(self, recipe_service):
+        from unittest.mock import AsyncMock
+        service, client = recipe_service
+        client.models.generate_content.return_value = _make_gemini_response(_full_recipe_json())
+        result = await service.generate(_make_request(generate_image=True), image_generator=AsyncMock(return_value=(None, None)))
+        assert result.success and result.recipe
+        assert result.reference_image_data is None
 
 
 # ---------------------------------------------------------------------------

@@ -80,9 +80,14 @@ class StripeWebhookService:
             raise InvalidStripeSignatureError("Missing Stripe-Signature header")
 
         try:
-            return stripe.Webhook.construct_event(
+            event = stripe.Webhook.construct_event(
                 payload, signature, settings.stripe_webhook_secret
             )
+            from app.core.startup import is_production
+
+            if is_production() and event.to_dict().get("livemode") is not True:
+                raise InvalidStripeSignatureError("Test-mode events are not accepted in production")
+            return event
         except ValueError as e:
             raise InvalidStripeSignatureError(f"Invalid webhook payload: {e}")
         except stripe.error.SignatureVerificationError as e:

@@ -74,7 +74,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
             Send Feedback
           </DialogTitle>
           <DialogDescription>
-            Help us improve {appConfig.appName} by sharing your thoughts
+            Help us improve {appConfig.appName}. Feedback is sent to our support tracker only when private delivery is available. Do not include private or sensitive information.
           </DialogDescription>
         </DialogHeader>
 
