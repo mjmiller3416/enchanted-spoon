@@ -330,3 +330,31 @@ def test_signed_webhook_route_reconciles_even_while_checkout_disabled(billing):
     assert response.status_code == 200
     assert response.json() == {"received": True}
     assert user.has_pro_access
+
+
+@pytest.mark.parametrize("items", [
+    {"has_more": True, "data": [{"price": {"id": "price_other"}}]},
+    {"has_more": True, "data": [{"price": {"id": "price_pro"}}]},
+    {"has_more": False, "data": None},
+    {"has_more": False, "data": {}},
+    None,
+])
+def test_incomplete_nested_items_retry_without_revoking_or_receipting(billing, items):
+    service, user = billing
+    user.subscription_tier = "pro"
+    service.session.commit()
+    replacement = subscription(id="sub_replacement", items=items)
+    old = subscription("canceled", id="sub_old")
+    with patch("stripe.Subscription.list", return_value=current(old, replacement)):
+        with pytest.raises(StripeWebhookProcessingError):
+            service.handle_event(snapshot())
+    service.session.refresh(user)
+    assert user.has_pro_access
+    assert user.subscription_status == "active"
+    assert service.session.get(BillingEvent, "evt_synthetic") is None
+    # The same delivery can succeed once a complete authoritative view is available.
+    with patch("stripe.Subscription.list", return_value=current(old, subscription(id="sub_replacement"))):
+        service.handle_event(snapshot())
+    assert user.has_pro_access
+    assert user.subscription_status == "active"
+    assert service.session.get(BillingEvent, "evt_synthetic").outcome == "reconciled"

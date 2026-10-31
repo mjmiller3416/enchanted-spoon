@@ -135,7 +135,11 @@ class StripeWebhookService:
             subscription = _plain(subscription)
             if subscription.get("customer") != customer:
                 continue
-            items = (subscription.get("items") or {}).get("data") or []
+            item_list = _plain(subscription.get("items"))
+            if (not isinstance(item_list, dict) or item_list.get("has_more")
+                    or not isinstance(item_list.get("data"), list)):
+                raise StripeWebhookProcessingError("Incomplete subscription item state")
+            items = item_list["data"]
             if any((item.get("price") or {}).get("id") == self.settings.stripe_price_id_pro for item in items):
                 matches.append(subscription)
         if not matches:
