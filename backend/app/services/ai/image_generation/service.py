@@ -6,6 +6,7 @@ from typing import Optional
 from google.genai import types
 
 from app.services.ai.gemini_client import get_gemini_client
+from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.response_utils import extract_image_data
 
 from .config import (
@@ -94,7 +95,7 @@ class ImageGenerationService:
             return {
                 "success": False,
                 "image_data": None,
-                "error": str(e),
+                "error": safe_ai_error(e, "ImageGeneration"),
             }
 
     async def generate_banner_from_reference(
@@ -147,7 +148,7 @@ class ImageGenerationService:
             return {
                 "success": False,
                 "image_data": None,
-                "error": str(e),
+                "error": safe_ai_error(e, "ImageGeneration"),
             }
 
     async def generate_dual_recipe_images(

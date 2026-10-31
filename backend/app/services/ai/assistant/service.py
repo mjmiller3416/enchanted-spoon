@@ -11,6 +11,7 @@ from app.dtos.meal_dtos import MealCreateDTO
 from app.dtos.planner_dtos import PlannerEntryResponseDTO
 from app.dtos.shopping_dtos import ManualItemCreateDTO, ManualItemsAddResultDTO
 from app.services.ai.gemini_client import get_gemini_client
+from app.services.ai.provider_errors import safe_ai_error
 
 from .prompts import MODEL_NAME, API_KEY_ENV_VAR, get_full_system_prompt
 from .tools import TOOL_DEFINITIONS
@@ -109,7 +110,7 @@ class AssistantServiceCore:
             return {
                 "type": "error",
                 "response": None,
-                "error": str(e),
+                "error": safe_ai_error(e, "Assistant"),
             }
 
     def _build_context(

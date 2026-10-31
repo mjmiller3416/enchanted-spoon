@@ -9,6 +9,7 @@ from app.dtos.meal_suggestions_dtos import (
 )
 from app.services.ai.config import GEMINI_MODEL
 from app.services.ai.gemini_client import get_gemini_client
+from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.response_utils import extract_text_from_response
 from app.services.ai.text_utils import clean_tip
 
@@ -109,11 +110,10 @@ class MealSuggestionsService:
             )
 
         except Exception as e:
-            logger.error(f"[MealSuggestions] Error generating tip: {e}")
             return MealSuggestionsResponseDTO(
                 success=False,
                 cooking_tip=None,
-                error=str(e),
+                error=safe_ai_error(e, "MealSuggestions"),
             )
 
 

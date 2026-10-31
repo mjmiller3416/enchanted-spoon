@@ -11,6 +11,7 @@ from app.dtos.nutrition_dtos import (
 )
 from app.services.ai.config import GEMINI_MODEL
 from app.services.ai.gemini_client import get_gemini_client
+from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.parse_utils import parse_nutrition_dict
 from app.services.ai.response_utils import extract_text_from_response
 
@@ -167,9 +168,8 @@ class NutritionEstimationService:
                 success=False, error="Failed to parse nutrition data from AI response"
             )
         except Exception as e:
-            logger.error(f"[Nutrition] Estimation failed: {e}")
             return NutritionEstimationResponseDTO(
-                success=False, error=f"Nutrition estimation failed: {str(e)}"
+                success=False, error=safe_ai_error(e, "Nutrition")
             )
 
 
