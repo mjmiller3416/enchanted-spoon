@@ -64,3 +64,69 @@ async def test_reservation_error_never_calls_provider(photo_account):
     with patch("app.services.ai.optional_images.UsageService.reserve", side_effect=RuntimeError), patch("app.services.ai.optional_images.get_image_generation_service") as factory:
         assert await generate_optional_recipe_images(db_session, test_user, "Soup") == (None, None)
         factory.assert_not_called()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("partial_success", [False, True])
+async def test_provider_failure_preserves_recipe_and_accounts_for_images(photo_account, partial_success):
+    """Exercise real recipe/image orchestration and sanitization with a mocked SDK."""
+    import json
+    from unittest.mock import MagicMock
+    from google.genai.errors import ClientError
+    from app.dtos.recipe_generation_dtos import RecipeGenerationRequestDTO
+    from app.services.ai.image_generation.service import ImageGenerationService
+    from app.services.ai.recipe_generation.service import RecipeGenerationService
+    from app.services.ai.provider_errors import AI_UNAVAILABLE_MESSAGE
+
+    session, user = photo_account
+    user.is_admin = False
+    user.usage_plan = "launch"
+    user.subscription_tier = "free"
+    session.commit()
+    usage = UsageService(session, user.id)
+    error = ClientError(402, {"error": {"code": 402, "message": "synthetic-private-provider-detail"}})
+    image_client = MagicMock()
+    calls = 0
+
+    async def provider_call(**kwargs):
+        nonlocal calls
+        calls += 1
+        assert usage.get_usage().ai_images_generated == 1
+        if partial_success and calls == 1:
+            return MagicMock()
+        raise error
+
+    image_client.aio.models.generate_content = AsyncMock(side_effect=provider_call)
+    image_service = ImageGenerationService.__new__(ImageGenerationService)
+    recipe_service = RecipeGenerationService.__new__(RecipeGenerationService)
+    captured = []
+    original = image_service.generate_dual_recipe_images
+
+    async def images(name):
+        result = await original(name)
+        captured.append(result)
+        return result
+
+    recipe_json = json.dumps({"recipe_name": "Soup", "ingredients": [
+        {"ingredient_name": "Salt", "ingredient_category": "pantry"}], "directions": "Simmer."})
+    with patch("app.services.ai.image_generation.service.get_gemini_client", return_value=image_client), \
+         patch("app.services.ai.image_generation.service.extract_image_data", return_value="aW1hZ2U="), \
+         patch("app.services.ai.optional_images.get_image_generation_service", return_value=image_service), \
+         patch.object(image_service, "generate_dual_recipe_images", side_effect=images), \
+         patch("app.services.ai.recipe_generation.service.get_gemini_client", return_value=MagicMock()), \
+         patch("app.services.ai.recipe_generation.service.extract_text_from_response", return_value=recipe_json):
+        async def metered_images(name):
+            return await generate_optional_recipe_images(session, user, name)
+        result = await recipe_service.generate(
+            RecipeGenerationRequestDTO(prompt="Make soup", generate_image=True, estimate_nutrition=False),
+            image_generator=metered_images,
+        )
+
+    assert result.success is True
+    assert result.recipe.recipe_name == "Soup"
+    assert result.banner_image_data is None
+    assert bool(result.reference_image_data) == partial_success
+    assert usage.get_usage().ai_images_generated == int(partial_success)
+    assert calls == 2
+    assert all(AI_UNAVAILABLE_MESSAGE in message for message in captured[0]["errors"])
+    assert "synthetic-private-provider-detail" not in str(captured)

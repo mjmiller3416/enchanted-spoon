@@ -132,7 +132,7 @@ Models (app/models/)    # SQLAlchemy ORM
 
 - **DTOs** (`app/dtos/`): Pydantic models for request/response validation (21 files including AI DTOs)
 - **AI Module** (`app/services/ai/`): Sub-package within services containing Gemini client, assistant (multi-turn chat with function calling), recipe generation, image generation, cooking tips, meal suggestions, and nutrition estimation
-  - Never return a Gemini exception's text to the client; it names billing and project details. Services pass `e` to `ai/provider_errors.safe_ai_error(e, "<Feature>")`, which logs the real error with its traceback and returns a safe message.
+  - Never return a Gemini exception's text to the client; it names billing and project details. Services pass `e` to `ai/provider_errors.safe_ai_error(e, "<Feature>")`, which logs only the error class and numeric status and returns a safe message. Do not attach raw provider messages, details or exceptions to logs.
   - If every AI feature fails at once, check the Gemini Prepay credit balance in AI Studio first. When it's empty, every key returns `402 RESOURCE_EXHAUSTED: Your prepayment credits are depleted`.
 - **Core** (`app/core/`): Auth configuration (Clerk JWKS settings)
 - **Utils** (`app/utils/`): Unit conversion and dimension detection
