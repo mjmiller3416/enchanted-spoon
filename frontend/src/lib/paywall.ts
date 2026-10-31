@@ -36,7 +36,7 @@ export function openPaywall(event: PaywallEvent): void {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  ai_images_generated: "AI image generation",
+  ai_images_generated: "AI photo sets",
   ai_suggestions_requested: "AI suggestions",
   ai_assistant_messages: "assistant messages",
   recipes_imported: "recipe imports",

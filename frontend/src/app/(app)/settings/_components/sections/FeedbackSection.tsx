@@ -61,7 +61,7 @@ export function FeedbackSection() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Choose the type of feedback you&apos;re providing
+              Feedback is sent only when private support delivery is available. Do not include private or sensitive information.
             </p>
           </div>
 

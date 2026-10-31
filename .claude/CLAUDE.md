@@ -132,7 +132,7 @@ Models (app/models/)    # SQLAlchemy ORM
 
 - **DTOs** (`app/dtos/`): Pydantic models for request/response validation (21 files including AI DTOs)
 - **AI Module** (`app/services/ai/`): Sub-package within services containing Gemini client, assistant (multi-turn chat with function calling), recipe generation, image generation, cooking tips, meal suggestions, and nutrition estimation
-  - Never return a Gemini exception's text to the client; it names billing and project details. Services pass `e` to `ai/provider_errors.safe_ai_error(e, "<Feature>")`, which logs the real error with its traceback and returns a safe message.
+  - Never return a Gemini exception's text to the client; it names billing and project details. Services pass `e` to `ai/provider_errors.safe_ai_error(e, "<Feature>")`, which logs only the error class and numeric status and returns a safe message. Do not attach raw provider messages, details or exceptions to logs.
   - If every AI feature fails at once, check the Gemini Prepay credit balance in AI Studio first. When it's empty, every key returns `402 RESOURCE_EXHAUSTED: Your prepayment credits are depleted`.
 - **Core** (`app/core/`): Auth configuration (Clerk JWKS settings)
 - **Utils** (`app/utils/`): Unit conversion and dimension detection
@@ -324,3 +324,26 @@ For detailed troubleshooting and configuration, see [.claude/HOOKS.md](.claude/H
 ## Deployment
 
 Uses Railway with Dockerfiles in `frontend/` and `backend/` directories. Configuration in `railway.json`.
+
+
+## Soft-launch guardrails (October 2026)
+
+- Images are opt-in. RecipeGenerationService accepts a metered image callback; never
+  restore direct provider-image calls there. Optional images use `ai/optional_images.py`
+  and atomically reserve `ai_images_generated` before spending. One unit means a photo
+  action (up to a square/banner pair), including single-image regenerations.
+- Launch allowances live in `core/usage_limits.py`; keep public pricing and usage labels
+  consistent. These are feature allowances, not a guarantee on provider invoice totals.
+- Persisted User.usage_plan keeps existing accounts on legacy allowances. New ORM
+  accounts use launch allowances; use get_user_monthly_limit for enforcement and display.
+  Never silently migrate legacy users to lower limits.
+- Feedback must verify a private GitHub destination before publishing. Do not remove
+  the fail-closed check to make a public issue tracker work.
+- Production checkout requires live key configuration, webhook secret and HTTPS return
+  origin. Production webhook verification rejects test-mode events.
+- `npm run build` uses webpack for Windows-compatible standalone output. Run frontend
+  tests as well as lint/build. Backend async tests use anyio with the asyncio backend.
+  Use the `file_db` fixture for code that commits/rolls back; in-memory transaction
+  fixtures can lose their seeded users on rollback. If pytest's shared Windows temp
+  symlink is inaccessible, use a fresh task-local `--basetemp`, not permission changes.
+- Release gates and what was actually tested: `docs/soft-launch-readiness.md`.

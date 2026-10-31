@@ -10,7 +10,9 @@ def _captured_issue(**kwargs) -> dict:
     service.token, service.repo = "t", "owner/repo"
     response = MagicMock()
     response.json.return_value = {"html_url": "https://github.com/owner/repo/issues/1"}
-    with patch("app.services.github_service.httpx.post", return_value=response) as post:
+    repository = MagicMock()
+    repository.json.return_value = {"private": True}
+    with patch("app.services.github_service.httpx.get", return_value=repository), patch("app.services.github_service.httpx.post", return_value=response) as post:
         service.create_issue(**kwargs)
     return post.call_args.kwargs["json"]
 
@@ -47,3 +49,34 @@ def test_only_allowlisted_metadata_is_published_and_capped():
     assert "secret" not in body
     assert "\n## injected" not in body
     assert "v" * 201 not in body
+
+
+def test_feedback_does_not_publish_url_secrets():
+    issue = _captured_issue(category="Bug Report", message="Something broke", user_ref="user #1",
+                            metadata={"page_url": "https://user:password@example.com/recipes?token=secret#private"})
+    assert "`/recipes`" in issue["body"]
+    for private in ("password", "token", "secret", "private", "example.com"):
+        assert private not in issue["body"]
+
+
+def test_unconfigured_feedback_does_not_claim_delivery():
+    import pytest
+    from app.services.github_service import GitHubIssueError
+    service = GitHubService()
+    service.token = service.repo = ""
+    with pytest.raises(GitHubIssueError):
+        service.create_issue(category="Bug Report", message="Something broke", user_ref="user #1")
+
+
+def test_public_or_unknown_tracker_never_receives_feedback():
+    import pytest
+    from app.services.github_service import GitHubIssueError
+    for visibility in (False, None):
+        service = GitHubService()
+        service.token, service.repo = "dummy", "owner/repo"
+        repository = MagicMock()
+        repository.json.return_value = {"private": visibility}
+        with patch("app.services.github_service.httpx.get", return_value=repository), patch("app.services.github_service.httpx.post") as post:
+            with pytest.raises(GitHubIssueError):
+                service.create_issue(category="Question", message="Private message", user_ref="user #1")
+            post.assert_not_called()

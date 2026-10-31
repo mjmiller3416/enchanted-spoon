@@ -4,8 +4,8 @@ Client-safe messages for failed Gemini calls.
 
 Gemini's error text names billing, quotas and project settings (for example
 "Your prepayment credits are depleted. Please go to AI Studio..."), so it must
-never reach users. These helpers log the real error, with its traceback, and
-hand back a message that is safe to show.
+never reach users. These helpers log bounded error metadata without raw provider
+payloads and hand back a message that is safe to show.
 """
 
 import logging
@@ -44,11 +44,12 @@ def is_provider_unavailable(exc: BaseException) -> bool:
 
 
 def safe_ai_error(exc: BaseException, feature: str) -> str:
-    """Log a failed AI call and return a message that is safe to show users.
+    """Log bounded failure metadata and return a client-safe message.
 
-    Call from inside the ``except`` block that caught ``exc``. The log line
-    carries the real error and traceback (and reaches Sentry when it's
-    configured); the caller passes the returned message to the client.
+    Call from inside the ``except`` block that caught ``exc``. Raw exception
+    messages, details and traceback attachments can contain request data or
+    credentials. Keep them out of log records and error-reporting events;
+    retain the exception class and numeric provider status for diagnosis.
 
     Args:
         exc: The exception raised while serving the AI request.
@@ -58,7 +59,12 @@ def safe_ai_error(exc: BaseException, feature: str) -> str:
         AI_UNAVAILABLE_MESSAGE when the provider account or service is at
         fault, otherwise AI_FAILED_MESSAGE.
     """
-    logger.error("[%s] AI request failed: %s", feature, exc, exc_info=exc)
+    code = exc.code if isinstance(exc, genai_errors.APIError) else None
+    status = code if isinstance(code, int) else None
+    logger.error(
+        "[%s] AI request failed (error_type=%s, status=%s)",
+        feature, type(exc).__name__, status,
+    )
     if is_provider_unavailable(exc):
         return AI_UNAVAILABLE_MESSAGE
     return AI_FAILED_MESSAGE

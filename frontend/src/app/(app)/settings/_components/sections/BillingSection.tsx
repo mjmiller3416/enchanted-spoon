@@ -31,7 +31,7 @@ const USAGE_ROWS: {
 }[] = [
   { field: "recipes_imported", label: "Recipe imports" },
   { field: "ai_suggestions_requested", label: "AI suggestions" },
-  { field: "ai_images_generated", label: "AI images" },
+  { field: "ai_images_generated", label: "AI photo sets" },
   { field: "ai_assistant_messages", label: "Assistant messages" },
 ];
 

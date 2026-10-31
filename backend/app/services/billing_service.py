@@ -15,7 +15,7 @@ import logging
 import stripe
 from sqlalchemy.orm import Session
 
-from ..core.stripe_config import StripeSettings, get_stripe_settings
+from ..core.stripe_config import STRIPE_API_VERSION, StripeSettings, get_stripe_settings
 from ..models.user import User
 from ..repositories.user_repo import UserRepo
 
@@ -47,6 +47,7 @@ class BillingService:
         self.settings = settings or get_stripe_settings()
         if self.settings.stripe_secret_key:
             stripe.api_key = self.settings.stripe_secret_key
+            stripe.api_version = STRIPE_API_VERSION
 
     def _require_configured(self) -> None:
         if not self.settings.is_configured:
@@ -129,7 +130,17 @@ class BillingService:
             StripeCustomerError: Customer creation failed.
             CheckoutSessionError: Checkout session creation failed.
         """
+        if not self.settings.stripe_checkout_enabled:
+            raise StripeNotConfiguredError("New subscriptions are not available yet. Please try again later.")
         self._require_configured()
+        from app.core.startup import is_production
+
+        if is_production() and (
+            not (self.settings.stripe_secret_key or "").startswith(("sk_live_", "rk_live_"))
+            or not self.settings.stripe_webhook_secret
+            or not self.settings.frontend_url.startswith("https://")
+        ):
+            raise StripeNotConfiguredError("Paid checkout is not ready. Please contact support.")
         customer_id = self.get_or_create_customer(user)
 
         try:

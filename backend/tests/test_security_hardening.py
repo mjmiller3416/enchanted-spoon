@@ -137,39 +137,6 @@ class TestAdminQueryConsole:
         session.commit()
 
 
-class TestStripeWebhookTrust:
-    def _service(self):
-        service = StripeWebhookService(MagicMock())
-        service.repo = MagicMock()
-        return service
-
-    def test_late_invoice_paid_does_not_revive_canceled_subscription(self):
-        service = self._service()
-        user = User(id=3, subscription_status="canceled", subscription_tier="free")
-        service.repo.get_by_stripe_customer_id.return_value = user
-        service.handle_event({"type": "invoice.paid", "data": {"object": {"customer": "cus_x"}}})
-        service.repo.update_subscription.assert_not_called()
-
-    def test_reference_id_for_someone_elses_customer_is_not_trusted(self):
-        service = self._service()
-        victim = User(id=1, stripe_customer_id="cus_victim")
-        payer = User(id=2, stripe_customer_id="cus_payer")
-        service.repo.get_by_id.return_value = victim
-        service.repo.get_by_stripe_customer_id.return_value = payer
-        service.handle_event(
-            {
-                "type": "checkout.session.completed",
-                "data": {"object": {"customer": "cus_payer", "client_reference_id": "1", "mode": "subscription"}},
-            }
-        )
-        assert service.repo.update_subscription.call_args.args[0] is payer
-
-    def test_one_off_payment_checkout_does_not_grant_pro(self):
-        service = self._service()
-        service.handle_event(
-            {
-                "type": "checkout.session.completed",
-                "data": {"object": {"customer": "cus_1", "client_reference_id": "1", "mode": "payment"}},
-            }
-        )
-        service.repo.update_subscription.assert_not_called()
+# Stripe trust regressions now use real database transactions and canonical
+# mocked Stripe state in test_stripe_webhook_service.py (including mismatched
+# client references, one-off checkout, and late paid invoices after cancellation).

@@ -26,7 +26,7 @@ const HIGHLIGHTS: Highlight[] = [
   {
     vignette: <ShoppingVignette />,
     title: "Auto-built shopping list",
-    body: "Every planned meal feeds one list — quantities combined, sorted by aisle, checked off as you shop.",
+    body: "Choose all ingredients, produce only, or no additions for each meal. Included quantities combine into a list organized by category.",
   },
 ];
 
@@ -34,7 +34,7 @@ const FEATURES: Feature[] = [
   {
     icon: Wand2,
     title: "AI recipe generation & import",
-    body: "Paste a URL or describe a dish — get a complete, editable recipe in seconds.",
+    body: "Import a supported recipe URL or describe a dish to create an editable recipe.",
   },
   {
     icon: Sparkles,
@@ -43,7 +43,7 @@ const FEATURES: Feature[] = [
   },
   {
     icon: Apple,
-    title: "Nutrition facts",
+    title: "Nutrition estimates",
     body: "Estimate calories and macros on demand while creating or editing a recipe.",
   },
   {

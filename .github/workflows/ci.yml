@@ -54,6 +54,8 @@ jobs:
       - name: Lint
         # Hard gate: lint errors block the merge (warnings do not).
         run: npm run lint
+      - name: Frontend regression tests
+        run: npm test
       - name: Build
         # Hard gate: a broken production build blocks the merge.
         run: npm run build

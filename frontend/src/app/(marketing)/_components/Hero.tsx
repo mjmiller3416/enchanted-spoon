@@ -14,7 +14,7 @@ export function Hero() {
           </h1>
           <p className="max-w-2xl text-lg text-muted-foreground">
             {appConfig.appName} keeps your recipes, weekly menu, and grocery run in one
-            place — with AI that imports recipes from any URL or dreams up new ones.
+            place — with AI that imports recipes from supported recipe URLs or dreams up new ones.
           </p>
           <div className="flex items-center gap-4">
             <Button asChild size="lg">

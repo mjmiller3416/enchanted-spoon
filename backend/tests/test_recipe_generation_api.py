@@ -1,10 +1,10 @@
 """Tests for the recipe generation API endpoint.
 
 Covers:
-- POST /api/ai/wizard-generation — success path
-- POST /api/ai/wizard-generation — RecipeGenerationError from service
-- POST /api/ai/wizard-generation — RecipeParseError from service
-- POST /api/ai/wizard-generation — service returns success=False
+- POST /api/ai/wizard-generation â€” success path
+- POST /api/ai/wizard-generation â€” RecipeGenerationError from service
+- POST /api/ai/wizard-generation â€” RecipeParseError from service
+- POST /api/ai/wizard-generation â€” service returns success=False
 - Auth: requires pro access
 - Request validation (missing prompt, prompt too long, invalid servings)
 - Usage reservation: counted once on success, refunded on failure, 429 at cap
@@ -18,6 +18,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.ai.recipe_generation import router
+from app.core.usage_limits import TIER_USAGE_LIMITS
+
+PRO_SUGGESTION_CAP = TIER_USAGE_LIMITS["pro"]["ai_suggestions_requested"]
 from app.dtos.recipe_generation_dtos import (
     GeneratedIngredientDTO,
     RecipeGeneratedDTO,
@@ -41,7 +44,7 @@ def _create_test_app(user: User | None = None) -> FastAPI:
     app.include_router(router, prefix="/api/ai/wizard-generation")
 
     # AI routes gate on require_within_usage_limit, which resolves the user via
-    # get_current_user — the binary require_pro gate was dropped when the
+    # get_current_user â€” the binary require_pro gate was dropped when the
     # metered free tier landed (#164).
     from app.api.auth import get_current_user
     from app.database.db import get_session
@@ -62,6 +65,7 @@ def _make_pro_user() -> User:
     """Create a User object with pro access."""
     user = MagicMock(spec=User)
     user.id = 1
+    user.usage_plan = "launch"
     user.is_admin = False
     user.has_pro_access = True
     return user
@@ -117,7 +121,7 @@ def _valid_request_body() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Tests — success
+# Tests â€” success
 # ---------------------------------------------------------------------------
 
 class TestRecipeGenerationEndpoint:
@@ -203,7 +207,7 @@ class TestRecipeGenerationEndpoint:
 
 
 # ---------------------------------------------------------------------------
-# Tests — error handling
+# Tests â€” error handling
 # ---------------------------------------------------------------------------
 
 class TestRecipeGenerationErrors:
@@ -299,7 +303,7 @@ class TestRecipeGenerationErrors:
 
 
 # ---------------------------------------------------------------------------
-# Tests — request validation
+# Tests â€” request validation
 # ---------------------------------------------------------------------------
 
 class TestRecipeGenerationValidation:
@@ -362,7 +366,7 @@ class TestRecipeGenerationValidation:
 
 
 # ---------------------------------------------------------------------------
-# Tests — auth
+# Tests â€” auth
 # ---------------------------------------------------------------------------
 
 class TestRecipeGenerationAuth:
@@ -371,7 +375,7 @@ class TestRecipeGenerationAuth:
     def test_no_auth_returns_401(self):
         """An unauthenticated request is rejected before the AI service runs.
 
-        AI routes no longer gate on pro access (metered free tier, #164) — they
+        AI routes no longer gate on pro access (metered free tier, #164) â€” they
         require authentication via get_current_user and meter usage per tier.
         """
         from fastapi import HTTPException
@@ -399,7 +403,7 @@ class TestRecipeGenerationAuth:
 
 
 # ---------------------------------------------------------------------------
-# Tests — usage tracking and monthly limit enforcement (real database)
+# Tests â€” usage tracking and monthly limit enforcement (real database)
 # ---------------------------------------------------------------------------
 
 def _usage_app(file_db, user) -> FastAPI:
@@ -472,16 +476,16 @@ class TestRecipeGenerationUsage:
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
     def test_over_cap_returns_429(self, mock_get_service, file_db):
         """A user at their monthly cap gets 429 before the AI service runs."""
-        _seed_usage(file_db, 300)  # at the "pro" tier cap
+        _seed_usage(file_db, PRO_SUGGESTION_CAP)  # at the "pro" tier cap
 
         client = TestClient(_usage_app(file_db, _make_pro_user()))
         response = client.post("/api/ai/wizard-generation", json=_valid_request_body())
 
         assert response.status_code == 429
         assert response.json()["detail"]["field"] == "ai_suggestions_requested"
-        assert response.json()["detail"]["current"] == 300
+        assert response.json()["detail"]["current"] == PRO_SUGGESTION_CAP
         mock_get_service.assert_not_called()
-        assert _suggestions_used(file_db) == 300
+        assert _suggestions_used(file_db) == PRO_SUGGESTION_CAP
 
     @patch("app.api.ai.recipe_generation.UserCategoryService")
     @patch("app.api.ai.recipe_generation.get_recipe_generation_service")
@@ -507,7 +511,7 @@ class TestRecipeGenerationUsage:
         mock_service = MagicMock()
         mock_service.generate = AsyncMock(return_value=_make_success_response())
         mock_get_service.return_value = mock_service
-        _seed_usage(file_db, 299)
+        _seed_usage(file_db, PRO_SUGGESTION_CAP - 1)
 
         client = TestClient(_usage_app(file_db, _make_pro_user()))
         first = client.post("/api/ai/wizard-generation", json=_valid_request_body())
@@ -515,4 +519,57 @@ class TestRecipeGenerationUsage:
 
         assert first.status_code == 200
         assert second.status_code == 429
-        assert _suggestions_used(file_db) == 300
+        assert _suggestions_used(file_db) == PRO_SUGGESTION_CAP
+
+
+@pytest.mark.parametrize("provider_status", [402, 503, None])
+def test_wizard_provider_error_is_private_and_refunded(file_db, caplog, provider_status):
+    """Real wizard service + route + quota dependency; only the SDK is mocked."""
+    import logging
+    import traceback
+    from google.genai import errors
+    from app.services.ai.recipe_generation.service import RecipeGenerationService
+
+    sentinel = "synthetic-sensitive-wizard-provider-payload"
+    if provider_status is None:
+        class UnfamiliarProviderFailure(Exception):
+            pass
+        failure = UnfamiliarProviderFailure(sentinel)
+    else:
+        error_class = errors.ServerError if provider_status >= 500 else errors.ClientError
+        failure = error_class(provider_status, {"error": {"code": provider_status, "message": sentinel}})
+    sdk = MagicMock()
+    sdk.models.generate_content.side_effect = failure
+    service = RecipeGenerationService.__new__(RecipeGenerationService)
+    _seed_usage(file_db, 4)
+    client = TestClient(_usage_app(file_db, _make_pro_user()))
+    loggers = [logging.getLogger(name) for name in ("app.services.ai.provider_errors", "app.api")]
+    disabled = [logger.disabled for logger in loggers]
+    for logger in loggers:
+        logger.disabled = False
+    try:
+        with caplog.at_level(logging.ERROR), \
+             patch("app.api.ai.recipe_generation.get_recipe_generation_service", return_value=service), \
+             patch("app.api.ai.recipe_generation.UserCategoryService"), \
+             patch("app.services.ai.recipe_generation.service.get_gemini_client", return_value=sdk):
+            response = client.post("/api/ai/wizard-generation", json=_valid_request_body())
+    finally:
+        for logger, previous in zip(loggers, disabled):
+            logger.disabled = previous
+
+    assert response.status_code == 500
+    assert sentinel not in response.text
+    assert _suggestions_used(file_db) == 4
+    assert sentinel not in caplog.text
+    provider_records = [record for record in caplog.records if record.name == "app.services.ai.provider_errors"]
+    assert provider_records
+    assert f"status={provider_status}" in provider_records[-1].getMessage()
+    if provider_status is None:
+        assert "UnfamiliarProviderFailure" in provider_records[-1].getMessage()
+    for record in caplog.records:
+        assert sentinel not in repr(record.__dict__)
+        if record.exc_info:
+            assert sentinel not in "".join(traceback.format_exception(*record.exc_info))
+            attached = record.exc_info[1]
+            assert attached.__cause__ is None
+            assert attached.__context__ is None

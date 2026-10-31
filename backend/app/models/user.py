@@ -60,6 +60,10 @@ class User(Base):
     # Admin flag - permanent full access bypass
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # Existing rows retain legacy allowances; only newly created ORM accounts
+    # receive the launch plan. Never accept this field from a client payload.
+    usage_plan: Mapped[str] = mapped_column(String(20), default="launch", server_default="legacy", nullable=False)
+
     # Subscription fields (Stripe-managed)
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, unique=True)
     subscription_tier: Mapped[str] = mapped_column(String(50), default="free", nullable=False)

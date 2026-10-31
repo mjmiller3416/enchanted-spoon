@@ -2,7 +2,7 @@
 
 Gemini's error text names billing and project details (a depleted prepay
 balance reads "Your prepayment credits are depleted. Please go to AI
-Studio..."). It must reach the logs but never the user.
+Studio..."). Raw provider text must reach neither logs nor the user.
 """
 
 import logging
@@ -67,9 +67,10 @@ def test_other_errors_get_generic_message(exc):
     assert safe_ai_error(exc, "Test") == AI_FAILED_MESSAGE
 
 
-def test_real_error_is_logged_but_not_returned(caplog):
-    """The raw provider text goes to the log with its traceback, never to the caller."""
-    exc = _api_error(402)
+def test_only_bounded_error_metadata_is_logged(caplog):
+    """Synthetic sensitive provider data never enters the log record or exception attachment."""
+    marker = "synthetic-private-request-and-credential-marker"
+    exc = _api_error(402, PREPAY_TEXT + " " + marker)
     # In-process alembic tests run fileConfig, which disables existing loggers
     module_logger = logging.getLogger("app.services.ai.provider_errors")
     was_disabled, module_logger.disabled = module_logger.disabled, False
@@ -82,8 +83,11 @@ def test_real_error_is_logged_but_not_returned(caplog):
     assert PREPAY_TEXT not in message
     record = caplog.records[-1]
     assert "[Assistant]" in record.getMessage()
-    assert PREPAY_TEXT in record.getMessage()
-    assert record.exc_info is not None
+    assert "status=402" in record.getMessage()
+    assert "ClientError" in record.getMessage()
+    assert PREPAY_TEXT not in caplog.text
+    assert marker not in repr(record.__dict__)
+    assert record.exc_info is None
 
 
 # ---------------------------------------------------------------------------

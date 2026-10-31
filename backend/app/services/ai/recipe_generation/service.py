@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 from app.dtos.nutrition_dtos import NutritionFactsDTO
 from app.dtos.recipe_generation_dtos import (
@@ -11,6 +11,7 @@ from app.dtos.recipe_generation_dtos import (
     RecipeGenerationResponseDTO,
 )
 from app.services.ai.gemini_client import get_gemini_client
+from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.parse_utils import parse_nutrition_dict, parse_recipe_dict
 from app.services.ai.response_utils import extract_text_from_response
 
@@ -53,12 +54,14 @@ class RecipeGenerationService:
         get_gemini_client(API_KEY_ENV_VAR)
 
     async def generate(
-        self, request: RecipeGenerationRequestDTO
+        self, request: RecipeGenerationRequestDTO,
+        image_generator: Optional[Callable[[str], Awaitable[tuple[Optional[str], Optional[str]]]]] = None,
     ) -> RecipeGenerationResponseDTO:
         """Generate a complete recipe from a user prompt and optional preferences.
 
         Args:
             request: The generation request with prompt, preferences, and flags.
+            image_generator: Caller-supplied metered callback; absent means no images.
 
         Returns:
             RecipeGenerationResponseDTO with recipe data, optional nutrition and images.
@@ -120,10 +123,12 @@ class RecipeGenerationService:
             # Optional image generation
             reference_image_data: Optional[str] = None
             banner_image_data: Optional[str] = None
-            if request.generate_image:
-                reference_image_data, banner_image_data = (
-                    await self._generate_images(recipe.recipe_name)
-                )
+            if request.generate_image and image_generator is not None:
+                try:
+                    reference_image_data, banner_image_data = await image_generator(recipe.recipe_name)
+                except Exception:
+                    # Optional photo failures must never discard a usable recipe.
+                    logger.warning("Optional recipe photo generation failed")
 
             return RecipeGenerationResponseDTO(
                 success=True,
@@ -134,24 +139,22 @@ class RecipeGenerationService:
             )
 
         except json.JSONDecodeError as e:
-            logger.error(f"[RecipeGeneration] JSON parse error: {e}")
-            raise RecipeParseError(
-                "Failed to parse recipe data from AI response"
-            ) from e
+            safe_ai_error(e, "RecipeGeneration")
+            failure = RecipeParseError("Failed to parse recipe data from AI response")
         except ValueError as e:
-            logger.error(f"[RecipeGeneration] Invalid recipe data: {e}")
-            raise RecipeParseError(str(e)) from e
+            safe_ai_error(e, "RecipeGeneration")
+            failure = RecipeParseError("Invalid recipe data from AI response")
         except (RecipeGenerationError, RecipeParseError):
             raise
         except ImportError as e:
-            raise RecipeGenerationError(
-                "google-genai package is not installed"
-            ) from e
+            safe_ai_error(e, "RecipeGeneration")
+            failure = RecipeGenerationError("AI features are temporarily unavailable. Please try again later.")
         except Exception as e:
-            logger.error(f"[RecipeGeneration] Generation failed: {e}")
-            raise RecipeGenerationError(
-                f"Recipe generation failed: {str(e)}"
-            ) from e
+            failure = RecipeGenerationError(safe_ai_error(e, "RecipeGeneration"))
+
+        # Raise after leaving the handler: `from None` inside it would still retain
+        # the raw provider error in __context__, accessible to error-reporting SDKs.
+        raise failure from None
 
     # ── Private Helpers ──────────────────────────────────────────────────────
 
@@ -178,38 +181,7 @@ class RecipeGenerationService:
             return ""
         return "\nPreferences:\n" + "\n".join(f"- {line}" for line in lines)
 
-    @staticmethod
-    async def _generate_images(
-        recipe_name: str,
-    ) -> tuple[Optional[str], Optional[str]]:
-        """Optionally generate recipe images. Failure is non-fatal."""
-        try:
-            from app.services.ai.image_generation import (
-                get_image_generation_service,
-            )
 
-            image_service = get_image_generation_service()
-            result = await image_service.generate_dual_recipe_images(recipe_name)
-
-            reference = result.get("reference_image_data") if result.get("success") else None
-            banner = result.get("banner_image_data") if result.get("success") else None
-
-            if not result.get("success"):
-                errors = result.get("errors", [])
-                logger.warning(
-                    f"[RecipeGeneration] Image generation failed for '{recipe_name}': {errors}"
-                )
-
-            return reference, banner
-
-        except Exception as e:
-            logger.warning(
-                f"[RecipeGeneration] Image generation skipped for '{recipe_name}': {e}"
-            )
-            return None, None
-
-
-# ── Singleton ────────────────────────────────────────────────────────────────
 
 _service_instance: Optional[RecipeGenerationService] = None
 

@@ -22,6 +22,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployments
   output: "standalone",
+  outputFileTracingRoot: process.cwd(),
 
   async headers() {
     return [

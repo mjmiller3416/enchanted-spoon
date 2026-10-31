@@ -16,6 +16,10 @@ vi.mock("@/app/(app)/dashboard/_components/StreakChip", () => ({ StreakChip: () 
 vi.mock("@/app/(app)/dashboard/_components/carousel", () => ({ MealCarouselWidget: () => null }));
 vi.mock("@/app/(app)/dashboard/_components/GetStartedCard", () => ({ GetStartedCard: () => null, GetStartedBanner: () => null }));
 
+vi.mock("@/app/(app)/dashboard/_components/WhatsNewBanner", () => ({ WhatsNewBanner: () => null }));
+
+vi.mock("@/components/common/InstallAppBanner", () => ({ InstallAppBanner: () => null }));
+
 it("keeps healthy shopping content when the planner request fails", () => {
   render(<HomeView />);
   expect(screen.getByText("Healthy shopping section")).toBeTruthy();
