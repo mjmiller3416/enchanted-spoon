@@ -11,6 +11,7 @@ from app.dtos.recipe_generation_dtos import (
     RecipeGenerationResponseDTO,
 )
 from app.services.ai.gemini_client import get_gemini_client
+from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.parse_utils import parse_nutrition_dict, parse_recipe_dict
 from app.services.ai.response_utils import extract_text_from_response
 
@@ -138,24 +139,22 @@ class RecipeGenerationService:
             )
 
         except json.JSONDecodeError as e:
-            logger.error(f"[RecipeGeneration] JSON parse error: {e}")
-            raise RecipeParseError(
-                "Failed to parse recipe data from AI response"
-            ) from e
+            safe_ai_error(e, "RecipeGeneration")
+            failure = RecipeParseError("Failed to parse recipe data from AI response")
         except ValueError as e:
-            logger.error(f"[RecipeGeneration] Invalid recipe data: {e}")
-            raise RecipeParseError(str(e)) from e
+            safe_ai_error(e, "RecipeGeneration")
+            failure = RecipeParseError("Invalid recipe data from AI response")
         except (RecipeGenerationError, RecipeParseError):
             raise
         except ImportError as e:
-            raise RecipeGenerationError(
-                "google-genai package is not installed"
-            ) from e
+            safe_ai_error(e, "RecipeGeneration")
+            failure = RecipeGenerationError("AI features are temporarily unavailable. Please try again later.")
         except Exception as e:
-            logger.error(f"[RecipeGeneration] Generation failed: {e}")
-            raise RecipeGenerationError(
-                f"Recipe generation failed: {str(e)}"
-            ) from e
+            failure = RecipeGenerationError(safe_ai_error(e, "RecipeGeneration"))
+
+        # Raise after leaving the handler: `from None` inside it would still retain
+        # the raw provider error in __context__, accessible to error-reporting SDKs.
+        raise failure from None
 
     # ── Private Helpers ──────────────────────────────────────────────────────
 

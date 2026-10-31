@@ -250,7 +250,7 @@ class TestRecipeGenerationSuccess:
             _full_recipe_json(ingredients=[])
         )
 
-        with pytest.raises(RecipeParseError, match="ingredients"):
+        with pytest.raises(RecipeParseError, match="Invalid recipe data"):
             await service.generate(_make_request())
 
     async def test_no_images_by_default(self, recipe_service):
@@ -413,7 +413,7 @@ class TestRecipeGenerationErrors:
 
         mock_client.models.generate_content.side_effect = RuntimeError("API down")
 
-        with pytest.raises(RecipeGenerationError, match="API down"):
+        with pytest.raises(RecipeGenerationError, match="Something went wrong with that AI request"):
             await service.generate(_make_request())
 
     async def test_import_error_raises_generation_error(self, recipe_service):

@@ -520,3 +520,56 @@ class TestRecipeGenerationUsage:
         assert first.status_code == 200
         assert second.status_code == 429
         assert _suggestions_used(file_db) == PRO_SUGGESTION_CAP
+
+
+@pytest.mark.parametrize("provider_status", [402, 503, None])
+def test_wizard_provider_error_is_private_and_refunded(file_db, caplog, provider_status):
+    """Real wizard service + route + quota dependency; only the SDK is mocked."""
+    import logging
+    import traceback
+    from google.genai import errors
+    from app.services.ai.recipe_generation.service import RecipeGenerationService
+
+    sentinel = "synthetic-sensitive-wizard-provider-payload"
+    if provider_status is None:
+        class UnfamiliarProviderFailure(Exception):
+            pass
+        failure = UnfamiliarProviderFailure(sentinel)
+    else:
+        error_class = errors.ServerError if provider_status >= 500 else errors.ClientError
+        failure = error_class(provider_status, {"error": {"code": provider_status, "message": sentinel}})
+    sdk = MagicMock()
+    sdk.models.generate_content.side_effect = failure
+    service = RecipeGenerationService.__new__(RecipeGenerationService)
+    _seed_usage(file_db, 4)
+    client = TestClient(_usage_app(file_db, _make_pro_user()))
+    loggers = [logging.getLogger(name) for name in ("app.services.ai.provider_errors", "app.api")]
+    disabled = [logger.disabled for logger in loggers]
+    for logger in loggers:
+        logger.disabled = False
+    try:
+        with caplog.at_level(logging.ERROR), \
+             patch("app.api.ai.recipe_generation.get_recipe_generation_service", return_value=service), \
+             patch("app.api.ai.recipe_generation.UserCategoryService"), \
+             patch("app.services.ai.recipe_generation.service.get_gemini_client", return_value=sdk):
+            response = client.post("/api/ai/wizard-generation", json=_valid_request_body())
+    finally:
+        for logger, previous in zip(loggers, disabled):
+            logger.disabled = previous
+
+    assert response.status_code == 500
+    assert sentinel not in response.text
+    assert _suggestions_used(file_db) == 4
+    assert sentinel not in caplog.text
+    provider_records = [record for record in caplog.records if record.name == "app.services.ai.provider_errors"]
+    assert provider_records
+    assert f"status={provider_status}" in provider_records[-1].getMessage()
+    if provider_status is None:
+        assert "UnfamiliarProviderFailure" in provider_records[-1].getMessage()
+    for record in caplog.records:
+        assert sentinel not in repr(record.__dict__)
+        if record.exc_info:
+            assert sentinel not in "".join(traceback.format_exception(*record.exc_info))
+            attached = record.exc_info[1]
+            assert attached.__cause__ is None
+            assert attached.__context__ is None
