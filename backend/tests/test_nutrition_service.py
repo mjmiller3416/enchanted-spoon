@@ -19,6 +19,7 @@ from app.dtos.nutrition_dtos import (
 )
 from app.services.ai.nutrition_estimation import NutritionEstimationService
 from app.services.ai.parse_utils import safe_float, safe_int
+from app.services.ai.provider_errors import AI_FAILED_MESSAGE
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +196,9 @@ class TestNutritionEstimationService:
         result = service.estimate(_make_request())
 
         assert result.success is False
-        assert "API down" in result.error
+        # The raw exception text is logged, never returned to the client
+        assert "API down" not in result.error
+        assert result.error == AI_FAILED_MESSAGE
 
     def test_request_with_no_ingredients(self, nutrition_service):
         """Estimation with empty ingredients list still works."""

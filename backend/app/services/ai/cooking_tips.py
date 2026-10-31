@@ -10,6 +10,7 @@ from typing import Optional
 from app.dtos.cooking_tip_dtos import CookingTipResponseDTO
 from app.services.ai.config import GEMINI_MODEL
 from app.services.ai.gemini_client import get_gemini_client
+from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.response_utils import extract_text_from_response
 from app.services.ai.text_utils import clean_tip
 
@@ -183,7 +184,7 @@ class CookingTipService:
             return CookingTipResponseDTO(
                 success=False,
                 tip=None,
-                error=str(e),
+                error=safe_ai_error(e, "CookingTips"),
             )
 
 
