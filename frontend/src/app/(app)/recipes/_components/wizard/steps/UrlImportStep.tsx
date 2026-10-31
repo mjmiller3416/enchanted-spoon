@@ -5,6 +5,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+function socialImportHint(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  try {
+    const host = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`).hostname
+      .replace(/^www\./, "")
+      .toLowerCase();
+    const isTikTok = host === "tiktok.com" || host.endsWith(".tiktok.com");
+    const isInstagram = host === "instagram.com" || host.endsWith(".instagram.com");
+    if (isTikTok || isInstagram) {
+      return "TikTok and Instagram imports use the post caption. Private posts, and videos that only say the recipe out loud, can't be imported.";
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 // ============================================================================
 // Props
 // ============================================================================
@@ -29,12 +47,14 @@ export function UrlImportStep({
   error,
   onSubmit,
 }: UrlImportStepProps) {
+  const socialHint = socialImportHint(url);
+
   return (
     <div className="space-y-6">
       {/* Subtitle only — title comes from the wizard header */}
       <p className="text-sm text-muted-foreground">
-        Paste a link to any recipe page and we&apos;ll recreate it here for you
-        to review and edit.
+        Paste a recipe page, or a public TikTok or Instagram post, and we&apos;ll
+        recreate it here for you to review and edit.
       </p>
 
       {/* URL Input */}
@@ -44,7 +64,7 @@ export function UrlImportStep({
           id="import-url"
           type="url"
           inputMode="url"
-          placeholder="https://www.example.com/recipes/banana-bread"
+          placeholder="Recipe page, TikTok, or Instagram link"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => {
@@ -64,8 +84,8 @@ export function UrlImportStep({
           <div className="flex items-start gap-3">
             <Globe className="size-4 mt-0.5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
             <p className="text-sm text-muted-foreground">
-              Works with most recipe websites. The original link is saved with
-              your recipe for reference.
+              Works with most recipe websites, plus public TikTok and Instagram
+              posts. The original link is saved with your recipe for reference.
             </p>
           </div>
           <div className="flex items-start gap-3">
@@ -84,6 +104,10 @@ export function UrlImportStep({
           </div>
         </CardContent>
       </Card>
+
+      {socialHint && (
+        <p className="text-sm text-muted-foreground">{socialHint}</p>
+      )}
 
       {/* Error */}
       {error && (

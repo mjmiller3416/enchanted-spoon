@@ -1,11 +1,12 @@
-"""Service for importing recipes from website URLs.
+"""Service for importing recipes from website URLs and social posts.
 
 Pipeline: fetch the page → extract structured recipe data (schema.org via
 recipe-scrapers, works on the vast majority of recipe sites) → normalize into
 the app's recipe shape with one small Gemini call. Sites without structured
-markup fall back to AI extraction over the page's readable text. The source
-photo is downloaded server-side and returned as base64 so it rides the same
-upload path as AI-generated images.
+markup fall back to AI extraction over the page's readable text. TikTok and
+Instagram URLs skip the page scrape and normalize the public caption instead
+(see ``social.py``). The source photo is downloaded server-side and returned
+as base64 so it rides the same upload path as AI-generated images.
 """
 
 import base64
@@ -192,6 +193,11 @@ class RecipeImportService:
             RecipeImportError: Any other import failure.
         """
         url = self._validate_url(request.url)
+        from .social import classify_social_url
+
+        if classify_social_url(url):
+            return await self._import_from_social(url, request)
+
         html = await self._fetch_html(url)
 
         extracted = self._extract_structured(html, url)
@@ -228,6 +234,55 @@ class RecipeImportService:
             success=True,
             recipe=recipe,
             nutrition_facts=nutrition_facts,
+            source_url=url,
+            reference_image_data=reference_image_data,
+        )
+
+    async def _import_from_social(
+        self, url: str, request: RecipeImportRequestDTO
+    ) -> RecipeImportResponseDTO:
+        """Import a recipe from a TikTok or Instagram caption.
+
+        Reuses ``_normalize_with_ai``. Nutrition is never taken from the post
+        (oEmbed does not publish it). The thumbnail is optional.
+
+        Raises:
+            RecipeImportFetchError: Private, deleted, or not a post URL.
+            RecipeImportNotFoundError: The caption has no recipe.
+        """
+        from .social import SocialExtractError, fetch_social_post, source_block_for
+
+        try:
+            post = await fetch_social_post(url)
+        except SocialExtractError as exc:
+            if exc.kind == "not_found":
+                raise RecipeImportNotFoundError(str(exc)) from exc
+            raise RecipeImportFetchError(str(exc)) from exc
+
+        try:
+            recipe = await self._normalize_with_ai(
+                source_block_for(post), request.allowed_categories
+            )
+        except RecipeImportNotFoundError:
+            raise RecipeImportNotFoundError(
+                "No recipe was found in that post. The caption needs the "
+                "ingredients or steps — private posts and videos that only "
+                "say the recipe out loud can't be imported."
+            )
+
+        reference_image_data: Optional[str] = None
+        if request.include_source_image and post.thumbnail_url:
+            reference_image_data = await self._download_image(post.thumbnail_url, url)
+
+        logger.info(
+            f"[RecipeImport] Imported '{recipe.recipe_name}' from {post.platform} "
+            f"({len(recipe.ingredients)} ingredients, "
+            f"image={'yes' if reference_image_data else 'no'})"
+        )
+        return RecipeImportResponseDTO(
+            success=True,
+            recipe=recipe,
+            nutrition_facts=None,
             source_url=url,
             reference_image_data=reference_image_data,
         )
