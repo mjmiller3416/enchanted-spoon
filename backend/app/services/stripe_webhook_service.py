@@ -1,263 +1,179 @@
-"""app/services/stripe_webhook_service.py
+"""Signature-verified billing wake-ups, reconciled from current Stripe state.
 
-Service layer for processing signature-verified Stripe webhook events.
-Syncs subscription state (tier, status, renewal date, customer id) onto
-the matching User whenever Stripe reports a checkout or subscription change.
+Snapshots are not applied to entitlements: delivery order is not authoritative.
+The receipt and user update commit together. Sensitive payloads are never persisted.
 """
-
-# -- Imports -------------------------------------------------------------------------------------
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Mapping, Optional
+from typing import Any
 
 import stripe
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from ..core.stripe_config import StripeSettings
-from ..models.user import ACTIVE_SUBSCRIPTION_STATUSES, User
-from ..repositories.user_repo import UserRepo
+from ..core.stripe_config import STRIPE_API_VERSION, StripeSettings, get_stripe_settings
+from ..models.billing_event import BillingEvent
+from ..models.user import User
 
 logger = logging.getLogger(__name__)
 
 
-# -- Exceptions ----------------------------------------------------------------------------------
 class InvalidStripeSignatureError(Exception):
-    """Raised when a webhook payload's Stripe-Signature cannot be verified."""
-    pass
+    """Untrusted signature, mode, or unsupported snapshot version."""
 
 
 class StripeWebhookProcessingError(Exception):
-    """Raised when a verified Stripe event cannot be processed."""
-    pass
+    """Retryable failure; no receipt or entitlement change was committed."""
 
 
-# -- Constants -------------------------------------------------------------------------------------
-HANDLED_EVENT_TYPES = {
-    "checkout.session.completed",
-    "invoice.paid",
-    "customer.subscription.created",
-    "customer.subscription.updated",
+REVIEW_EVENT_TYPES = {
+    "charge.refunded", "charge.dispute.created", "radar.early_fraud_warning.created",
+}
+RECONCILE_EVENT_TYPES = {
+    "checkout.session.completed", "checkout.session.async_payment_succeeded",
+    "checkout.session.async_payment_failed", "invoice.paid", "invoice.payment_failed",
+    "customer.subscription.created", "customer.subscription.updated",
     "customer.subscription.deleted",
 }
+HANDLED_EVENT_TYPES = REVIEW_EVENT_TYPES | RECONCILE_EVENT_TYPES
 
 
-# -- StripeWebhook Service -------------------------------------------------------------------------
+def _plain(value: Any) -> dict:
+    return value.to_dict() if hasattr(value, "to_dict") else value
+
+
 class StripeWebhookService:
-    """Verifies and applies Stripe webhook events to user subscription state."""
-
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, settings: StripeSettings | None = None):
         self.session = session
-        self.repo = UserRepo(session)
+        self.settings = settings or get_stripe_settings()
 
-    # -- Verification ------------------------------------------------------------------------
-    def verify_and_parse_event(
-        self,
-        payload: bytes,
-        signature: Optional[str],
-        settings: StripeSettings,
-    ) -> stripe.Event:
-        """
-        Verify a webhook payload's signature and parse it into a Stripe Event.
-
-        Args:
-            payload: Raw request body bytes (must be unparsed - signature covers exact bytes).
-            signature: The `Stripe-Signature` header value.
-            settings: Stripe settings holding the webhook signing secret.
-
-        Returns:
-            The verified Stripe Event.
-
-        Raises:
-            InvalidStripeSignatureError: If the signature is missing, malformed, or invalid,
-                or if the webhook secret is not configured.
-        """
-        if not settings.stripe_webhook_secret:
-            raise InvalidStripeSignatureError("Stripe webhook secret is not configured")
-        if not signature:
-            raise InvalidStripeSignatureError("Missing Stripe-Signature header")
-
+    def verify_and_parse_event(self, payload: bytes, signature: str | None,
+                               settings: StripeSettings) -> stripe.Event:
+        if not settings.stripe_webhook_secret or not signature:
+            raise InvalidStripeSignatureError("Webhook signing configuration or signature missing")
         try:
-            event = stripe.Webhook.construct_event(
-                payload, signature, settings.stripe_webhook_secret
-            )
+            event = stripe.Webhook.construct_event(payload, signature, settings.stripe_webhook_secret)
+        except (ValueError, stripe.error.SignatureVerificationError):
+            failure = InvalidStripeSignatureError("Invalid webhook signature or payload")
+        else:
+            data = _plain(event)
             from app.core.startup import is_production
-
-            if is_production() and event.to_dict().get("livemode") is not True:
+            key = settings.stripe_secret_key or ""
+            expected_mode = True if key.startswith(("sk_live_", "rk_live_")) else False if key.startswith(("sk_test_", "rk_test_")) else None
+            if is_production() and data.get("livemode") is not True:
                 raise InvalidStripeSignatureError("Test-mode events are not accepted in production")
+            if expected_mode is not None and data.get("livemode") is not expected_mode:
+                raise InvalidStripeSignatureError("Webhook mode does not match billing configuration")
+            if data.get("api_version") != STRIPE_API_VERSION:
+                raise InvalidStripeSignatureError("Unsupported webhook snapshot version")
             return event
-        except ValueError as e:
-            raise InvalidStripeSignatureError(f"Invalid webhook payload: {e}")
-        except stripe.error.SignatureVerificationError as e:
-            raise InvalidStripeSignatureError(f"Invalid webhook signature: {e}")
+        raise failure from None
 
-    # -- Event Handling ----------------------------------------------------------------------
-    def handle_event(self, event: stripe.Event) -> None:
-        """
-        Apply a verified Stripe event to the matching user's subscription state.
-
-        Unrecognized event types are ignored (Stripe sends far more event types
-        than we care about). Events referencing a customer we can't resolve to a
-        user are logged and skipped rather than raising, since Stripe will retry
-        on non-2xx responses and there's nothing a retry could fix here.
-
-        All handlers are idempotent upserts (they always write the event's
-        current state), so redelivery of the same event is safe.
-
-        Raises:
-            StripeWebhookProcessingError: If a DB error occurs while applying the event.
-        """
-        event_type = event["type"]
-        if event_type not in HANDLED_EVENT_TYPES:
+    def handle_event(self, event: stripe.Event | dict) -> None:
+        event = _plain(event)
+        kind = event.get("type")
+        if kind not in HANDLED_EVENT_TYPES:
             return
-
-        data = event["data"]["object"]
-        # stripe-python's StripeObject doesn't support Mapping methods like
-        # .get(); convert to a plain dict (recursive) before the handlers.
-        if hasattr(data, "to_dict"):
-            data = data.to_dict()
-
+        event_id = event.get("id")
+        if not isinstance(event_id, str) or not event_id or len(event_id) > 255:
+            raise StripeWebhookProcessingError("Missing or invalid event identifier")
         try:
-            if event_type == "checkout.session.completed":
-                self._handle_checkout_completed(data)
-            elif event_type == "invoice.paid":
-                self._handle_invoice_paid(data)
-            elif event_type in ("customer.subscription.created", "customer.subscription.updated"):
-                # A fresh subscription and an update carry the same shape; handling
-                # .created here is what populates subscription_ends_at for brand-new
-                # subscribers (checkout.session.completed has no period end on it).
-                self._handle_subscription_updated(data)
-            elif event_type == "customer.subscription.deleted":
-                self._handle_subscription_deleted(data)
+            if self.session.get(BillingEvent, event_id) is not None:
+                return
+            if kind in REVIEW_EVENT_TYPES:
+                outcome = "review_required"
+            else:
+                data = _plain(event.get("data", {}).get("object", {}))
+                if kind.startswith("checkout.") and data.get("mode") != "subscription":
+                    outcome = "ignored_checkout_mode"
+                else:
+                    # The app creates/persists this mapping before checkout. Never
+                    # attach an event using its externally supplied client_reference_id.
+                    customer = data.get("customer")
+                    user = self.session.scalar(select(User).where(
+                        User.stripe_customer_id == customer
+                    ).with_for_update()) if isinstance(customer, str) and customer else None
+                    if user is None:
+                        outcome = "review_unknown_customer"
+                    else:
+                        # PostgreSQL row lock serializes refresh + write for one user.
+                        # Recheck after acquiring it, in case another request committed.
+                        if self.session.get(BillingEvent, event_id) is not None:
+                            return
+                        outcome = self._reconcile(user, customer)
+            self.session.add(BillingEvent(event_id=event_id, event_type=kind, outcome=outcome))
             self.session.commit()
-        except SQLAlchemyError as e:
+            if outcome.startswith("review_"):
+                logger.warning("Billing review required (event_type=%s, reason=%s)", kind, outcome)
+            return
+        except IntegrityError:
             self.session.rollback()
-            raise StripeWebhookProcessingError(
-                f"Failed to process Stripe event '{event_type}': {e}"
-            )
+            # Concurrent duplicate delivery: the winning transaction committed both.
+            if self.session.get(BillingEvent, event_id) is not None:
+                return
+        except (SQLAlchemyError, stripe.error.StripeError, StripeWebhookProcessingError):
+            self.session.rollback()
+        # No raw payload, SQL parameters, provider messages, or exception chain.
+        logger.error("Billing event processing requires retry (event_type=%s)", kind)
+        raise StripeWebhookProcessingError("Billing state could not be synchronized; retry required") from None
 
-    # -- Handlers ------------------------------------------------------------------------------
-    def _handle_checkout_completed(self, checkout_session: Mapping[str, Any]) -> None:
-        # Only our Pro checkout (a subscription) grants Pro; a one-off payment
-        # (e.g. a Payment Link for something else) must not
-        if checkout_session.get("mode") not in (None, "subscription"):
-            logger.info("Ignoring checkout.session.completed with mode=%s", checkout_session.get("mode"))
-            return
+    def _reconcile(self, user: User, customer: str) -> str:
+        if not self.settings.is_configured:
+            raise StripeWebhookProcessingError("Billing reconciliation is not configured")
+        response = _plain(stripe.Subscription.list(
+            customer=customer, status="all", limit=100, expand=["data.latest_invoice"],
+            api_key=self.settings.stripe_secret_key, stripe_version=STRIPE_API_VERSION,
+        ))
+        # Never decide access from a truncated or malformed view.
+        if response.get("has_more") or not isinstance(response.get("data"), list):
+            raise StripeWebhookProcessingError("Incomplete subscription state")
+        matches = []
+        for subscription in response["data"]:
+            subscription = _plain(subscription)
+            if subscription.get("customer") != customer:
+                continue
+            items = (subscription.get("items") or {}).get("data") or []
+            if any((item.get("price") or {}).get("id") == self.settings.stripe_price_id_pro for item in items):
+                matches.append(subscription)
+        if not matches:
+            # Legacy/manual entitlements or a retired Price need review, not revocation.
+            return "review_unmatched_price"
 
-        customer_id = checkout_session.get("customer")
-        client_reference_id = checkout_session.get("client_reference_id")
+        def paid(subscription: dict) -> bool:
+            invoice = subscription.get("latest_invoice")
+            return isinstance(invoice, dict) and (invoice.get("paid") is True or invoice.get("status") == "paid")
 
-        user = self._resolve_user(client_reference_id, customer_id)
-        if user is None:
-            logger.warning(
-                "checkout.session.completed: no matching user for "
-                "client_reference_id=%s customer=%s",
-                client_reference_id, customer_id,
-            )
-            return
-
-        # Delayed payment methods complete checkout before the payment settles.
-        # Record the customer mapping but wait for invoice.paid to grant pro.
-        if checkout_session.get("payment_status") == "unpaid":
-            logger.info(
-                "checkout.session.completed for user %s is unpaid; deferring to invoice.paid",
-                user.id,
-            )
-            self.repo.update_subscription(user, stripe_customer_id=customer_id)
-            return
-
-        self.repo.update_subscription(
-            user,
-            stripe_customer_id=customer_id,
-            subscription_tier="pro",
-            subscription_status="active",
-        )
-
-    def _handle_invoice_paid(self, invoice: Mapping[str, Any]) -> None:
-        user = self._get_user_by_customer_id(invoice.get("customer"))
-        if user is None:
-            return
-        # A late or retried invoice.paid arriving after the subscription was
-        # deleted must not re-grant Pro; a new subscription reactivates the
-        # user through checkout.session.completed / subscription.created
-        if user.subscription_status == "canceled":
-            logger.info("Ignoring invoice.paid for user %s with a canceled subscription", user.id)
-            return
-
-        self.repo.update_subscription(
-            user,
-            subscription_tier="pro",
-            subscription_status="active",
-        )
-
-    def _handle_subscription_updated(self, subscription: Mapping[str, Any]) -> None:
-        user = self._get_user_by_customer_id(subscription.get("customer"))
-        if user is None:
-            return
-
-        status = subscription.get("status", "active")
-        tier = "pro" if status in ACTIVE_SUBSCRIPTION_STATUSES else "free"
-
-        self.repo.update_subscription(
-            user,
-            subscription_tier=tier,
-            subscription_status=status,
-            subscription_ends_at=self._to_datetime(self._current_period_end(subscription)),
-            cancel_at_period_end=bool(subscription.get("cancel_at_period_end")),
-        )
-
-    def _handle_subscription_deleted(self, subscription: Mapping[str, Any]) -> None:
-        user = self._get_user_by_customer_id(subscription.get("customer"))
-        if user is None:
-            return
-
-        ended_at = self._to_datetime(subscription.get("ended_at")) or datetime.now(timezone.utc)
-
-        self.repo.update_subscription(
-            user,
-            subscription_tier="free",
-            subscription_status="canceled",
-            subscription_ends_at=ended_at,
-            cancel_at_period_end=False,
-        )
-
-    # -- Helpers ------------------------------------------------------------------------------
-    def _resolve_user(
-        self, client_reference_id: Optional[str], customer_id: Optional[str]
-    ) -> Optional[User]:
-        if client_reference_id:
-            try:
-                user = self.repo.get_by_id(int(client_reference_id))
-            except (TypeError, ValueError):
-                user = None
-            # client_reference_id can be set by whoever builds a checkout link,
-            # so only trust it when it agrees with the paying customer
-            if user is not None and user.stripe_customer_id in (None, customer_id):
-                return user
-        return self._get_user_by_customer_id(customer_id)
-
-    def _get_user_by_customer_id(self, customer_id: Optional[str]) -> Optional[User]:
-        if not customer_id:
-            return None
-        user = self.repo.get_by_stripe_customer_id(customer_id)
-        if user is None:
-            logger.warning("Stripe event referenced unknown customer_id=%s", customer_id)
-        return user
+        entitled = [s for s in matches if s.get("status") == "trialing" or (
+            s.get("status") == "active" and paid(s)
+        )]
+        grace = [s for s in matches if s.get("status") == "past_due"]
+        if entitled:
+            selected = max(entitled, key=lambda s: self._period_end(s) or 0)
+            user.subscription_tier = "pro"
+        elif grace and user.subscription_tier == "pro":
+            selected = max(grace, key=lambda s: self._period_end(s) or 0)
+            # Keep existing access during retries; do not grant an unpaid first invoice.
+        elif any(s.get("status") not in {"canceled", "unpaid", "incomplete_expired", "incomplete"} for s in matches):
+            return "review_unsettled_subscription"
+        elif any(s.get("status") == "incomplete" for s in matches):
+            return "review_unsettled_subscription"
+        else:
+            # All matching subscriptions have authoritative terminal status.
+            selected = max(matches, key=lambda s: s.get("created") or 0)
+            user.subscription_tier = "free"
+        user.subscription_status = selected["status"]
+        user.cancel_at_period_end = bool(selected.get("cancel_at_period_end"))
+        end = self._period_end(selected)
+        if selected.get("status") == "canceled":
+            end = selected.get("ended_at") or end
+        user.subscription_ends_at = datetime.fromtimestamp(end, timezone.utc) if end else None
+        return "reconciled"
 
     @staticmethod
-    def _current_period_end(subscription: Mapping[str, Any]) -> Optional[int]:
-        # Stripe API 2025-03-31 ("basil") and later moved current_period_end
-        # off the Subscription object onto its items.
-        period_end = subscription.get("current_period_end")
-        if period_end is not None:
-            return period_end
-        items = (subscription.get("items") or {}).get("data") or []
-        return items[0].get("current_period_end") if items else None
-
-    @staticmethod
-    def _to_datetime(unix_timestamp: Optional[int]) -> Optional[datetime]:
-        if unix_timestamp is None:
-            return None
-        return datetime.fromtimestamp(unix_timestamp, tz=timezone.utc)
+    def _period_end(subscription: dict) -> int | None:
+        periods = [item.get("current_period_end") for item in (subscription.get("items") or {}).get("data", [])]
+        periods.append(subscription.get("current_period_end"))
+        return max((value for value in periods if isinstance(value, int)), default=None)

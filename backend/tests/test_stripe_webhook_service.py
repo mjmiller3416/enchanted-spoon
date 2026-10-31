@@ -1,413 +1,332 @@
-"""Tests for StripeWebhookService — signature verification and subscription sync.
-
-Covers:
-- Signature verification: missing secret, missing header, invalid signature, happy path
-- checkout.session.completed: resolves user via client_reference_id, falls back to
-  customer id, skips unknown users without raising
-- invoice.paid: keeps a paying user active
-- customer.subscription.updated: tier follows Stripe status
-- customer.subscription.deleted: downgrades to free
-- Unhandled event types are ignored
-- DB errors roll back and raise StripeWebhookProcessingError
-"""
-
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+"""Billing lifecycle uses real transactions and synthetic Stripe 16 snapshot fixtures."""
+import hashlib
+import hmac
+import json
+import logging
+import time
+from unittest.mock import patch
 
 import pytest
 import stripe
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.core.stripe_config import StripeSettings
-from app.models.user import User
+from app.core.stripe_config import STRIPE_API_VERSION, StripeSettings
+from app.models import BillingEvent, User
 from app.services.stripe_webhook_service import (
-    InvalidStripeSignatureError,
-    StripeWebhookProcessingError,
-    StripeWebhookService,
+    HANDLED_EVENT_TYPES, REVIEW_EVENT_TYPES, InvalidStripeSignatureError,
+    StripeWebhookProcessingError, StripeWebhookService,
 )
 
 
-def _service_with_mock_repo():
-    """Build a StripeWebhookService backed by a MagicMock session and repo."""
-    session = MagicMock()
-    service = StripeWebhookService(session)
-    service.repo = MagicMock()
-    return service, session
+@pytest.fixture
+def billing(file_db):
+    with file_db() as session:
+        user = session.get(User, 1)
+        user.is_admin = False
+        user.stripe_customer_id = "cus_synthetic"
+        user.subscription_tier = "free"
+        user.subscription_status = "active"
+        session.commit()
+        settings = StripeSettings(_env_file=None, stripe_secret_key="sk_test_synthetic",
+            stripe_price_id_pro="price_pro", stripe_webhook_secret="whsec_synthetic")
+        yield StripeWebhookService(session, settings), user
 
 
-# ---------------------------------------------------------------------------
-# Signature verification
-# ---------------------------------------------------------------------------
-
-class TestVerifyAndParseEvent:
-    def test_missing_secret_raises(self):
-        service, _ = _service_with_mock_repo()
-        settings = StripeSettings(stripe_webhook_secret=None)
-
-        with pytest.raises(InvalidStripeSignatureError):
-            service.verify_and_parse_event(b"{}", "sig", settings)
-
-    def test_missing_signature_header_raises(self):
-        service, _ = _service_with_mock_repo()
-        settings = StripeSettings(stripe_webhook_secret="whsec_test")
-
-        with pytest.raises(InvalidStripeSignatureError):
-            service.verify_and_parse_event(b"{}", None, settings)
-
-    def test_invalid_signature_raises(self):
-        service, _ = _service_with_mock_repo()
-        settings = StripeSettings(stripe_webhook_secret="whsec_test")
-
-        with patch(
-            "app.services.stripe_webhook_service.stripe.Webhook.construct_event",
-            side_effect=stripe.error.SignatureVerificationError("bad sig", "sig_header"),
-        ):
-            with pytest.raises(InvalidStripeSignatureError):
-                service.verify_and_parse_event(b"{}", "bad-sig", settings)
-
-    def test_valid_signature_returns_parsed_event(self):
-        service, _ = _service_with_mock_repo()
-        settings = StripeSettings(stripe_webhook_secret="whsec_test")
-        fake_event = {"type": "checkout.session.completed"}
-
-        with patch(
-            "app.services.stripe_webhook_service.stripe.Webhook.construct_event",
-            return_value=fake_event,
-        ) as mock_construct:
-            result = service.verify_and_parse_event(b"{}", "good-sig", settings)
-
-        assert result == fake_event
-        mock_construct.assert_called_once_with(b"{}", "good-sig", "whsec_test")
+def snapshot(kind="customer.subscription.updated", event_id="evt_synthetic", **overrides):
+    data = {"customer": "cus_synthetic", "mode": "subscription", "client_reference_id": "1"}
+    data.update(overrides)
+    return {"id": event_id, "object": "event", "type": kind, "created": 1900000000,
+            "api_version": STRIPE_API_VERSION, "livemode": False, "data": {"object": data}}
 
 
-# ---------------------------------------------------------------------------
-# checkout.session.completed
-# ---------------------------------------------------------------------------
+def subscription(status="active", paid=True, **overrides):
+    data = {"id": "sub_synthetic", "customer": "cus_synthetic", "status": status,
+            "created": 1900000000, "cancel_at_period_end": False,
+            "latest_invoice": {"id": "in_synthetic", "paid": paid, "status": "paid" if paid else "open"},
+            "items": {"data": [{"price": {"id": "price_pro"}, "current_period_end": 2000000000}]}}
+    data.update(overrides)
+    return data
 
-class TestHandleEventCheckoutCompleted:
-    def test_resolves_user_via_client_reference_id(self):
-        service, session = _service_with_mock_repo()
-        user = User(id=1)
-        service.repo.get_by_id.return_value = user
 
-        event = {
-            "type": "checkout.session.completed",
-            "data": {"object": {"customer": "cus_123", "client_reference_id": "1"}},
-        }
+def current(*subscriptions, has_more=False):
+    return stripe.ListObject.construct_from({"object": "list", "data": list(subscriptions), "has_more": has_more}, "sk_test_synthetic")
+
+
+def signed(data, secret="whsec_synthetic"):
+    payload = json.dumps(data).encode()
+    timestamp = str(int(time.time()))
+    digest = hmac.new(secret.encode(), timestamp.encode() + b"." + payload, hashlib.sha256).hexdigest()
+    return payload, f"t={timestamp},v1={digest}"
+
+
+def test_sdk_and_fixture_versions_are_pinned():
+    from pathlib import Path
+    assert stripe.VERSION == "16.0.0"
+    assert STRIPE_API_VERSION == "2026-09-30.endive"
+    assert "stripe==16.0.0" in (Path(__file__).resolve().parents[1] / "requirements.txt").read_text()
+
+
+@pytest.mark.parametrize("invalid", ["signature", "secret", "version", "mode", "missing_signature"])
+def test_real_signed_snapshot_validation(billing, invalid):
+    service, _ = billing
+    event = snapshot()
+    if invalid == "version":
+        event["api_version"] = "2020-08-27"
+    if invalid == "mode":
+        event["livemode"] = True
+    body, header = signed(event, "different_secret" if invalid == "secret" else "whsec_synthetic")
+    if invalid == "signature":
+        header = "invalid"
+    if invalid == "missing_signature":
+        header = None
+    with pytest.raises(InvalidStripeSignatureError):
+        service.verify_and_parse_event(body, header, service.settings)
+
+
+def test_signed_real_sdk_event_reconciles_and_duplicate_does_not_fetch_again(billing):
+    service, user = billing
+    body, header = signed(snapshot("checkout.session.completed", payment_status="paid"))
+    event = service.verify_and_parse_event(body, header, service.settings)
+    with patch("stripe.Subscription.list", return_value=current(subscription())) as fetch:
         service.handle_event(event)
-
-        service.repo.get_by_id.assert_called_once_with(1)
-        service.repo.update_subscription.assert_called_once_with(
-            user,
-            stripe_customer_id="cus_123",
-            subscription_tier="pro",
-            subscription_status="active",
-        )
-        session.commit.assert_called_once()
-
-    def test_falls_back_to_customer_id_when_no_reference(self):
-        service, session = _service_with_mock_repo()
-        user = User(id=2)
-        service.repo.get_by_id.return_value = None
-        service.repo.get_by_stripe_customer_id.return_value = user
-
-        event = {
-            "type": "checkout.session.completed",
-            "data": {"object": {"customer": "cus_456", "client_reference_id": None}},
-        }
         service.handle_event(event)
-
-        service.repo.get_by_stripe_customer_id.assert_called_once_with("cus_456")
-        service.repo.update_subscription.assert_called_once()
-
-    def test_unknown_user_is_skipped_without_raising(self):
-        service, session = _service_with_mock_repo()
-        service.repo.get_by_id.return_value = None
-        service.repo.get_by_stripe_customer_id.return_value = None
-
-        event = {
-            "type": "checkout.session.completed",
-            "data": {"object": {"customer": "cus_789", "client_reference_id": "999"}},
-        }
-        service.handle_event(event)
-
-        service.repo.update_subscription.assert_not_called()
-        session.commit.assert_called_once()
-
-    def test_unpaid_checkout_records_customer_but_defers_pro(self):
-        service, session = _service_with_mock_repo()
-        user = User(id=7)
-        service.repo.get_by_id.return_value = user
-
-        event = {
-            "type": "checkout.session.completed",
-            "data": {
-                "object": {
-                    "customer": "cus_delayed",
-                    "client_reference_id": "7",
-                    "payment_status": "unpaid",
-                }
-            },
-        }
-        service.handle_event(event)
-
-        service.repo.update_subscription.assert_called_once_with(
-            user, stripe_customer_id="cus_delayed"
-        )
-        session.commit.assert_called_once()
-
-    def test_no_payment_required_checkout_grants_pro(self):
-        service, session = _service_with_mock_repo()
-        user = User(id=8)
-        service.repo.get_by_id.return_value = user
-
-        event = {
-            "type": "checkout.session.completed",
-            "data": {
-                "object": {
-                    "customer": "cus_trial",
-                    "client_reference_id": "8",
-                    "payment_status": "no_payment_required",
-                }
-            },
-        }
-        service.handle_event(event)
-
-        service.repo.update_subscription.assert_called_once_with(
-            user,
-            stripe_customer_id="cus_trial",
-            subscription_tier="pro",
-            subscription_status="active",
-        )
+        fetch.assert_called_once()
+        assert fetch.call_args.kwargs["stripe_version"] == STRIPE_API_VERSION
+    assert user.has_pro_access
+    assert service.session.get(BillingEvent, "evt_synthetic").outcome == "reconciled"
+    assert user.subscription_ends_at.year == 2033
 
 
-# ---------------------------------------------------------------------------
-# invoice.paid
-# ---------------------------------------------------------------------------
-
-class TestHandleEventInvoicePaid:
-    def test_marks_user_active_pro(self):
-        service, session = _service_with_mock_repo()
-        user = User(id=3)
-        service.repo.get_by_stripe_customer_id.return_value = user
-
-        event = {"type": "invoice.paid", "data": {"object": {"customer": "cus_abc"}}}
-        service.handle_event(event)
-
-        service.repo.update_subscription.assert_called_once_with(
-            user, subscription_tier="pro", subscription_status="active"
-        )
-        session.commit.assert_called_once()
+@pytest.mark.parametrize("kind", sorted(HANDLED_EVENT_TYPES - REVIEW_EVENT_TYPES))
+def test_all_billing_wakeups_use_current_subscription_not_event_snapshot(billing, kind):
+    service, user = billing
+    with patch("stripe.Subscription.list", return_value=current(subscription())):
+        service.handle_event(snapshot(kind, status="canceled", payment_status="unpaid"))
+    assert user.subscription_status == "active"
+    assert user.has_pro_access
 
 
-# ---------------------------------------------------------------------------
-# customer.subscription.updated
-# ---------------------------------------------------------------------------
-
-class TestHandleEventSubscriptionUpdated:
-    @pytest.mark.parametrize(
-        "status,expected_tier",
-        [
-            ("active", "pro"),
-            ("trialing", "pro"),
-            ("past_due", "pro"),
-            ("canceled", "free"),
-            ("unpaid", "free"),
-            ("incomplete_expired", "free"),
-        ],
-    )
-    def test_tier_follows_stripe_status(self, status, expected_tier):
-        service, session = _service_with_mock_repo()
-        user = User(id=4)
-        service.repo.get_by_stripe_customer_id.return_value = user
-
-        event = {
-            "type": "customer.subscription.updated",
-            "data": {
-                "object": {
-                    "customer": "cus_xyz",
-                    "status": status,
-                    "current_period_end": 1700000000,
-                }
-            },
-        }
-        service.handle_event(event)
-
-        service.repo.update_subscription.assert_called_once_with(
-            user,
-            subscription_tier=expected_tier,
-            subscription_status=status,
-            subscription_ends_at=datetime.fromtimestamp(1700000000, tz=timezone.utc),
-            cancel_at_period_end=False,
-        )
-
-    def test_cancel_at_period_end_passes_through(self):
-        # A portal cancel keeps status=active but sets cancel_at_period_end —
-        # the flag is what lets the UI say "ends on X" instead of "renews on X".
-        service, session = _service_with_mock_repo()
-        user = User(id=12)
-        service.repo.get_by_stripe_customer_id.return_value = user
-
-        event = {
-            "type": "customer.subscription.updated",
-            "data": {
-                "object": {
-                    "customer": "cus_cancel",
-                    "status": "active",
-                    "current_period_end": 1700000000,
-                    "cancel_at_period_end": True,
-                }
-            },
-        }
-        service.handle_event(event)
-
-        service.repo.update_subscription.assert_called_once_with(
-            user,
-            subscription_tier="pro",
-            subscription_status="active",
-            subscription_ends_at=datetime.fromtimestamp(1700000000, tz=timezone.utc),
-            cancel_at_period_end=True,
-        )
-
-    def test_created_event_populates_period_end_for_new_subscriber(self):
-        # customer.subscription.created shares the updated handler so a brand-new
-        # subscriber gets subscription_ends_at immediately (checkout.session.completed
-        # carries no period end).
-        service, session = _service_with_mock_repo()
-        user = User(id=11)
-        service.repo.get_by_stripe_customer_id.return_value = user
-
-        event = {
-            "type": "customer.subscription.created",
-            "data": {
-                "object": {
-                    "customer": "cus_new",
-                    "status": "active",
-                    "current_period_end": 1900000000,
-                }
-            },
-        }
-        service.handle_event(event)
-
-        service.repo.update_subscription.assert_called_once_with(
-            user,
-            subscription_tier="pro",
-            subscription_status="active",
-            subscription_ends_at=datetime.fromtimestamp(1900000000, tz=timezone.utc),
-            cancel_at_period_end=False,
-        )
-        session.commit.assert_called_once()
-
-    def test_period_end_falls_back_to_subscription_items(self):
-        # Stripe API 2025-03-31+ ("basil") reports current_period_end on
-        # subscription items, not on the subscription object itself.
-        service, session = _service_with_mock_repo()
-        user = User(id=9)
-        service.repo.get_by_stripe_customer_id.return_value = user
-
-        event = {
-            "type": "customer.subscription.updated",
-            "data": {
-                "object": {
-                    "customer": "cus_basil",
-                    "status": "active",
-                    "items": {"data": [{"current_period_end": 1800000000}]},
-                }
-            },
-        }
-        service.handle_event(event)
-
-        service.repo.update_subscription.assert_called_once_with(
-            user,
-            subscription_tier="pro",
-            subscription_status="active",
-            subscription_ends_at=datetime.fromtimestamp(1800000000, tz=timezone.utc),
-            cancel_at_period_end=False,
-        )
+@pytest.mark.parametrize("status,expected", [("active", True), ("trialing", True),
+    ("canceled", False), ("unpaid", False), ("incomplete_expired", False)])
+def test_authoritative_status_and_period_end(billing, status, expected):
+    service, user = billing
+    user.subscription_tier = "pro"
+    service.session.commit()
+    with patch("stripe.Subscription.list", return_value=current(subscription(status, cancel_at_period_end=True))):
+        service.handle_event(snapshot())
+    assert user.has_pro_access is expected
+    assert user.subscription_status == status
+    assert user.cancel_at_period_end is True
 
 
-# ---------------------------------------------------------------------------
-# customer.subscription.deleted
-# ---------------------------------------------------------------------------
-
-class TestHandleEventSubscriptionDeleted:
-    def test_downgrades_to_free_canceled(self):
-        service, session = _service_with_mock_repo()
-        user = User(id=5)
-        service.repo.get_by_stripe_customer_id.return_value = user
-
-        event = {
-            "type": "customer.subscription.deleted",
-            "data": {"object": {"customer": "cus_del", "ended_at": 1700000000}},
-        }
-        service.handle_event(event)
-
-        service.repo.update_subscription.assert_called_once_with(
-            user,
-            subscription_tier="free",
-            subscription_status="canceled",
-            subscription_ends_at=datetime.fromtimestamp(1700000000, tz=timezone.utc),
-            cancel_at_period_end=False,
-        )
+@pytest.mark.parametrize("existing_pro", [False, True])
+def test_failed_renewal_preserves_existing_access_without_granting_unpaid_access(billing, existing_pro):
+    service, user = billing
+    user.subscription_tier = "pro" if existing_pro else "free"
+    service.session.commit()
+    with patch("stripe.Subscription.list", return_value=current(subscription("past_due", paid=False))):
+        service.handle_event(snapshot("invoice.payment_failed"))
+    assert user.has_pro_access is existing_pro
 
 
-# ---------------------------------------------------------------------------
-# Unhandled event types & error handling
-# ---------------------------------------------------------------------------
-
-class TestHandleEventUnhandledType:
-    def test_ignored_without_touching_repo_or_committing(self):
-        service, session = _service_with_mock_repo()
-
-        service.handle_event({"type": "customer.created", "data": {"object": {}}})
-
-        service.repo.update_subscription.assert_not_called()
-        session.commit.assert_not_called()
+@pytest.mark.parametrize("status", ["active", "incomplete", "unknown_future_status", "paused"])
+def test_unsettled_or_unknown_state_never_grants_new_access(billing, status):
+    service, user = billing
+    with patch("stripe.Subscription.list", return_value=current(subscription(status, paid=False))):
+        service.handle_event(snapshot("checkout.session.async_payment_failed"))
+    assert not user.has_pro_access
+    assert service.session.get(BillingEvent, "evt_synthetic").outcome.startswith("review_")
 
 
-class TestHandleEventDbError:
-    def test_rolls_back_and_raises_processing_error(self):
-        service, session = _service_with_mock_repo()
-        user = User(id=6)
-        service.repo.get_by_stripe_customer_id.return_value = user
-        session.commit.side_effect = SQLAlchemyError("boom")
+def test_delayed_payment_grants_only_after_authoritative_settlement(billing):
+    service, user = billing
+    with patch("stripe.Subscription.list", return_value=current(subscription("incomplete", paid=False))):
+        service.handle_event(snapshot("checkout.session.completed", "evt_unpaid", payment_status="unpaid"))
+    assert not user.has_pro_access
+    with patch("stripe.Subscription.list", return_value=current(subscription())):
+        service.handle_event(snapshot("checkout.session.async_payment_succeeded", "evt_paid"))
+    assert user.has_pro_access
 
-        event = {"type": "invoice.paid", "data": {"object": {"customer": "cus_err"}}}
 
+def test_late_invoice_paid_does_not_revive_canceled_subscription(billing):
+    service, user = billing
+    with patch("stripe.Subscription.list", return_value=current(subscription("canceled"))):
+        service.handle_event(snapshot("customer.subscription.deleted", "evt_deleted"))
+        service.handle_event(snapshot("invoice.paid", "evt_old_paid", status="active"))
+    assert not user.has_pro_access
+    assert user.subscription_status == "canceled"
+
+
+def test_old_subscription_deletion_does_not_revoke_new_paid_subscription(billing):
+    service, user = billing
+    with patch("stripe.Subscription.list", return_value=current(subscription("canceled"), subscription(id="sub_new"))):
+        service.handle_event(snapshot("customer.subscription.deleted"))
+    assert user.has_pro_access
+
+
+def test_reference_id_for_someone_elses_customer_is_not_trusted(billing):
+    service, user = billing
+    victim = User(clerk_id="victim", email="victim@example.test", stripe_customer_id="cus_victim")
+    service.session.add(victim)
+    service.session.commit()
+    with patch("stripe.Subscription.list", return_value=current(subscription())):
+        service.handle_event(snapshot("checkout.session.completed", client_reference_id=str(victim.id)))
+    assert user.has_pro_access
+    assert not victim.has_pro_access
+
+
+@pytest.mark.parametrize("mode", ["payment", None])
+def test_one_off_or_unknown_checkout_mode_does_not_grant_pro(billing, mode):
+    service, user = billing
+    with patch("stripe.Subscription.list") as fetch:
+        service.handle_event(snapshot("checkout.session.completed", mode=mode))
+        fetch.assert_not_called()
+    assert not user.has_pro_access
+
+
+def test_unknown_customer_is_reviewed_without_claiming_reference_id(billing):
+    service, user = billing
+    with patch("stripe.Subscription.list") as fetch:
+        service.handle_event(snapshot("checkout.session.completed", customer="cus_unmapped", client_reference_id=str(user.id)))
+        fetch.assert_not_called()
+    assert not user.has_pro_access
+    assert service.session.get(BillingEvent, "evt_synthetic").outcome == "review_unknown_customer"
+
+
+def test_other_price_preserves_existing_entitlement_for_review(billing):
+    service, user = billing
+    user.subscription_tier = "pro"
+    service.session.commit()
+    other = subscription(items={"data": [{"price": {"id": "price_other"}}]})
+    with patch("stripe.Subscription.list", return_value=current(other)):
+        service.handle_event(snapshot())
+    assert user.has_pro_access
+    assert service.session.get(BillingEvent, "evt_synthetic").outcome == "review_unmatched_price"
+
+
+@pytest.mark.parametrize("kind", sorted(REVIEW_EVENT_TYPES))
+def test_refund_dispute_fraud_are_private_review_only(billing, caplog, kind):
+    service, user = billing
+    user.subscription_tier = "pro"
+    service.session.commit()
+    marker = "synthetic-private-payload"
+    with patch("stripe.Subscription.list") as fetch:
+        service.handle_event(snapshot(kind, customer=marker, description=marker))
+        fetch.assert_not_called()
+    assert user.has_pro_access
+    receipt = service.session.get(BillingEvent, "evt_synthetic")
+    assert receipt.outcome == "review_required"
+    assert marker not in repr(receipt.__dict__)
+    assert marker not in caplog.text
+
+
+@pytest.mark.parametrize("failure", [stripe.APIConnectionError("synthetic-sensitive-provider-detail"), SQLAlchemyError("synthetic-sensitive-provider-detail")])
+def test_failure_rolls_back_and_retry_preserves_access(billing, caplog, failure):
+    service, user = billing
+    user.subscription_tier = "pro"
+    service.session.commit()
+    with patch("stripe.Subscription.list", side_effect=failure):
+        with pytest.raises(StripeWebhookProcessingError) as caught:
+            service.handle_event(snapshot())
+    assert caught.value.__context__ is None
+    assert "synthetic-sensitive" not in str(caught.value)
+    assert "synthetic-sensitive" not in caplog.text
+    assert user.has_pro_access
+    assert service.session.get(BillingEvent, "evt_synthetic") is None
+    with patch("stripe.Subscription.list", return_value=current(subscription())):
+        service.handle_event(snapshot())
+    assert service.session.get(BillingEvent, "evt_synthetic") is not None
+
+
+def test_truncated_state_cannot_revoke_access(billing):
+    service, user = billing
+    user.subscription_tier = "pro"
+    service.session.commit()
+    with patch("stripe.Subscription.list", return_value=current(subscription("canceled"), has_more=True)):
         with pytest.raises(StripeWebhookProcessingError):
-            service.handle_event(event)
+            service.handle_event(snapshot())
+    assert user.has_pro_access
 
-        session.rollback.assert_called_once()
+
+def test_unhandled_event_does_not_call_stripe_or_store_receipt(billing):
+    service, _ = billing
+    with patch("stripe.Subscription.list") as fetch:
+        service.handle_event(snapshot("customer.created"))
+        fetch.assert_not_called()
+    assert service.session.get(BillingEvent, "evt_synthetic") is None
 
 
-class TestHandleEventStripeObject:
-    def test_real_stripe_event_object_is_converted_to_dict(self):
-        # Regression: stripe-python's StripeObject (what construct_event
-        # actually yields for data.object) lacks Mapping methods like .get();
-        # handle_event must convert it before the handlers touch it.
-        service, session = _service_with_mock_repo()
-        user = User(id=10)
-        service.repo.get_by_id.return_value = user
+def test_commit_failure_rolls_back_entitlement_and_receipt_together(billing):
+    service, user = billing
+    user.subscription_tier = "pro"
+    service.session.commit()
+    with patch("stripe.Subscription.list", return_value=current(subscription("canceled"))), \
+         patch.object(service.session, "commit", side_effect=SQLAlchemyError("synthetic failure")):
+        with pytest.raises(StripeWebhookProcessingError):
+            service.handle_event(snapshot())
+    service.session.refresh(user)
+    assert user.has_pro_access
+    assert service.session.get(BillingEvent, "evt_synthetic") is None
 
-        event = stripe.Event.construct_from(
-            {
-                "type": "checkout.session.completed",
-                "data": {
-                    "object": {
-                        "customer": "cus_real",
-                        "client_reference_id": "10",
-                        "payment_status": "paid",
-                    }
-                },
-            },
-            "sk_test_dummy",
-        )
-        service.handle_event(event)
 
-        service.repo.update_subscription.assert_called_once_with(
-            user,
-            stripe_customer_id="cus_real",
-            subscription_tier="pro",
-            subscription_status="active",
-        )
-        session.commit.assert_called_once()
+def test_duplicate_receipt_survives_new_database_session(billing, file_db):
+    service, _ = billing
+    with patch("stripe.Subscription.list", return_value=current(subscription())):
+        service.handle_event(snapshot())
+    with file_db() as fresh_session, patch("stripe.Subscription.list") as fetch:
+        StripeWebhookService(fresh_session, service.settings).handle_event(snapshot())
+        fetch.assert_not_called()
+
+
+def test_missing_webhook_secret_and_event_id_are_rejected(billing):
+    service, _ = billing
+    settings = service.settings.model_copy(update={"stripe_webhook_secret": None})
+    with pytest.raises(InvalidStripeSignatureError):
+        service.verify_and_parse_event(b"{}", "sig", settings)
+    data = snapshot()
+    del data["id"]
+    with pytest.raises(StripeWebhookProcessingError):
+        service.handle_event(data)
+
+
+def test_billing_ledger_migration_preserves_existing_users(tmp_path, monkeypatch):
+    from pathlib import Path
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import create_engine, text, inspect
+    backend = Path(__file__).resolve().parents[1]
+    url = f"sqlite:///{tmp_path / 'billing-migration.db'}"
+    monkeypatch.setenv("SQLALCHEMY_DATABASE_URL", url)
+    monkeypatch.chdir(backend)
+    config = Config(str(backend / "alembic.ini"))
+    command.upgrade(config, "f5b0d3e8c2a4")
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO users (clerk_id,email,is_admin,subscription_tier,subscription_status,cancel_at_period_end,created_at,updated_at) VALUES ('existing','existing@example.test',0,'pro','active',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"))
+    command.upgrade(config, "head")
+    assert "billing_events" in inspect(engine).get_table_names()
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT subscription_tier, usage_plan FROM users WHERE clerk_id='existing'")).one() == ("pro", "legacy")
+        assert connection.execute(text("SELECT COUNT(*) FROM billing_events")).scalar() == 0
+    engine.dispose()
+
+
+def test_signed_webhook_route_reconciles_even_while_checkout_disabled(billing):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from app.api.stripe_webhooks import router
+    from app.database.db import get_session
+    from app.core.stripe_config import get_stripe_settings
+    service, user = billing
+    app = FastAPI()
+    app.include_router(router, prefix="/api/webhooks/stripe")
+    app.dependency_overrides[get_session] = lambda: service.session
+    app.dependency_overrides[get_stripe_settings] = lambda: service.settings
+    assert service.settings.stripe_checkout_enabled is False
+    body, header = signed(snapshot())
+    with patch("stripe.Subscription.list", return_value=current(subscription())):
+        response = TestClient(app).post("/api/webhooks/stripe", content=body,
+            headers={"Stripe-Signature": header, "Content-Type": "application/json"})
+    assert response.status_code == 200
+    assert response.json() == {"received": True}
+    assert user.has_pro_access
