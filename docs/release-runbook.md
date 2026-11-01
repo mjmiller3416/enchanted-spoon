@@ -22,7 +22,8 @@ A local simulation of that sequence on current `main` (`d57536e`) merges with no
 
 - **#208** conflicted with #206+#210+#207 in auth dependencies, users, admin DTOs, the model package, the router, billing settings, and the usage type. Fixed by merge commits of those branches into `cursor/household-sharing-8604`. Households of two or more reserve AI usage on the owner through `set_household_usage_hooks`. The owner's Pro cap is multiplied by 1.5. Trial, read-only, and sunset behavior from #210 stay.
 - **#209** conflicted with that stack in billing, Stripe webhooks, the user model, env example, paywall, settings billing, pricing, and the app shell. Fixed by a merge commit of the updated household branch into `cursor/capacitor-native-apps-6ed5`. Store paywall and push stay beside web checkout.
-- Three Alembic heads (`e7b1c4a9d2f6` billing, `f6b2c8d4e1a7` household, `a7c2e9b4d1f0` push) are joined by `b8e4c1a7d2f9` on #209. `alembic upgrade head` is a single target only after #209 is included.
+- #208 joins billing `e7b1c4a9d2f6` and household `f6b2c8d4e1a7` in empty revision `c4a8e2b1d7f3`, so that PR has one Alembic head.
+- #209 joins that revision with native push `a7c2e9b4d1f0` (via `b8e4c1a7d2f9` and `d5b9f3c2e8a4`). `alembic upgrade head` is one target on #208 alone and again after #209.
 
 ## Environment variables
 
@@ -129,7 +130,7 @@ Prefer this order. Schema and code move together.
 
 1. **Railway.** Redeploy the previous successful deployment of the backend and the frontend. That restores the last good image without a new git commit. Do this first if the new process is crash-looping.
 2. **Git.** If the bad commits are on `main`, revert the merge commits in reverse order: #209, then #208, then #207, then #210, then #206. `git revert -m 1 <merge-commit>` and push those revert commits. Do not reset `main`.
-3. **Migrations.** After the code is back, downgrade the database. `b8e4c1a7d2f9` is an empty merge of three heads. `alembic downgrade -1` from that revision only unlinks the heads. Then downgrade each branch:
+3. **Migrations.** After the code is back, downgrade the database. `d5b9f3c2e8a4` and `c4a8e2b1d7f3` and `b8e4c1a7d2f9` are empty merge revisions. `alembic downgrade -1` from `d5b9f3c2e8a4` only unlinks the latest pair. Repeat until the empty merges are gone, then downgrade each branch:
    - Billing, newest first: `e7b1c4a9d2f6` (usage exempt) → `d9f3b2c8e1a7` (pending trial checkout) → `c8e2a1b7d4f6` (trial and sunset columns) → `a6c1e4f9d3b5` drops `billing_events` → `f5b0d3e8c2a4` drops `users.usage_plan`. Dropping `usage_plan` forgets who was on the legacy allowance cohort.
    - Household `f6b2c8d4e1a7` drops `household_recipe_shares`, `household_invites`, `household_members`, then `households`. Do this while `users` still exists. Recipe rows stay; only the share links go away.
    - Native `a7c2e9b4d1f0` drops push tokens and trial nudges, then `f6a1c8e4b2d0` drops store entitlement columns.
