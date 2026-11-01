@@ -16,6 +16,8 @@ export interface CurrentUserUsage {
   ai_assistant_messages: number;
   recipes_imported: number;
   limits: UsageLimits;
+  /** True when the numbers are the household owner's shared pool. */
+  shared_with_household?: boolean;
 }
 
 export interface CheckoutSessionResponse {

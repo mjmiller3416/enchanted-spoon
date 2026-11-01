@@ -106,10 +106,10 @@ function HouseholdSetup({ initialCode }: { initialCode: string }) {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        A household shares one meal plan and one shopping list, kept on the owner&apos;s
-        account. Recipes stay with the person who created them until they share each one.
-        One Pro subscription on the owner covers members. Each person keeps their own
-        monthly AI allowance.
+        A household is the owner&apos;s kitchen: one meal plan and one shopping list, for
+        up to 6 people. Recipes stay with the person who created them until they share
+        each one. Once a second person joins, AI usage is one shared allowance on the
+        owner&apos;s account.
       </p>
 
       <form
@@ -168,7 +168,6 @@ function HouseholdSetup({ initialCode }: { initialCode: string }) {
 
 function HouseholdHome({ household }: { household: Household }) {
   const isOwner = household.role === "owner";
-  const [email, setEmail] = useState("");
   const createInvite = useCreateHouseholdInvite();
   const revoke = useRevokeHouseholdInvite();
   const leave = useLeaveHousehold();
@@ -185,12 +184,10 @@ function HouseholdHome({ household }: { household: Household }) {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        The meal plan and shopping list you see now are the household&apos;s, stored on the
-        owner&apos;s account. Your own plan and list are kept and come back if you leave.
-        Share individual recipes from a recipe page.{" "}
-        {household.pro_covers_members
-          ? "The owner's Pro plan covers members. Each person still has their own monthly AI allowance at Pro limits."
-          : "If the owner subscribes to Pro, members get Pro access without paying separately. Each person keeps a separate monthly allowance."}
+        This is the owner&apos;s kitchen. The meal plan and shopping list live on the
+        owner&apos;s account, and they come back to you as your own if you leave.
+        Share individual recipes from a recipe page. With two or more people, AI
+        usage is one shared allowance — see Plan &amp; Billing for what&apos;s left.
       </p>
 
       <div className="space-y-3">
@@ -250,37 +247,24 @@ function HouseholdHome({ household }: { household: Household }) {
       {isOwner && (
         <>
           <Separator />
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              createInvite.mutate(email.trim() ? email.trim() : null, {
-                onSuccess: () => {
-                  setEmail("");
-                  toast.success("Invite created. Copy the link to share it.");
-                },
-                onError: (error) => toast.error(errorMessage(error, "Could not create an invite")),
-              });
-            }}
-          >
-            <Label htmlFor="invite-email">Invite</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="Optional email — we don't send it"
-              disabled={createInvite.isPending}
-            />
-            <p className="text-xs text-muted-foreground">
-              Leave the email blank for a link anyone can use. If you add one, only that
-              account can redeem the code. Enchanted Spoon does not send email yet.
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Create a link or code and share it. Anyone with it can join until it expires.
             </p>
-            <Button type="submit" disabled={createInvite.isPending}>
+            <Button
+              type="button"
+              disabled={createInvite.isPending}
+              onClick={() =>
+                createInvite.mutate(null, {
+                  onSuccess: () => toast.success("Invite created. Copy the link or share the code."),
+                  onError: (error) => toast.error(errorMessage(error, "Could not create an invite")),
+                })
+              }
+            >
               {createInvite.isPending && <Loader2 className="size-4 animate-spin" strokeWidth={1.5} />}
               Create invite link
             </Button>
-          </form>
+          </div>
 
           {household.invites.length > 0 && (
             <ul className="space-y-3">
@@ -289,7 +273,7 @@ function HouseholdHome({ household }: { household: Household }) {
                   <div>
                     <p className="text-sm text-foreground">{invite.code}</p>
                     <p className="text-xs text-muted-foreground">
-                      {invite.email ? `Only ${invite.email}` : "Anyone with the link"} · expires{" "}
+                      Anyone with the link or code · expires{" "}
                       {new Date(invite.expires_at).toLocaleDateString()}
                     </p>
                   </div>

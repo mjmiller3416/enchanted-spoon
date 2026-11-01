@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
-from ...core.usage_limits import get_monthly_limit
 from ...services.household.scope import effective_access
+from ...services.household.usage_meter import resolve_usage_meter
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -251,15 +251,14 @@ def require_within_usage_limit(field: str) -> Callable[..., Generator[User, None
     Dependency factory that enforces a monthly usage cap for a Gemini-backed
     AI feature, resolved from the user's subscription tier.
 
-    Reserves one unit of `field` against the user's tier cap in
-    `app/core/usage_limits.py` before the route runs (one atomic conditional
+    Reserves one unit of `field` before the route runs (one atomic conditional
     UPDATE, so parallel requests can't overshoot the cap), and refunds it if
     the route raises. Routes therefore must not increment `field` themselves.
-    Admins are uncapped but still counted. Free users are metered (a small
-    taste-test allowance), not blocked outright — the binary `require_pro`
-    gate was deliberately dropped here when the metered free tier landed
-    (#164), so a capped free user gets a structured 429 the frontend can turn
-    into an upgrade prompt.
+    The cap comes from the caller's tier, except in a household of two or
+    more: then the unit is reserved on the owner's row and the cap is the
+    Pro cap times 1.5 (see ``household.usage_meter``, kept out of
+    ``usage_limits.py``). Admins are uncapped but still counted. Free users
+    are metered, not blocked outright.
 
     Usage:
         @router.post("/ai/generate-image")
@@ -280,14 +279,9 @@ def require_within_usage_limit(field: str) -> Callable[..., Generator[User, None
         user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
     ) -> Generator[User, None, None]:
-        if user.is_admin:
-            limit = None
-        else:
-            has_pro, _reason = effective_access(session, user)
-            tier = "pro" if has_pro else "free"
-            limit = get_monthly_limit(tier, field)
-
-        usage_service = UsageService(session, user.id)
+        meter = resolve_usage_meter(session, user)
+        limit = meter.limit_for(field)
+        usage_service = UsageService(session, meter.user_id)
         try:
             usage_service.reserve(field, limit)
         except UsageLimitExceededError as e:

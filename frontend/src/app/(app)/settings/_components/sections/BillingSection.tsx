@@ -90,7 +90,7 @@ function UsageRow({
           <span className="text-muted-foreground">Unlimited</span>
         ) : (
           <span className="text-muted-foreground">
-            {used} / {limit}
+            {Math.max(0, limit - used)} left · {used} / {limit}
           </span>
         )}
       </div>
@@ -192,7 +192,9 @@ export function BillingSection() {
             <div>
               <h3 className="text-sm font-medium text-foreground">AI usage this month</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Counters reset at the start of each month.
+                {usage?.shared_with_household
+                  ? "Shared household allowance on the owner's account. Everyone's AI use counts here, and it resets at the start of each month."
+                  : "Counters reset at the start of each month."}
               </p>
             </div>
 

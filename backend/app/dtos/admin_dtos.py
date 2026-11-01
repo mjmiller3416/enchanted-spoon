@@ -213,6 +213,8 @@ class CurrentUserUsageDTO(BaseModel):
     ai_assistant_messages: int
     recipes_imported: int
     limits: AdminUsageLimitsDTO
+    # True when the numbers are the household owner's shared pool.
+    shared_with_household: bool = False
 
     @classmethod
     def from_models(
@@ -221,6 +223,8 @@ class CurrentUserUsageDTO(BaseModel):
         usage: UserUsage,
         *,
         has_pro_access: Optional[bool] = None,
+        limits: Optional[AdminUsageLimitsDTO] = None,
+        shared_with_household: bool = False,
     ) -> CurrentUserUsageDTO:
         return cls(
             month=usage.month,
@@ -228,7 +232,10 @@ class CurrentUserUsageDTO(BaseModel):
             ai_suggestions_requested=usage.ai_suggestions_requested or 0,
             ai_assistant_messages=usage.ai_assistant_messages or 0,
             recipes_imported=usage.recipes_imported or 0,
-            limits=AdminUsageLimitsDTO.for_user(user, has_pro_access=has_pro_access),
+            limits=limits
+            if limits is not None
+            else AdminUsageLimitsDTO.for_user(user, has_pro_access=has_pro_access),
+            shared_with_household=shared_with_household,
         )
 
 

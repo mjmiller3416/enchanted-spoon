@@ -30,7 +30,7 @@ from .scope import membership_for
 
 ROLE_OWNER = "owner"
 ROLE_MEMBER = "member"
-MAX_HOUSEHOLD_MEMBERS = 8
+MAX_HOUSEHOLD_MEMBERS = 6
 MAX_OPEN_INVITES = 10
 INVITE_DAYS = 14
 

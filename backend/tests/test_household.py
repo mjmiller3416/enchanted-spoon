@@ -1,5 +1,6 @@
 """Household sharing: membership, invites, recipe visibility, and Pro coverage."""
 
+import math
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -20,7 +21,10 @@ from app.services.household.service import (
     InviteInvalidError,
     MAX_HOUSEHOLD_MEMBERS,
 )
+from app.core.usage_limits import get_monthly_limit
+from app.services.household.usage_meter import resolve_usage_meter, shared_household_limit
 from app.services.recipe_service import RecipeInUseError, RecipeService
+from app.services.usage_service import UsageService
 
 
 def _user(session: Session, suffix: str, **overrides) -> User:
@@ -234,3 +238,56 @@ class TestSharedRecipes:
 
         with pytest.raises(AccountDeletionBlockedError, match="Transfer the household"):
             AccountService(db_session).delete_account(owner)
+
+
+class TestSharedUsageMeter:
+    def test_two_members_share_the_owners_pro_pool(self, file_db):
+        with file_db() as session:
+            owner = session.get(User, 1)
+            assert owner is not None
+            owner.is_admin = False
+            owner.subscription_tier = "free"
+            owner.subscription_status = "active"
+            guest = User(
+                clerk_id="guest_meter",
+                email="guest-meter@example.com",
+                name="Guest",
+                is_admin=False,
+                subscription_tier="free",
+                subscription_status="active",
+            )
+            session.add(guest)
+            session.commit()
+
+            alone = resolve_usage_meter(session, owner)
+            assert alone.shared is False
+            assert alone.user_id == owner.id
+            assert alone.limit_for("recipes_imported") == get_monthly_limit(
+                "free", "recipes_imported"
+            )
+
+            service = HouseholdService(session)
+            service.create(owner, "Metered kitchen")
+            service.join(guest, service.create_invite(owner, None).code)
+
+            meter = resolve_usage_meter(session, guest)
+            assert meter.shared is True
+            assert meter.user_id == owner.id
+            assert meter.limit_for("recipes_imported") == shared_household_limit(
+                "recipes_imported"
+            )
+            assert shared_household_limit("recipes_imported") == math.ceil(
+                get_monthly_limit("pro", "recipes_imported") * 1.5
+            )
+
+            UsageService(session, meter.user_id).reserve(
+                "recipes_imported", meter.limit_for("recipes_imported")
+            )
+            assert UsageService(session, owner.id).get_usage().recipes_imported == 1
+            assert UsageService(session, guest.id).get_usage().recipes_imported == 0
+
+            owner.is_admin = True
+            session.commit()
+            admin_meter = resolve_usage_meter(session, guest)
+            assert admin_meter.shared is True
+            assert admin_meter.limit_for("ai_images_generated") is None
