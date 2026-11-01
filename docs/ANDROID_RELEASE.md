@@ -4,7 +4,7 @@ The Android app is the Capacitor shell `com.enchantedspoon.app` under `frontend/
 
 Agents working on this repo do not have a Play Console account of their own. Every Play Console step is done by the owner, or in a browser where the owner is already signed in. Do not register a Play developer account from an agent, and do not turn on a paid GitHub runner. The release workflow uses the free `ubuntu-latest` runner and runs only when someone starts it by hand.
 
-The signing pipeline lands after the Capacitor shell ([#209](https://github.com/mjmiller3416/enchanted-spoon/pull/209)). Until that pull request merges, this branch is based on `cursor/capacitor-native-apps-6ed5`. After #209 merges, retarget this pull request to `main`. Do not merge it before that.
+The Capacitor shell landed in [#209](https://github.com/mjmiller3416/enchanted-spoon/pull/209). This runbook is the upload-key and Play testing follow-up.
 
 ## 1. Generate the upload key
 
