@@ -29,12 +29,16 @@ async def import_recipe(
     session: Session = Depends(get_session),
     current_user: User = Depends(require_within_usage_limit("recipes_imported")),
 ) -> RecipeImportResponseDTO:
-    """Import a recipe from a website URL.
+    """Import a recipe from a website, TikTok, or Instagram URL.
 
-    Fetches the page, extracts its structured recipe data (with an AI text
-    fallback for sites without markup), and normalizes it into the app's
-    recipe shape for wizard review. Nothing is saved until the user saves
-    the wizard.
+    Website pages use structured recipe data (with an AI text fallback).
+    TikTok posts use public oEmbed. Instagram uses the public page's Open Graph
+    description (no Meta app). ``INSTAGRAM_OEMBED_ACCESS_TOKEN`` is an optional
+    post-launch switch to Meta's free oEmbed. The same normalizer and
+    ``recipes_imported`` cap apply. Nothing is saved until the user saves the
+    wizard. Private posts, login walls, and caption-less videos return 400/422
+    and refund the usage reservation. The client can resend ``pasted_text``
+    (the caption or recipe) for those social URLs; there is no transcript API.
 
     Args:
         request: The URL to import, optional category vocabulary, image flag.
