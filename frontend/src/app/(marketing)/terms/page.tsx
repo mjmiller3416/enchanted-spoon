@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: `The terms that govern your use of ${appConfig.appName}.`,
 };
 
-const LAST_UPDATED = "July 13, 2026";
+const LAST_UPDATED = "October 30, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -55,7 +55,7 @@ export default function TermsPage() {
           estimation, and image generation) produce automated output that may be inaccurate or
           incomplete. Nutrition estimates are informational only and are not medical or dietary
           advice — always verify ingredients and allergens yourself. AI usage may be subject to
-          reasonable limits.
+          the monthly allowances shown on our pricing page and in Settings.
         </p>
       </Section>
 
@@ -69,7 +69,7 @@ export default function TermsPage() {
 
       <Section title="Data portability and termination">
         <p className="leading-7 text-foreground-subtle">
-          You can export a full backup of your data or delete it at any time from Settings
+          You can export supported kitchen data and use deletion controls from Settings
           &rarr; Data Management. You may stop using the service whenever you like. We may
           suspend or terminate accounts that violate these terms.
         </p>

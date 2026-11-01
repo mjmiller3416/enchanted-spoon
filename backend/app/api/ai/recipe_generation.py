@@ -10,6 +10,7 @@ from app.dtos.recipe_generation_dtos import (
     RecipeGenerationResponseDTO,
 )
 from app.models.user import User
+from app.services.ai.optional_images import generate_optional_recipe_images
 from app.services.ai.recipe_generation import get_recipe_generation_service
 from app.services.ai.recipe_generation.service import (
     RecipeGenerationError,
@@ -46,7 +47,10 @@ async def generate_recipe(
             request.allowed_categories = [cat.value for cat in user_categories]
 
         service = get_recipe_generation_service()
-        result = await service.generate(request)
+        async def images(recipe_name: str):
+            return await generate_optional_recipe_images(session, current_user, recipe_name)
+
+        result = await service.generate(request, image_generator=images)
 
         if not result.success:
             raise HTTPException(

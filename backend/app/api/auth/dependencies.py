@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
+from ...core.usage_limits import get_user_monthly_limit
 from ...services.household.scope import effective_access
 from ...services.household.usage_meter import resolve_usage_meter
 from ...database.db import get_session

@@ -3,6 +3,10 @@ import { act, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { AssistantProvider, useAssistantDialog } from "@/lib/providers/AssistantProvider";
 
+vi.mock("@tanstack/react-query", () => ({ useQueryClient: () => ({ invalidateQueries: vi.fn() }) }));
+vi.mock("@/hooks/api/useShopping", () => ({ useUndoShoppingAdd: () => ({ mutateAsync: vi.fn() }), shoppingQueryKeys: {} }));
+vi.mock("@/hooks/api/usePlanner", () => ({ useUndoPlannerAdd: () => ({ mutateAsync: vi.fn() }) }));
+
 const mocks = vi.hoisted(() => ({ chat: vi.fn(), add: vi.fn() }));
 vi.mock("@/hooks/api/useAI", () => ({ useAssistantChat: () => ({ mutateAsync: mocks.chat, isPending: false }) }));
 vi.mock("@/hooks/persistence/useChatHistory", () => ({ useChatHistory: () => ({ messages: [], addMessage: mocks.add, clearHistory: vi.fn() }) }));
