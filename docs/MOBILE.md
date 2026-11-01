@@ -89,9 +89,46 @@ Web only. The native UI mentions it only where the store currently allows a link
 
 ### Read-only accounts
 
-Accounts created on or before 2026-10-31 keep the full free plan through **March 31, 2027 at 11:59 PM America/New_York** (`FREE_PLAN_SUNSET_AT=2027-03-31T23:59:00`, `FREE_PLAN_SUNSET_TIMEZONE=America/New_York`). That is 2027-04-01 03:59 UTC, not 23:59 UTC. After that instant they are `access_mode: "read_only"`: they can view and export, delete the account, and subscribe, and other writes return 403 `account_read_only`. The app shows a banner and the paywall. Pro, admin, and granted access stay full. Accounts created after the cutoff stay on the current metered free plan; they are not flipped to read-only on that date.
+`LEGACY_FREE_CUTOFF` is the coordinated release instant (ISO-8601). It is empty until that deploy, so nobody is grandfathered yet. Accounts created **before** the cutoff keep the full free plan through **March 31, 2027 at 11:59 PM America/New_York** (`FREE_PLAN_SUNSET_AT=2027-03-31T23:59:00`, `FREE_PLAN_SUNSET_TIMEZONE=America/New_York`). That is 2027-04-01 03:59 UTC, not 23:59 UTC. After that instant they are `access_mode: "read_only"`: they can view and export, delete the account, and subscribe, and other writes return 403 `account_read_only`. The app shows a banner and the paywall. Pro, admin, and granted access stay full. Accounts created at or after the cutoff stay on the metered free plan until trial onboarding ships. Set the cutoff to the release timestamp when that deploy goes out, for example `LEGACY_FREE_CUTOFF=2026-12-01T16:00:00Z`.
 
 FOUNDER30 ends at the same configured instant. The website reads the matching `NEXT_PUBLIC_FREE_PLAN_SUNSET_AT` and `NEXT_PUBLIC_FREE_PLAN_SUNSET_TIMEZONE` (same defaults). Changing one without the other makes the banner and the founding offer disagree.
+
+## Push notifications
+
+Permission is requested only after a trial starts (`subscription_status` or `store_status` is `trialing`). The app then registers the device token with `POST /api/devices`. Starting a trial schedules two nudges, on day 5 and day 6. A cron calls `POST /api/internal/push/dispatch` with header `X-Push-Dispatch-Key: $PUSH_DISPATCH_SECRET`. Without APNs or FCM credentials the nudges stay queued.
+
+Approved store ids: `com.enchantedspoon.app.pro.monthly`, `com.enchantedspoon.app.pro.annual`, entitlement `pro`.
+
+### APNs
+
+1. Apple Developer → Keys → create an Apple Push Notifications service key (`.p8`). Note the Key ID and your Team ID.
+2. Enable Push Notifications on the App ID `com.enchantedspoon.app`. The Xcode target already points at `App/App.entitlements` (`aps-environment`). Use `development` for sandbox and switch that value to `production` for App Store builds.
+3. On the API service set:
+   - `APNS_KEY_ID`
+   - `APNS_TEAM_ID`
+   - `APNS_AUTH_KEY` (the `.p8` contents; newlines may be written as `\n`)
+   - `APNS_BUNDLE_ID=com.enchantedspoon.app`
+   - `APNS_USE_SANDBOX=true` until the build is a production App Store build
+   - `PUSH_DISPATCH_SECRET` (any long random string)
+
+### FCM
+
+1. Create a Firebase project and add an Android app with package `com.enchantedspoon.app`.
+2. Download `google-services.json` into `frontend/android/app/` when you are ready to ship push. It is not committed.
+3. Cloud Messaging → manage service accounts, or use the legacy server key if the project still offers it. Set `FCM_SERVER_KEY` on the API service to that key. The sender posts to `https://fcm.googleapis.com/fcm/send`.
+4. The app requests `POST_NOTIFICATIONS` at runtime after the trial starts.
+
+## Share a recipe link
+
+iOS: the ShareExtension target (`com.enchantedspoon.app.share`) accepts a URL or plain text and opens `enchantedspoon://import?url=`. Android: the activity accepts `ACTION_SEND` of `text/plain` and the `enchantedspoon` scheme. The hosted app opens the recipe wizard on URL import and calls `POST /api/ai/recipe-import` (the same flow as pasting a link). TikTok and Instagram shares are ordinary text that contain an `https` URL.
+
+## Offline grocery list
+
+The latest shopping list is stored in `localStorage`. When the device is offline, the list screen shows that copy. Checking an item off updates the copy immediately and queues the write. Coming back online replays the queue through the existing shopping update API.
+
+## Google sign-in
+
+In the native shell, Continue with Google opens the system browser (Safari View Controller or Chrome Custom Tabs), not the WebView. Clerk must allow the redirect `enchantedspoon://sso-callback`. The app loads that callback into `/sso-callback` on the hosted origin so the existing Clerk handoff can finish. The website still uses the in-page redirect.
 
 ## Release builds
 
@@ -175,7 +212,9 @@ Not in this change:
 ## Known risks
 
 - **Guideline 4.2.** A shell that only loads a website can be rejected for minimum functionality. The paywall, restore, and native purchase path are the store-specific behavior; the rest of the product is the hosted app. Review may still ask for more native UI.
-- **Google sign-in inside the WebView.** Google often blocks OAuth with `disallowed_useragent` in WKWebView and the Android WebView. Email and password Clerk sign-in is the path to verify first. A system-browser handoff back through `enchantedspoon://` is not built.
+- **Google sign-in** uses the system browser and `enchantedspoon://sso-callback`. It fails until that URL is on the Clerk redirect allowlist, and until the dashboard's Google provider is enabled.
+- **Push delivery** stays queued until `APNS_*` and `FCM_SERVER_KEY` are set. FCM's legacy server key is what this sender uses; a project that only has HTTP v1 needs that key or a follow-up sender.
+- **Share extension** needs its own provisioning profile (`com.enchantedspoon.app.share`) the first time you archive.
 - **Cookies and ITP.** First-party cookies on the hosted origin are the intended session. If Clerk is ever served from a different site inside the WebView, the session will not stick.
 - **`server.url` requires the network.** There is no offline copy of the app.
 - **Store products and RevenueCat do not exist yet.** With the flag off, the paywall still renders and purchase or restore reports that in-app purchases are not turned on. Do not submit until a sandbox purchase completes.
