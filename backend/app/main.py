@@ -30,6 +30,9 @@ init_sentry()
 async def lifespan(app: FastAPI):
     """Validate critical configuration before serving any requests."""
     validate_config()
+    from app.core.offer_windows import log_legacy_cutoff_if_unset
+
+    log_legacy_cutoff_if_unset()
     _apply_sunset_if_due()
     yield
 
@@ -103,8 +106,17 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}
+    """Liveness plus the free-tier cutoff fail-safe.
+
+    ``status`` stays ``healthy`` so a missing cutoff does not fail the
+    process check. ``legacy_free_cutoff_configured`` is false, and
+    ``legacy_free_cutoff_error`` is set, until the variable is present.
+    """
+    from app.core.offer_windows import legacy_cutoff_status
+
+    body = {"status": "healthy"}
+    body.update(legacy_cutoff_status())
+    return body
 
 
 # Optional: Serve static files for images if needed

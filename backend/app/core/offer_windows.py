@@ -8,9 +8,18 @@ change sets.
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+logger = logging.getLogger(__name__)
+
+LEGACY_CUTOFF_UNSET_ERROR = (
+    "LEGACY_FREE_CUTOFF is unset. Every account is being treated as legacy "
+    "and keeps the free AI allowance until the sunset. Set LEGACY_FREE_CUTOFF "
+    "to the release timestamp before deploy."
+)
 
 EASTERN = ZoneInfo("America/New_York")
 
@@ -42,10 +51,11 @@ def legacy_free_cutoff() -> datetime | None:
     """Accounts created before this instant keep free until the sunset date.
 
     This is the coordinated release deploy time, not a date baked into the
-    source. Set ``LEGACY_FREE_CUTOFF`` (ISO 8601) when this ships. A naive
-    value is read as Eastern Time. Unset means nobody is in the cohort.
-    PR #209 should read the same variable instead of its hardcoded
-    2026-10-31 cutoff.
+    source. Set ``LEGACY_FREE_CUTOFF`` (ISO 8601) before deploy. A naive
+    value is read as Eastern Time. Unset is a misconfiguration: every
+    account stays in the legacy free cohort until the sunset, and startup
+    logs an error. PR #209 should read the same variable instead of its
+    hardcoded 2026-10-31 cutoff.
     """
     raw = os.getenv("LEGACY_FREE_CUTOFF", "").strip()
     if not raw:
@@ -57,12 +67,41 @@ def legacy_free_cutoff() -> datetime | None:
 
 
 def created_before_legacy_free_cutoff(created_at: datetime | None) -> bool:
-    """True when ``created_at`` is strictly before ``LEGACY_FREE_CUTOFF``."""
+    """True when ``created_at`` is strictly before ``LEGACY_FREE_CUTOFF``.
+
+    When the cutoff is unset, every account is treated as legacy so a
+    missing deploy variable cannot drop existing free accounts to tier
+    ``none``.
+    """
     cutoff = legacy_free_cutoff()
-    if cutoff is None or created_at is None:
+    if cutoff is None:
+        return True
+    if created_at is None:
         return False
     moment = created_at if created_at.tzinfo else created_at.replace(tzinfo=EASTERN)
     return moment.astimezone(EASTERN) < cutoff.astimezone(EASTERN)
+
+
+def legacy_cutoff_status() -> dict[str, object]:
+    """Health and admin status payload for the free-tier cutoff."""
+    cutoff = legacy_free_cutoff()
+    if cutoff is None:
+        return {
+            "legacy_free_cutoff_configured": False,
+            "legacy_free_cutoff": None,
+            "legacy_free_cutoff_error": LEGACY_CUTOFF_UNSET_ERROR,
+        }
+    return {
+        "legacy_free_cutoff_configured": True,
+        "legacy_free_cutoff": cutoff.isoformat(),
+        "legacy_free_cutoff_error": None,
+    }
+
+
+def log_legacy_cutoff_if_unset() -> None:
+    """Loud startup error when the release cutoff was not configured."""
+    if legacy_free_cutoff() is None:
+        logger.critical(LEGACY_CUTOFF_UNSET_ERROR)
 
 
 def sunset_is_due(now: datetime | None = None) -> bool:

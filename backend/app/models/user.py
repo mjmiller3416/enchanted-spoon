@@ -284,16 +284,13 @@ class User(Base):
         return "free"
 
     def keeps_admin_access(self) -> bool:
-        """Database admin flag, or an email on ``ADMIN_EXEMPT_EMAILS``.
+        """Database admin flag only.
 
-        The allowlist is how two accounts stay admin without putting their
-        addresses in source. Everyone else keeps the stored flag.
+        ``ADMIN_EXEMPT_EMAILS`` does not grant this. Those accounts get
+        uncapped AI and read-only admin views through the usage and admin
+        view checks, which require Clerk's verified primary email.
         """
-        if self.is_admin:
-            return True
-        from ..core.usage_limits import is_admin_exempt_email
-
-        return is_admin_exempt_email(self)
+        return bool(self.is_admin)
 
     # ── Helper Methods ──────────────────────────────────────────────────────
     def __repr__(self) -> str:

@@ -339,13 +339,30 @@ def test_legacy_free_users_stay_free_until_the_sunset_then_go_read_only(file_db,
         assert later.is_legacy_free_account() is False
 
 
-def test_unset_legacy_cutoff_grandfathers_nobody(monkeypatch):
+def test_unset_legacy_cutoff_keeps_every_account_legacy(monkeypatch, caplog):
+    import logging
     from app.core import offer_windows
     monkeypatch.delenv("LEGACY_FREE_CUTOFF", raising=False)
     monkeypatch.setattr(offer_windows, "legacy_free_cutoff", offer_windows.legacy_free_cutoff)
-    user = _user(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    existing = _user(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    signed_up_while_unset = _user(
+        id=2,
+        clerk_id="new",
+        email="new@example.com",
+        created_at=datetime.now(timezone.utc),
+    )
     assert offer_windows.legacy_free_cutoff() is None
-    assert user.is_legacy_free_account() is False
+    assert existing.is_legacy_free_account() is True
+    assert existing.usage_tier == "free"
+    assert get_user_monthly_limit(existing, "ai_images_generated") == 3
+    assert signed_up_while_unset.is_legacy_free_account() is True
+    assert signed_up_while_unset.usage_tier == "free"
+    caplog.set_level(logging.CRITICAL, logger="app.core.offer_windows")
+    offer_windows.log_legacy_cutoff_if_unset()
+    assert "LEGACY_FREE_CUTOFF is unset" in caplog.text
+    status = offer_windows.legacy_cutoff_status()
+    assert status["legacy_free_cutoff_configured"] is False
+    assert status["legacy_free_cutoff_error"]
 
 
 def test_household_hook_scales_pro_caps_and_can_meter_the_owner():

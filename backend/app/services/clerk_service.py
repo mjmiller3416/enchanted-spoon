@@ -31,18 +31,16 @@ def _headers(secret: str) -> dict:
     return {"Authorization": f"Bearer {secret}"}
 
 
-def clerk_user_has_verified_email(clerk_id: str, email: str) -> bool:
-    """
-    Whether ``email`` is a *verified* address on the Clerk user ``clerk_id``.
+def fetch_clerk_user(clerk_id: str) -> Optional[dict]:
+    """Clerk Backend API user, or None when the lookup cannot be trusted.
 
-    Fails closed: any configuration or network problem returns False, so an
-    account is never relinked on an unconfirmed email.
+    Fails closed: a missing key, a network error, or a non-200 response
+    returns None so an allowlist cannot match an unverified claim.
     """
     secret = _secret_key()
-    if not secret:
-        logger.warning("CLERK_SECRET_KEY not set; cannot verify email for account relink")
-        return False
-
+    if not secret or not clerk_id:
+        logger.warning("CLERK_SECRET_KEY not set; cannot confirm a verified primary email")
+        return None
     try:
         resp = httpx.get(
             f"{CLERK_API_BASE}/users/{clerk_id}",
@@ -53,6 +51,44 @@ def clerk_user_has_verified_email(clerk_id: str, email: str) -> bool:
         data = resp.json()
     except (httpx.HTTPError, ValueError):
         logger.exception("Clerk user lookup failed for %s", clerk_id)
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def verified_primary_email(clerk_user: Optional[dict]) -> Optional[str]:
+    """The primary email only when Clerk marks that address verified.
+
+    Secondary addresses never match, even when they are verified. An
+    unverified primary does not match. The comparison value is trimmed
+    and lowercased.
+    """
+    if not isinstance(clerk_user, dict):
+        return None
+    primary_id = clerk_user.get("primary_email_address_id")
+    if not isinstance(primary_id, str) or not primary_id:
+        return None
+    for address in clerk_user.get("email_addresses") or []:
+        if not isinstance(address, dict) or address.get("id") != primary_id:
+            continue
+        verification = address.get("verification") or {}
+        if not isinstance(verification, dict) or verification.get("status") != "verified":
+            return None
+        email = address.get("email_address")
+        if isinstance(email, str) and email.strip():
+            return email.strip().lower()
+        return None
+    return None
+
+
+def clerk_user_has_verified_email(clerk_id: str, email: str) -> bool:
+    """
+    Whether ``email`` is a *verified* address on the Clerk user ``clerk_id``.
+
+    Fails closed: any configuration or network problem returns False, so an
+    account is never relinked on an unconfirmed email.
+    """
+    data = fetch_clerk_user(clerk_id)
+    if not data:
         return False
 
     wanted = email.strip().lower()

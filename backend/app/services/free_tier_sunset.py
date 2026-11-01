@@ -34,10 +34,8 @@ def apply_free_tier_sunset(session: Session, now: datetime | None = None) -> int
     moment = now or datetime.now(timezone.utc)
     if not sunset_is_due(moment):
         return 0
-    from ..core.offer_windows import legacy_free_cutoff
-
-    if legacy_free_cutoff() is None:
-        return 0
+    # An unset cutoff still means every account is legacy, so the sunset
+    # applies to them once the date has passed.
     changed = 0
     rows = session.scalars(
         select(User).where(

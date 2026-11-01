@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.admin import router as admin_router
-from app.api.auth import require_admin
+from app.api.auth import require_admin, require_admin_mutator
 from app.core.usage_limits import TIER_USAGE_LIMITS, get_user_monthly_limit
 from app.database.db import get_session
 from app.dtos.admin_dtos import AdminUsageResponseDTO
@@ -351,6 +351,7 @@ def test_admin_route_keeps_one_account_on_pre_release_caps(file_db, monkeypatch)
 
     app.dependency_overrides[get_session] = session_dependency
     app.dependency_overrides[require_admin] = lambda: admin
+    app.dependency_overrides[require_admin_mutator] = lambda: admin
     client = TestClient(app)
 
     response = client.patch(

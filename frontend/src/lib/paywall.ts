@@ -1,9 +1,13 @@
 // Single interception layer for AI access errors (#166).
 //
 // The backend gates AI features three ways:
-//   403 {error: "trial_required"}        → new account, start the 7-day trial
+//   {error: "trial_required"}            → start the 7-day trial
 //   403 "Pro subscription required..."  → feature needs a Pro plan
 //   429 {error: "usage_limit_exceeded"} → monthly tier cap hit (carries current/limit)
+//
+// Trial checkout is chosen by the error code `trial_required`, not by HTTP
+// 403. The web paywall and the #209 native paywall must both do that. 403 is
+// also returned for read-only accounts and for "Pro subscription required".
 //
 // Both are classified here and surfaced through one PaywallDialog (mounted in
 // AppLayout), which subscribes via `subscribePaywall`. React Query mutations
@@ -46,25 +50,24 @@ const FIELD_LABELS: Record<string, string> = {
 /**
  * Classify an error as an AI access-gate error, or return null.
  */
+function gateErrorCode(error: ApiError): string | null {
+  const detail = error.details?.detail;
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
+  const code = (detail as { error?: unknown }).error;
+  return typeof code === "string" ? code : null;
+}
+
 export function classifyAiGateError(error: unknown): PaywallEvent | null {
   if (!(error instanceof ApiError)) return null;
 
+  // Error code first. A non-403 response with this code still opens trial checkout.
+  if (gateErrorCode(error) === "trial_required") {
+    return { reason: "trial_required", featureLabel: "AI features" };
+  }
+
   if (error.status === 403) {
     const detail = error.details?.detail;
-    if (
-      detail &&
-      typeof detail === "object" &&
-      !Array.isArray(detail) &&
-      (detail as { error?: string }).error === "trial_required"
-    ) {
-      return { reason: "trial_required", featureLabel: "AI features" };
-    }
-    if (
-      detail &&
-      typeof detail === "object" &&
-      !Array.isArray(detail) &&
-      (detail as { error?: string }).error === "read_only"
-    ) {
+    if (gateErrorCode(error) === "read_only") {
       return { reason: "pro_required", featureLabel: "creating, planning, and AI" };
     }
     const message = typeof detail === "string" ? detail : error.message;

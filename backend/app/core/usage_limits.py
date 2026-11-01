@@ -4,9 +4,10 @@ Usage caps for Gemini-backed AI features.
 
 Pro subscribers and granted testers use the launch Pro caps, including
 accounts persisted as ``usage_plan=legacy``. A usage-exempt account (the
-``usage_exempt`` flag, an id in ``USAGE_EXEMPT_USER_IDS``, or an email in
-``ADMIN_EXEMPT_EMAILS``) keeps the pre-release Pro allowances. Emails in
-``ADMIN_EXEMPT_EMAILS`` also stay admin, so their AI use is uncapped.
+``usage_exempt`` flag, an id in ``USAGE_EXEMPT_USER_IDS``, or a Clerk-verified
+primary email in ``ADMIN_EXEMPT_EMAILS``) keeps the pre-release Pro
+allowances. A verified primary on ``ADMIN_EXEMPT_EMAILS`` is uncapped for
+AI and may open read-only admin views. It does not grant admin mutations.
 Legacy free accounts still use the free caps.
 Trial caps cover the whole trial, not a calendar month. Expired and
 read-only accounts are capped at zero. Accounts created on or after
@@ -159,20 +160,51 @@ def admin_exempt_emails() -> set[str]:
     return {part.strip().lower() for part in raw.split(",") if part.strip()}
 
 
-def is_admin_exempt_email(user: User) -> bool:
-    """True when the account email is on ``ADMIN_EXEMPT_EMAILS``.
+def remember_verified_primary_email(user: User, email: Optional[str]) -> None:
+    """Stash the Clerk-verified primary email on this request's user object.
 
-    Only a real string email matches. These accounts stay admin and are
-    exempt from the launch Pro caps. The addresses live in the environment,
-    not in source.
+    The database ``email`` column is not consulted. An unverified claim,
+    a secondary address, or a missing Clerk lookup stores None.
     """
-    email = getattr(user, "email", None)
-    if not isinstance(email, str):
+    normalized = email.strip().lower() if isinstance(email, str) and email.strip() else None
+    setattr(user, "clerk_verified_primary_email", normalized)
+
+
+def is_admin_exempt_email(user: User) -> bool:
+    """True when this request's Clerk-verified primary email is allowlisted.
+
+    The stored ``user.email`` is ignored. Only ``remember_verified_primary_email``
+    can set a match, and that value comes from Clerk's primary address when
+    its verification status is ``verified``.
+    """
+    email = getattr(user, "clerk_verified_primary_email", None)
+    if not isinstance(email, str) or not email:
         return False
-    normalized = email.strip().lower()
-    if not normalized:
+    return email in admin_exempt_emails()
+
+
+def _usage_exempt_user_id(user: User) -> bool:
+    user_id = getattr(user, "id", None)
+    if type(user_id) is not int:
         return False
-    return normalized in admin_exempt_emails()
+    return user_id in usage_exempt_user_ids()
+
+
+def can_view_admin(user: User) -> bool:
+    """Read-only admin views: database admins, id allowlist, or verified email."""
+    if user.is_admin or is_admin_exempt_email(user):
+        return True
+    return _usage_exempt_user_id(user)
+
+
+def can_mutate_admin(user: User) -> bool:
+    """Admin writes require the database flag or ``USAGE_EXEMPT_USER_IDS``.
+
+    ``ADMIN_EXEMPT_EMAILS`` is intentionally not accepted here.
+    """
+    if getattr(user, "is_admin", False) is True:
+        return True
+    return _usage_exempt_user_id(user)
 
 
 def is_usage_exempt(user: User) -> bool:
@@ -186,10 +218,7 @@ def is_usage_exempt(user: User) -> bool:
         return True
     if is_admin_exempt_email(user):
         return True
-    user_id = getattr(user, "id", None)
-    if type(user_id) is not int:
-        return False
-    return user_id in usage_exempt_user_ids()
+    return _usage_exempt_user_id(user)
 
 
 def get_monthly_limit(tier: str, field: str) -> Optional[int]:

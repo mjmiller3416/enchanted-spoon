@@ -15,7 +15,14 @@ from sqlalchemy.orm import Session
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
 from ...core.rate_limit import enforce_pre_quota_limits
-from ...core.usage_limits import usage_meter, usage_window_for
+from ...core.usage_limits import (
+    admin_exempt_emails,
+    can_mutate_admin,
+    can_view_admin,
+    remember_verified_primary_email,
+    usage_meter,
+    usage_window_for,
+)
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -174,6 +181,13 @@ async def get_current_user(
             ),
         )
 
+    if admin_exempt_emails():
+        from ...services.clerk_service import fetch_clerk_user, verified_primary_email
+
+        # Match only Clerk's verified primary address. The JWT email claim
+        # and users.email are not proof, and a failed lookup stores None.
+        remember_verified_primary_email(user, verified_primary_email(fetch_clerk_user(clerk_id)))
+
     user_service.touch_last_active(user)
     set_error_reporting_user(user.id)
     return user
@@ -276,6 +290,9 @@ def require_within_usage_limit(
             )
 
         if getattr(user, "usage_tier", None) == "none":
+            # Clients, including the web paywall and the #209 native paywall,
+            # must branch on detail.error == "trial_required". HTTP 403 is also
+            # used for read-only and for "Pro subscription required".
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -332,23 +349,37 @@ def require_admin(
     user: User = Depends(get_current_user),
 ) -> User:
     """
-    Dependency that requires admin-level access.
+    Read-only admin views.
 
-    Checks the user's is_admin flag, or an email on ``ADMIN_EXEMPT_EMAILS``.
-
-    Usage:
-        @router.get("/admin/users")
-        def list_users(current_admin: User = Depends(require_admin)):
-            # Only admins can access this
-            ...
-
-    Returns:
-        User: The authenticated admin user.
+    Allows the database admin flag, ``USAGE_EXEMPT_USER_IDS``, or a
+    Clerk-verified primary email on ``ADMIN_EXEMPT_EMAILS``. Email matches
+    cannot call mutation routes; those use ``require_admin_mutator``.
 
     Raises:
-        HTTPException 403: User is not an admin.
+        HTTPException 403: User cannot view admin data.
     """
-    if not user.keeps_admin_access():
+    if not can_view_admin(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required for this feature",
+        )
+    return user
+
+
+def require_admin_mutator(
+    user: User = Depends(get_current_user),
+) -> User:
+    """
+    Admin mutations (grant, exempt, delete, SQL).
+
+    Requires ``users.is_admin`` or an id in ``USAGE_EXEMPT_USER_IDS``.
+    ``ADMIN_EXEMPT_EMAILS`` is never enough, including for
+    PATCH /admin/users/{id}/usage-exempt.
+
+    Raises:
+        HTTPException 403: User cannot change admin data.
+    """
+    if not can_mutate_admin(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required for this feature",

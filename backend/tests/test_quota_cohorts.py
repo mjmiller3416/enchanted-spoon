@@ -122,15 +122,19 @@ def test_admin_exempt_emails_stay_admin_and_other_legacy_pro_uses_launch_caps(mo
 
     assert owner.keeps_admin_access() is True
     assert owner.access_reason == "admin"
-    assert is_usage_exempt(owner) is True
+    assert is_usage_exempt(owner) is False
     assert get_user_monthly_limit(owner, "ai_images_generated") is None
-    assert partner.keeps_admin_access() is True
-    assert partner.usage_tier == "pro"
-    assert partner.has_pro_access is True
-    assert is_usage_exempt(partner) is True
-    assert get_user_monthly_limit(partner, "ai_assistant_messages") is None
-    assert AdminUsageLimitsDTO.for_user(partner).recipes_imported is None
-    assert require_admin(partner) is partner
+    # The database email is not a Clerk-verified primary, so it grants nothing.
+    assert partner.keeps_admin_access() is False
+    assert partner.has_pro_access is False
+    assert is_usage_exempt(partner) is False
+    assert get_user_monthly_limit(partner, "ai_assistant_messages") != None
+    try:
+        require_admin(partner)
+    except HTTPException as exc:
+        assert exc.status_code == 403
+    else:
+        raise AssertionError("an unverified email claim was treated as admin")
 
     assert other.keeps_admin_access() is False
     assert get_user_monthly_limit(other, "ai_images_generated") == 20
