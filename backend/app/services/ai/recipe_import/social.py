@@ -1,16 +1,19 @@
 """Extract recipe text from a public TikTok or Instagram post.
 
-Official oEmbed is the only metadata source:
+Default path, no extra credentials:
 
-- TikTok's public oEmbed endpoint needs no key. Its ``title`` is the caption.
-- Instagram's oEmbed is Meta's free oEmbed Read API and needs an app token
-  (``INSTAGRAM_OEMBED_ACCESS_TOKEN``). Without that token we read only the
-  public page's Open Graph description.
+- TikTok: public oEmbed. Its ``title`` is the caption. No API key.
+- Instagram: the public page's Open Graph description. This is the launch
+  default. There is no Meta app.
 
-Neither endpoint includes a spoken transcript, and this module does not
-download video, scrape private page state, or call a paid transcript vendor.
-A post whose recipe exists only in the audio fails with "no recipe found"
-after the caption is normalized by the existing import prompt.
+Optional post-launch path: if ``INSTAGRAM_OEMBED_ACCESS_TOKEN`` is set, Instagram
+uses Meta's free oEmbed Read API instead of Open Graph. Leave it unset until
+that app exists.
+
+Neither source includes a spoken transcript. This module does not download
+video, scrape private page state, or call a transcript API. When the post
+cannot be read, the import UI asks the user to paste the caption and that
+text is normalized by the same prompt.
 """
 
 from __future__ import annotations

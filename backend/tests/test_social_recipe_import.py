@@ -167,6 +167,44 @@ class TestSocialImportPipeline:
             with pytest.raises(RecipeImportFetchError, match="private"):
                 await service.import_from_url(request)
 
+    async def test_pasted_caption_skips_the_post_fetch(self):
+        service = RecipeImportService.__new__(RecipeImportService)
+        request = RecipeImportRequestDTO(
+            url="https://www.instagram.com/reel/ABC/",
+            pasted_text="2 eggs, 1 tbsp butter. Scramble slowly over low heat.",
+            include_source_image=True,
+        )
+        with (
+            patch.object(RecipeImportService, "_validate_url", return_value=request.url),
+            patch(
+                "app.services.ai.recipe_import.social.fetch_social_post",
+                new=AsyncMock(),
+            ) as fetch_post,
+            patch.object(
+                service, "_normalize_with_ai", new=AsyncMock(return_value=_recipe())
+            ) as normalize,
+            patch.object(service, "_download_image", new=AsyncMock()) as download,
+        ):
+            result = await service.import_from_url(request)
+
+        fetch_post.assert_not_called()
+        download.assert_not_called()
+        source = normalize.await_args.args[0]
+        assert "2 eggs" in source
+        assert result.success is True
+        assert result.source_url == request.url
+        assert result.reference_image_data is None
+
+    async def test_pasted_text_is_rejected_for_a_normal_website(self):
+        service = RecipeImportService.__new__(RecipeImportService)
+        request = RecipeImportRequestDTO(
+            url="https://www.seriouseats.com/chili",
+            pasted_text="2 eggs and butter.",
+        )
+        with patch.object(RecipeImportService, "_validate_url", return_value=request.url):
+            with pytest.raises(RecipeImportFetchError, match="TikTok or Instagram"):
+                await service.import_from_url(request)
+
     async def test_caption_without_a_recipe_is_not_found(self):
         service = RecipeImportService.__new__(RecipeImportService)
         request = RecipeImportRequestDTO(url="https://www.tiktok.com/@chef/video/9")

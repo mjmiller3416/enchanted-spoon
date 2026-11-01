@@ -4,6 +4,11 @@ import { Globe, ImageIcon, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
+export function isSocialRecipeUrl(url: string): boolean {
+  return socialImportHint(url) !== null;
+}
 
 function socialImportHint(url: string): string | null {
   const trimmed = url.trim();
@@ -15,7 +20,7 @@ function socialImportHint(url: string): string | null {
     const isTikTok = host === "tiktok.com" || host.endsWith(".tiktok.com");
     const isInstagram = host === "instagram.com" || host.endsWith(".instagram.com");
     if (isTikTok || isInstagram) {
-      return "TikTok and Instagram imports use the post caption. Private posts, and videos that only say the recipe out loud, can't be imported.";
+      return "TikTok and Instagram imports use the post caption. If the post is private or the recipe is only spoken, paste the caption below.";
     }
   } catch {
     return null;
@@ -32,6 +37,9 @@ interface UrlImportStepProps {
   setUrl: (value: string) => void;
   isImporting: boolean;
   error: string | null;
+  /** Shown after a TikTok/Instagram import could not find a recipe. */
+  caption: string;
+  setCaption: (value: string) => void;
   /** Triggered when the user presses Enter in the URL field. */
   onSubmit: () => void;
 }
@@ -45,9 +53,12 @@ export function UrlImportStep({
   setUrl,
   isImporting,
   error,
+  caption,
+  setCaption,
   onSubmit,
 }: UrlImportStepProps) {
   const socialHint = socialImportHint(url);
+  const showCaptionFallback = Boolean(error && isSocialRecipeUrl(url));
 
   return (
     <div className="space-y-6">
@@ -113,8 +124,24 @@ export function UrlImportStep({
       {error && (
         <div role="alert" aria-live="assertive">
           <Card className="border-destructive">
-            <CardContent className="py-3">
+            <CardContent className="space-y-3 py-3">
               <p className="text-sm text-destructive">{error}</p>
+              {showCaptionFallback && (
+                <div className="space-y-2">
+                  <Label htmlFor="import-caption">Paste the caption or recipe</Label>
+                  <Textarea
+                    id="import-caption"
+                    value={caption}
+                    onChange={(event) => setCaption(event.target.value)}
+                    placeholder="Ingredients and steps from the post"
+                    rows={6}
+                    disabled={isImporting}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    We&apos;ll use this text instead of the post. The link is still saved with the recipe.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

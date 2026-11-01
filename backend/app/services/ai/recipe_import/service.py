@@ -195,6 +195,13 @@ class RecipeImportService:
         url = self._validate_url(request.url)
         from .social import classify_social_url
 
+        if request.pasted_text:
+            if not classify_social_url(url):
+                raise RecipeImportFetchError(
+                    "Pasted recipe text can only be used with a TikTok or Instagram link."
+                )
+            return await self._import_pasted_social_text(url, request.pasted_text, request)
+
         if classify_social_url(url):
             return await self._import_from_social(url, request)
 
@@ -236,6 +243,39 @@ class RecipeImportService:
             nutrition_facts=nutrition_facts,
             source_url=url,
             reference_image_data=reference_image_data,
+        )
+
+    async def _import_pasted_social_text(
+        self, url: str, pasted_text: str, request: RecipeImportRequestDTO
+    ) -> RecipeImportResponseDTO:
+        """Normalize caption text the user pasted after a social import failed.
+
+        Does not fetch the post and does not call a transcript API.
+        """
+        from .social import SocialPost, classify_social_url, source_block_for
+
+        platform = classify_social_url(url) or "social"
+        post = SocialPost(platform=platform, caption=pasted_text)
+        try:
+            recipe = await self._normalize_with_ai(
+                source_block_for(post), request.allowed_categories
+            )
+        except RecipeImportNotFoundError:
+            raise RecipeImportNotFoundError(
+                "No recipe was found in that text. Paste the caption or the "
+                "ingredients and steps."
+            )
+
+        logger.info(
+            f"[RecipeImport] Imported '{recipe.recipe_name}' from pasted {platform} text "
+            f"({len(recipe.ingredients)} ingredients)"
+        )
+        return RecipeImportResponseDTO(
+            success=True,
+            recipe=recipe,
+            nutrition_facts=None,
+            source_url=url,
+            reference_image_data=None,
         )
 
     async def _import_from_social(

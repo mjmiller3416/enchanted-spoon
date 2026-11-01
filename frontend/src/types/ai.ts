@@ -205,6 +205,8 @@ export interface RecipeGenerationResponseDTO {
 export interface RecipeImportRequestDTO {
   url: string;
   include_source_image?: boolean;
+  /** Caption or recipe text pasted after a TikTok/Instagram post could not be read. */
+  pasted_text?: string;
 }
 
 // Shape-compatible with RecipeGenerationResponseDTO so the wizard prefill

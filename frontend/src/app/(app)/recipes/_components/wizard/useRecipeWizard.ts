@@ -145,6 +145,7 @@ export function useRecipeWizard({
   // URL import state (non-form)
   // ---------------------------------------------------------------------------
   const [importUrl, setImportUrl] = useState("");
+  const [importCaption, setImportCaption] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   // Source page of a successful import — saved on the recipe as source_url.
@@ -636,8 +637,13 @@ export function useRecipeWizard({
 
     try {
       const token = await getToken();
+      const pasted = importCaption.trim();
       const response = await recipeImportApi.importFromUrl(
-        { url: importUrl.trim(), include_source_image: true },
+        {
+          url: importUrl.trim(),
+          include_source_image: !pasted,
+          pasted_text: pasted || undefined,
+        },
         token
       );
 
@@ -648,6 +654,7 @@ export function useRecipeWizard({
 
       populateFromGeneration(response, { imagesAreAiGenerated: false });
       setImportedSourceUrl(response.source_url ?? importUrl.trim());
+      setImportCaption("");
       setExtrasDirty(true);
 
       // Switch to manual method so step 2 shows the Recipe Basics form
@@ -667,7 +674,7 @@ export function useRecipeWizard({
     } finally {
       setIsImporting(false);
     }
-  }, [importUrl, isImporting, getToken, populateFromGeneration]);
+  }, [importUrl, importCaption, isImporting, getToken, populateFromGeneration]);
 
   // ---------------------------------------------------------------------------
   // AI generation: accept generated recipe and populate wizard fields
@@ -702,9 +709,10 @@ export function useRecipeWizard({
       aiPrompt.trim() ||
       generatedRecipe ||
       importUrl.trim() ||
+      importCaption.trim() ||
       importedSourceUrl
     );
-  }, [isEditMode, formIsDirty, extrasDirty, watchedRecipeName, watchedDescription, watchedIngredients, watchedDirections, imagePreview, nutritionFacts, aiPrompt, generatedRecipe, importUrl, importedSourceUrl]);
+  }, [isEditMode, formIsDirty, extrasDirty, watchedRecipeName, watchedDescription, watchedIngredients, watchedDirections, imagePreview, nutritionFacts, aiPrompt, generatedRecipe, importUrl, importCaption, importedSourceUrl]);
 
   // ---------------------------------------------------------------------------
   // Reset wizard to initial state
@@ -731,6 +739,7 @@ export function useRecipeWizard({
     setIsGenerating(false);
     setAiError(null);
     setImportUrl("");
+    setImportCaption("");
     setIsImporting(false);
     setImportError(null);
     setImportedSourceUrl(null);
@@ -979,6 +988,8 @@ export function useRecipeWizard({
     // URL import
     importUrl,
     setImportUrl,
+    importCaption,
+    setImportCaption,
     isImporting,
     importError,
     handleWizardImport,
