@@ -20,8 +20,8 @@ def test_existing_accounts_keep_legacy_caps_and_usage_display():
 
 def test_new_account_gets_launch_caps():
     user = User(is_admin=False, usage_plan="launch", subscription_tier="pro", subscription_status="active")
-    assert get_user_monthly_limit(user, "ai_images_generated") == 10
-    assert AdminUsageLimitsDTO.for_user(user).ai_assistant_messages == 50
+    assert get_user_monthly_limit(user, "ai_images_generated") == 20
+    assert AdminUsageLimitsDTO.for_user(user).ai_assistant_messages == 300
 
 
 def test_migration_preserves_old_rows_and_new_orm_defaults(tmp_path, monkeypatch):

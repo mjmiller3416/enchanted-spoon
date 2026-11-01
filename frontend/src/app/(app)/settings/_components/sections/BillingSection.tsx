@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { CreditCard, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { QueryError } from "@/components/common/QueryError";
@@ -9,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SectionHeader } from "../SectionHeader";
 import {
   useCurrentUser,
@@ -16,6 +19,7 @@ import {
   useOpenBillingPortal,
   useStartCheckout,
 } from "@/hooks/api";
+import { ANNUAL_PRICE_LABEL, MONTHLY_PRICE_LABEL, type CheckoutPlan } from "@/lib/pricing";
 import type { CurrentUserDTO } from "@/types/admin";
 import type { CurrentUserUsage } from "@/types/billing";
 
@@ -45,6 +49,8 @@ function formatDate(dateStr: string): string {
 
 function planBadge(user: CurrentUserDTO) {
   if (user.is_admin) return <Badge variant="default">Admin</Badge>;
+  if (user.access_reason === "trial") return <Badge variant="secondary">Trial</Badge>;
+  if (user.is_read_only) return <Badge variant="outline">Read-only</Badge>;
   if (user.has_pro_access) return <Badge variant="secondary">Pro</Badge>;
   return <Badge variant="outline">Free</Badge>;
 }
@@ -52,6 +58,12 @@ function planBadge(user: CurrentUserDTO) {
 function planDetail(user: CurrentUserDTO): string {
   if (user.is_admin) {
     return "Admin accounts have unlimited access to everything.";
+  }
+  if (user.access_reason === "trial") {
+    return "You're in a 7-day Pro trial. Your card is charged when the trial ends unless you cancel.";
+  }
+  if (user.access_reason === "read_only") {
+    return "This account is read-only. You can view and export. Creating, planning, and AI need Pro.";
   }
   if (user.access_reason === "subscription") {
     if (user.subscription_status === "past_due") {
@@ -87,7 +99,7 @@ function UsageRow({
           <span className="text-muted-foreground">Unlimited</span>
         ) : (
           <span className="text-muted-foreground">
-            {used} / {limit}
+            {Math.max(limit - used, 0)} left ({used} / {limit})
           </span>
         )}
       </div>
@@ -110,12 +122,17 @@ export function BillingSection() {
   const { data: usage, isLoading: usageLoading, error: usageError, refetch: retryUsage, isFetching: fetchingUsage } = useMyUsage();
   const startCheckout = useStartCheckout();
   const openPortal = useOpenBillingPortal();
+  const [plan, setPlan] = useState<CheckoutPlan>("annual");
+  const [promotionCode, setPromotionCode] = useState("");
 
   const handleUpgrade = () => {
-    startCheckout.mutate(undefined, {
-      onError: (error) =>
-        toast.error(error.message || "Couldn't start checkout. Please try again."),
-    });
+    startCheckout.mutate(
+      { plan, promotionCode: promotionCode.trim() || undefined },
+      {
+        onError: (error) =>
+          toast.error(error.message || "Couldn't start checkout. Please try again."),
+      },
+    );
   };
 
   const handleManageBilling = () => {
@@ -152,16 +169,47 @@ export function BillingSection() {
               </div>
               <p className="text-sm text-muted-foreground">{planDetail(user)}</p>
 
-              <div className="flex flex-wrap items-center gap-2 pt-1">
+              <div className="flex flex-col gap-3 pt-1">
                 {showUpgrade && (
-                  <Button onClick={handleUpgrade} disabled={startCheckout.isPending} className="gap-2">
-                    {startCheckout.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
-                    ) : (
-                      <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-                    )}
-                    Upgrade to Pro — $4.99/mo
-                  </Button>
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant={plan === "annual" ? "default" : "outline"}
+                        onClick={() => setPlan("annual")}
+                      >
+                        Annual — {ANNUAL_PRICE_LABEL}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={plan === "monthly" ? "default" : "outline"}
+                        onClick={() => setPlan("monthly")}
+                      >
+                        Monthly — {MONTHLY_PRICE_LABEL}
+                      </Button>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="promotion-code">Founding code</Label>
+                      <Input
+                        id="promotion-code"
+                        value={promotionCode}
+                        onChange={(event) => setPromotionCode(event.target.value)}
+                        placeholder="FOUNDER30 or FOUNDER30Y"
+                        autoComplete="off"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        FOUNDER30 is monthly only. FOUNDER30Y is annual only. The 7-day trial still requires a card.
+                      </p>
+                    </div>
+                    <Button onClick={handleUpgrade} disabled={startCheckout.isPending} className="w-fit gap-2">
+                      {startCheckout.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+                      ) : (
+                        <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                      )}
+                      Start 7-day trial
+                    </Button>
+                  </>
                 )}
                 {showManageBilling && (
                   <Button
@@ -187,9 +235,15 @@ export function BillingSection() {
           {/* Usage meter */}
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-medium text-foreground">AI usage this month</h3>
+              <h3 className="text-sm font-medium text-foreground">
+                {usage?.resets === "trial" ? "AI usage this trial" : "AI usage this month"}
+              </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Counters reset at the start of each month.
+                {usage?.resets === "trial"
+                  ? "Trial allowances cover the whole trial and do not reset mid-trial."
+                  : usage?.resets === "none"
+                    ? "AI is unavailable on this plan."
+                    : "Counters reset at the start of each month."}
               </p>
             </div>
 

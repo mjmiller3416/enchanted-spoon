@@ -5,16 +5,17 @@ Provides get_current_user and related dependencies for protecting routes.
 """
 
 import logging
-from typing import Callable, Generator, Optional
+from typing import Generator, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
-from ...core.usage_limits import get_user_monthly_limit
+from ...core.rate_limit import enforce_pre_quota_limits
+from ...core.usage_limits import get_user_monthly_limit, usage_window_for
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -243,49 +244,58 @@ def require_pro(
     return user
 
 
-def require_within_usage_limit(field: str) -> Callable[..., Generator[User, None, None]]:
+def require_within_usage_limit(
+    field: str,
+    user_limits: tuple[str, ...] = (),
+    ip_limits: tuple[str, ...] = (),
+):
     """
-    Dependency factory that enforces a monthly usage cap for a Gemini-backed
-    AI feature, resolved from the user's subscription tier.
+    Dependency factory that enforces a usage cap for a Gemini-backed AI feature.
 
-    Reserves one unit of `field` against the user's tier cap in
-    `app/core/usage_limits.py` before the route runs (one atomic conditional
-    UPDATE, so parallel requests can't overshoot the cap), and refunds it if
-    the route raises. Routes therefore must not increment `field` themselves.
-    Admins are uncapped but still counted. Free users are metered (a small
-    taste-test allowance), not blocked outright — the binary `require_pro`
-    gate was deliberately dropped here when the metered free tier landed
-    (#164), so a capped free user gets a structured 429 the frontend can turn
-    into an upgrade prompt.
-
-    Usage:
-        @router.post("/ai/generate-image")
-        def generate_image(
-            current_user: User = Depends(require_within_usage_limit("ai_images_generated")),
-        ):
-            # Any authenticated user under their tier's monthly cap
-            ...
-
-    Returns:
-        A dependency callable resolving to the authenticated User.
-
-    Raises:
-        HTTPException 429: User has reached their tier's monthly cap for `field`.
+    Rate limits run before the cap is reserved, so a 429 from slowapi does not
+    consume the monthly or trial allowance. Admins are uncapped but still
+    counted. Trial usage is stored under one window for the whole trial.
+    Read-only accounts are rejected before either bucket is touched.
     """
 
     def _reserve_usage(
+        request: Request,
         user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
     ) -> Generator[User, None, None]:
-        if user.is_admin:
-            limit = None
-        else:
-            limit = get_user_monthly_limit(user, field)
+        if user.is_read_only is True:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "read_only",
+                    "message": (
+                        "This account is read-only. You can view and export your "
+                        "recipes. Creating, planning, and AI need Pro."
+                    ),
+                },
+            )
 
-        usage_service = UsageService(session, user.id)
+        if user_limits or ip_limits:
+            enforce_pre_quota_limits(request, user_limits, ip_limits)
+
+        limit = None if user.is_admin else get_user_monthly_limit(user, field)
+        tier = user.usage_tier
+        usage_service = UsageService(session, user.id, window=usage_window_for(user))
         try:
             usage_service.reserve(field, limit)
         except UsageLimitExceededError as e:
+            if tier == "trial":
+                message = (
+                    f"Trial limit reached for this feature ({e.current}/{e.limit}). "
+                    "It does not reset during the trial."
+                )
+            elif tier == "expired":
+                message = "AI features are not available on this plan."
+            else:
+                message = (
+                    f"Monthly limit reached for this feature "
+                    f"({e.current}/{e.limit}). Resets at the start of next month."
+                )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail={
@@ -293,17 +303,13 @@ def require_within_usage_limit(field: str) -> Callable[..., Generator[User, None
                     "field": e.field,
                     "current": e.current,
                     "limit": e.limit,
-                    "message": (
-                        f"Monthly limit reached for this feature "
-                        f"({e.current}/{e.limit}). Resets at the start of next month."
-                    ),
+                    "message": message,
                 },
             )
 
         try:
             yield user
         except Exception:
-            # The feature failed — don't charge the user for it
             try:
                 usage_service.release(field)
             except Exception:

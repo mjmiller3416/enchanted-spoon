@@ -1,0 +1,364 @@
+"""Cost controls, trial billing, founder codes, and the free-plan sunset.
+
+Stripe calls in this file are mocks. There are no test-mode keys in this
+environment, so the $0-invoice / first_time_transaction question is NOT
+verified against Stripe. See docs/stripe-test-clock-founder-promo.md.
+"""
+
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from slowapi.errors import RateLimitExceeded
+from sqlalchemy.orm import Session
+
+from app.api.ai.image_generation import router as image_router
+from app.api.auth import get_current_user
+from app.api.recipes import router as recipe_router
+from app.api.read_only import reject_read_only_writes
+from app.core.rate_limit import enforce_pre_quota_limits, limiter
+from app.core.stripe_config import STRIPE_TRIAL_DAYS, StripeSettings
+from app.core.usage_limits import TRIAL_USAGE_WINDOW, get_user_monthly_limit
+from app.database.db import get_session
+from app.models.user import User
+from app.models.user_usage import UserUsage
+from app.services.billing_service import BillingService
+from app.services.founder_codes import PromotionCodeRejected, lookup_founder_promotion
+from app.services.free_tier_sunset import apply_free_tier_sunset, due_reminder_kind
+from app.services.usage_service import UsageService
+from fastapi import Depends
+
+
+def _user(**overrides) -> User:
+    values = dict(
+        id=1,
+        clerk_id="clerk",
+        email="cook@example.test",
+        is_admin=False,
+        usage_plan="launch",
+        subscription_tier="free",
+        subscription_status="active",
+        has_used_trial=False,
+        cancel_at_period_end=False,
+    )
+    values.update(overrides)
+    return User(**values)
+
+
+def _promo(code_id="promo_test", coupon="FOUNDER30_MONTHLY", redeemed=0, maximum=70):
+    return SimpleNamespace(to_dict=lambda: {"data": [{
+        "id": code_id,
+        "active": True,
+        "times_redeemed": redeemed,
+        "max_redemptions": maximum,
+        "coupon": {"id": coupon},
+        "restrictions": {"first_time_transaction": True},
+    }]})
+
+
+def _settings(**overrides) -> StripeSettings:
+    values = dict(
+        _env_file=None,
+        stripe_checkout_enabled=True,
+        stripe_secret_key="sk_test_synthetic",
+        stripe_webhook_secret="whsec_synthetic",
+        stripe_price_id_pro="price_legacy",
+        stripe_price_pro_monthly_v2="price_month_v2",
+        stripe_price_pro_annual_v2="price_year_v2",
+        frontend_url="http://localhost:3000",
+    )
+    values.update(overrides)
+    return StripeSettings(**values)
+
+
+def test_launch_trial_and_expired_caps():
+    pro = _user(subscription_tier="pro", subscription_status="active")
+    assert get_user_monthly_limit(pro, "ai_images_generated") == 20
+    assert get_user_monthly_limit(pro, "ai_assistant_messages") == 300
+    assert get_user_monthly_limit(pro, "ai_suggestions_requested") == 200
+    assert get_user_monthly_limit(pro, "recipes_imported") == 50
+
+    trial = _user(subscription_tier="pro", subscription_status="trialing")
+    assert trial.usage_tier == "trial"
+    assert trial.access_reason == "trial"
+    assert trial.has_pro_access is True
+    assert get_user_monthly_limit(trial, "ai_images_generated") == 3
+    assert get_user_monthly_limit(trial, "ai_assistant_messages") == 25
+
+    ended = _user(
+        subscription_tier="pro",
+        subscription_status="trialing",
+        trial_ends_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    )
+    assert ended.usage_tier == "expired"
+    assert get_user_monthly_limit(ended, "ai_images_generated") == 0
+
+    admin = _user(is_admin=True)
+    assert get_user_monthly_limit(admin, "ai_images_generated") is None
+    granted = _user(granted_pro_until=datetime.now(timezone.utc) + timedelta(days=1))
+    assert granted.usage_tier == "pro"
+
+
+def test_trial_usage_does_not_reset_on_a_new_calendar_month(file_db):
+    with file_db() as session:
+        user = session.get(User, 1)
+        user.subscription_tier = "pro"
+        user.subscription_status = "trialing"
+        user.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=3)
+        session.commit()
+        service = UsageService(session, user.id, window=TRIAL_USAGE_WINDOW)
+        service.reserve("ai_assistant_messages", 25)
+        session.expire_all()
+        stored = session.query(UserUsage).filter_by(user_id=1, month=TRIAL_USAGE_WINDOW).one()
+        assert stored.ai_assistant_messages == 1
+        assert session.query(UserUsage).filter(UserUsage.month != TRIAL_USAGE_WINDOW).count() == 0
+
+
+def test_checkout_attaches_trial_tax_and_first_time_promo_before_any_invoice():
+    """UNVERIFIED against Stripe.
+
+    A first checkout has no invoices yet, so we attach FOUNDER30 together with
+    the 7-day trial. Whether Stripe's first_time_transaction later treats the
+    $0 trial invoice as a transaction is not proven here.
+    """
+    user = _user(stripe_customer_id=None)
+    service = BillingService(MagicMock(), settings=_settings())
+    with patch.object(service, "get_or_create_customer", return_value="cus_new") as customer, \
+         patch("app.services.founder_codes.stripe.PromotionCode.list", return_value=_promo()), \
+         patch("stripe.checkout.Session.create", return_value=MagicMock(url="https://pay.test/c")) as create:
+        assert service.create_checkout_session(user, plan="monthly", promotion_code=" founder30 ") == "https://pay.test/c"
+    customer.assert_called_once()
+    params = create.call_args.kwargs
+    assert params["line_items"] == [{"price": "price_month_v2", "quantity": 1}]
+    assert params["subscription_data"]["trial_period_days"] == STRIPE_TRIAL_DAYS
+    assert params["subscription_data"]["trial_settings"] == {
+        "end_behavior": {"missing_payment_method": "cancel"}
+    }
+    assert params["discounts"] == [{"promotion_code": "promo_test"}]
+    assert params["automatic_tax"] == {"enabled": True}
+    assert "allow_promotion_codes" not in params
+    assert params.get("payment_method_collection") != "if_required"
+    assert "payment_method_collection" not in params
+
+
+def test_monthly_price_falls_back_when_v2_is_unset():
+    user = _user()
+    service = BillingService(MagicMock(), settings=_settings(stripe_price_pro_monthly_v2=None))
+    with patch.object(service, "get_or_create_customer", return_value="cus_new"), \
+         patch("stripe.checkout.Session.create", return_value=MagicMock(url="https://pay.test/c")) as create:
+        service.create_checkout_session(user, plan="monthly")
+    assert create.call_args.kwargs["line_items"][0]["price"] == "price_legacy"
+
+
+def test_second_checkout_omits_the_trial():
+    user = _user(has_used_trial=True)
+    service = BillingService(MagicMock(), settings=_settings())
+    with patch.object(service, "get_or_create_customer", return_value="cus_new"), \
+         patch("stripe.checkout.Session.create", return_value=MagicMock(url="https://pay.test/c")) as create:
+        service.create_checkout_session(user, plan="annual")
+    assert "trial_period_days" not in create.call_args.kwargs.get("subscription_data", {})
+    assert create.call_args.kwargs["line_items"][0]["price"] == "price_year_v2"
+
+
+def test_founder_code_must_match_the_plan():
+    with pytest.raises(PromotionCodeRejected):
+        lookup_founder_promotion("FOUNDER30", "annual")
+    with pytest.raises(PromotionCodeRejected):
+        lookup_founder_promotion("FOUNDER30Y", "monthly")
+
+
+def test_zero_dollar_invoice_customer_is_not_reused_for_a_later_checkout():
+    """A later checkout does not reuse a customer that already has an invoice.
+
+    The new customer has no invoices, which is what a first_time_transaction
+    restriction can evaluate. This does not prove Stripe's treatment of the
+    $0 invoice created after the original trial signup.
+    """
+    user = _user(stripe_customer_id="cus_old", has_used_trial=True)
+    service = BillingService(MagicMock(), settings=_settings())
+    service.repo = MagicMock()
+    invoice = SimpleNamespace(data=[SimpleNamespace(id="in_zero", amount_paid=0, total=0)])
+    with patch("stripe.Invoice.list", return_value=invoice) as listed, \
+         patch("stripe.Customer.create", return_value=SimpleNamespace(id="cus_fresh")) as created, \
+         patch("stripe.checkout.Session.create", return_value=MagicMock(url="https://pay.test/c")) as create:
+        service.create_checkout_session(user, plan="monthly")
+    listed.assert_called_once()
+    created.assert_called_once()
+    assert create.call_args.kwargs["customer"] == "cus_fresh"
+    assert "discounts" not in create.call_args.kwargs
+
+
+def test_image_client_does_not_retry_http_500(monkeypatch):
+    monkeypatch.setenv("GEMINI_IMAGE_API_KEY", "test-key")
+    from app.services.ai.gemini_client import clear_gemini_clients, get_gemini_client
+    clear_gemini_clients()
+    client = get_gemini_client("GEMINI_IMAGE_API_KEY", retry_attempts=1, timeout_ms=120_000)
+    options = client._api_client._http_options
+    assert options.timeout == 120_000
+    assert options.retry_options.attempts == 1
+    assert 500 not in options.retry_options.http_status_codes
+    assert options.retry_options.http_status_codes == [429, 503]
+
+
+def test_image_500_tries_the_fallback_model_once(monkeypatch):
+    from app.services.ai.image_generation.service import ImageGenerationService
+    from app.services.ai import image_generation as image_pkg
+    calls = []
+
+    async def generate_content(**kwargs):
+        calls.append((kwargs["model"], kwargs["config"].image_config.image_size))
+        if kwargs["model"].endswith("lite-image"):
+            raise RuntimeError("simulated 500")
+        return MagicMock()
+
+    client = MagicMock()
+    client.aio.models.generate_content = generate_content
+    monkeypatch.setattr(image_pkg.service, "get_gemini_client", lambda *args, **kwargs: client)
+    monkeypatch.setattr(image_pkg.service, "extract_image_data", lambda response: "abc")
+    service = ImageGenerationService.__new__(ImageGenerationService)
+    import anyio
+    result = anyio.run(service.generate_recipe_image, "Soup")
+    assert result["success"] is True
+    assert calls[0][0].endswith("lite-image")
+    assert calls[1] == ("gemini-3.1-flash-image", "1K")
+    assert sum(1 for model, _size in calls if model == calls[0][0]) == 1
+
+
+def test_banner_route_is_gone_and_does_not_reserve_quota(file_db):
+    app = FastAPI()
+    app.state.limiter = limiter
+    app.include_router(image_router, prefix="/api/ai/image-generation")
+
+    def session_dependency():
+        with file_db() as session:
+            yield session
+
+    with file_db() as session:
+        user = session.get(User, 1)
+    app.dependency_overrides[get_session] = session_dependency
+    app.dependency_overrides[get_current_user] = lambda: user
+    response = TestClient(app).post("/api/ai/image-generation/banner", json={"recipe_name": "Soup", "reference_image_data": "aa"})
+    assert response.status_code == 410
+    with file_db() as session:
+        assert session.query(UserUsage).count() == 0
+
+
+def test_rate_limit_429_does_not_reserve_quota(file_db):
+    app = FastAPI()
+    app.state.limiter = limiter
+    app.include_router(image_router, prefix="/api/ai/image-generation")
+    with file_db() as session:
+        user = session.get(User, 1)
+
+    def session_dependency():
+        with file_db() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = session_dependency
+    app.dependency_overrides[get_current_user] = lambda: user
+    with patch("app.api.auth.dependencies.enforce_pre_quota_limits", side_effect=RateLimitExceeded(MagicMock(limit="1/minute", error_message=None))):
+        response = TestClient(app).post("/api/ai/image-generation", json={"recipe_name": "Soup", "image_type": "reference"})
+    assert response.status_code == 429
+    with file_db() as session:
+        assert session.query(UserUsage).count() == 0
+
+
+def test_pre_quota_limiter_rejects_the_second_hit():
+    app = FastAPI()
+
+    @app.get("/limited")
+    def limited(request=Depends(lambda: None)):
+        return {"ok": True}
+
+    client = TestClient(app)
+    # Build a request through the app so it is a real Request.
+    seen = {}
+
+    @app.get("/probe")
+    def probe():
+        return {"ok": True}
+
+    with TestClient(app) as http:
+        http.get("/probe")
+    # Direct function check with a synthetic request.
+    from starlette.requests import Request
+    scope = {"type": "http", "method": "GET", "path": "/probe-limit", "headers": [], "query_string": b"", "client": ("203.0.113.5", 1234), "scheme": "http", "server": ("test", 80)}
+    request = Request(scope)
+    enforce_pre_quota_limits(request, ("1/minute",), ())
+    with pytest.raises(RateLimitExceeded):
+        enforce_pre_quota_limits(request, ("1/minute",), ())
+    assert seen == {}
+
+
+def test_legacy_free_users_stay_free_until_the_sunset_then_go_read_only(file_db, monkeypatch):
+    from app.core import offer_windows
+    future = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    past = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    monkeypatch.setattr(offer_windows, "free_tier_sunset_at", lambda: future)
+    with file_db() as session:
+        user = session.get(User, 1)
+        user.usage_plan = "legacy"
+        session.commit()
+        assert user.usage_tier == "free"
+        assert user.is_read_only is False
+        assert apply_free_tier_sunset(session) == 0
+    monkeypatch.setattr(offer_windows, "free_tier_sunset_at", lambda: past)
+    monkeypatch.setattr(offer_windows, "sunset_is_due", lambda now=None: True)
+    with file_db() as session:
+        user = session.get(User, 1)
+        user.usage_plan = "legacy"
+        launch = User(clerk_id="launch", email="launch@example.test", usage_plan="launch", is_admin=False,
+                      subscription_tier="free", subscription_status="active", has_used_trial=False)
+        session.add(launch)
+        session.commit()
+        assert apply_free_tier_sunset(session, now=datetime.now(timezone.utc)) == 1
+        session.commit()
+        assert user.read_only_at is not None
+        assert user.is_read_only is True
+        assert user.usage_tier == "expired"
+        assert launch.read_only_at is None
+
+
+def test_sunset_reminder_is_due_30_days_out(monkeypatch):
+    from app.services import free_tier_sunset as reminders
+    sunset = datetime(2027, 3, 31, 23, 59, tzinfo=timezone.utc)
+    monkeypatch.setattr(reminders, "free_tier_sunset_at", lambda: sunset)
+    user = _user(usage_plan="legacy")
+    assert reminders.due_reminder_kind(user, sunset - timedelta(days=30)) == "30"
+    assert reminders.due_reminder_kind(user, sunset - timedelta(days=7)) == "7"
+    assert reminders.due_reminder_kind(user, sunset - timedelta(days=1)) == "1"
+    user.sunset_reminder_30_sent_at = sunset - timedelta(days=30)
+    user.sunset_reminder_7_sent_at = sunset - timedelta(days=7)
+    user.sunset_reminder_1_sent_at = sunset - timedelta(days=1)
+    assert reminders.due_reminder_kind(user, sunset - timedelta(days=1)) is None
+
+
+def test_read_only_blocks_creates_and_allows_reads(file_db):
+    app = FastAPI()
+    app.include_router(recipe_router, prefix="/api/recipes", dependencies=[Depends(reject_read_only_writes)])
+    with file_db() as session:
+        user = session.get(User, 1)
+        user.read_only_at = datetime.now(timezone.utc)
+        session.commit()
+
+    def session_dependency():
+        with file_db() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = session_dependency
+    app.dependency_overrides[get_current_user] = lambda: user
+    client = TestClient(app)
+    denied = client.post("/api/recipes", json={"recipe_name": "Soup"})
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["error"] == "read_only"
+    allowed = client.get("/api/recipes")
+    assert allowed.status_code != 403
+
+
+def test_thinking_level_minimal_is_supported_by_the_sdk():
+    from google.genai import types
+    config = types.ThinkingConfig(thinking_level="minimal")
+    assert config.thinking_level.value == "MINIMAL"

@@ -3,6 +3,7 @@
 Main FastAPI application for Enchanted Spoon.
 """
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -15,7 +16,11 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.core.observability import init_sentry
 from app.core.rate_limit import limiter
 from app.core.startup import validate_config
+from app.database.db import SessionLocal
+from app.services.free_tier_sunset import apply_free_tier_sunset
 from app.router import api_router
+
+logger = logging.getLogger(__name__)
 
 # Before the app is built so Sentry's FastAPI integration can hook it
 init_sentry()
@@ -25,7 +30,25 @@ init_sentry()
 async def lifespan(app: FastAPI):
     """Validate critical configuration before serving any requests."""
     validate_config()
+    _apply_sunset_if_due()
     yield
+
+
+def _apply_sunset_if_due() -> None:
+    """Persist read-only once the configured free-plan date has passed."""
+    from app.core.offer_windows import sunset_is_due
+
+    if not sunset_is_due():
+        return
+    session = SessionLocal()
+    try:
+        apply_free_tier_sunset(session)
+        session.commit()
+    except Exception:
+        session.rollback()
+        logger.exception("Free-tier sunset migration failed")
+    finally:
+        session.close()
 
 
 # Create FastAPI app

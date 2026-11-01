@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database.db import get_session
+from app.core.usage_limits import usage_window_for
 from app.dtos.admin_dtos import CurrentUserDTO, CurrentUserUsageDTO
 from app.api.errors import internal_error
 from app.models.user import User
@@ -40,8 +41,21 @@ def get_current_user_usage(
     Backs the usage meter in Settings → Plan & Billing. Limits are ``None``
     for uncapped fields (admins are uncapped on everything).
     """
-    usage = UsageService(session, current_user.id).get_usage()
+    usage = UsageService(session, current_user.id, window=usage_window_for(current_user)).get_usage()
     return CurrentUserUsageDTO.from_models(current_user, usage)
+
+
+@router.post("/me/sunset-notice", response_model=CurrentUserDTO)
+def dismiss_sunset_notice(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> CurrentUserDTO:
+    """Record that the one-time free-plan pop-up was seen."""
+    from datetime import datetime, timezone
+
+    current_user.sunset_notice_seen_at = datetime.now(timezone.utc)
+    session.commit()
+    return CurrentUserDTO.from_model(current_user)
 
 
 class AccountDeletionResultDTO(BaseModel):

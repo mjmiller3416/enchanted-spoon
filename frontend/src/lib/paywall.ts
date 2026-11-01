@@ -36,7 +36,7 @@ export function openPaywall(event: PaywallEvent): void {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  ai_images_generated: "AI photo sets",
+  ai_images_generated: "AI photos",
   ai_suggestions_requested: "AI suggestions",
   ai_assistant_messages: "assistant messages",
   recipes_imported: "recipe imports",
@@ -50,6 +50,14 @@ export function classifyAiGateError(error: unknown): PaywallEvent | null {
 
   if (error.status === 403) {
     const detail = error.details?.detail;
+    if (
+      detail &&
+      typeof detail === "object" &&
+      !Array.isArray(detail) &&
+      (detail as { error?: string }).error === "read_only"
+    ) {
+      return { reason: "pro_required", featureLabel: "creating, planning, and AI" };
+    }
     const message = typeof detail === "string" ? detail : error.message;
     if (typeof message === "string" && message.includes("Pro subscription required")) {
       return { reason: "pro_required", featureLabel: "this AI feature" };

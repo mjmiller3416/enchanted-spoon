@@ -7,16 +7,17 @@ from app.dtos.meal_suggestions_dtos import (
     MealSuggestionsRequestDTO,
     MealSuggestionsResponseDTO,
 )
-from app.services.ai.config import GEMINI_MODEL
+from app.services.ai.config import GEMINI_LITE_MODEL
 from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.response_utils import extract_text_from_response
 from app.services.ai.text_utils import clean_tip
+from app.services.ai.usage_logging import log_usage_metadata
 
 logger = logging.getLogger(__name__)
 
 # ── Model settings ───────────────────────────────────────────────────────
-MODEL_NAME = GEMINI_MODEL
+MODEL_NAME = GEMINI_LITE_MODEL
 TEMPERATURE = 0.8  # Varied tips
 MAX_OUTPUT_TOKENS = 150  # Just need a short tip
 
@@ -84,9 +85,10 @@ class MealSuggestionsService:
                 config={
                     "temperature": TEMPERATURE,
                     "max_output_tokens": MAX_OUTPUT_TOKENS,
-                    "thinking_config": {"thinking_budget": 0},
+                    "thinking_config": {"thinking_level": "minimal"},
                 },
             )
+            log_usage_metadata("meal_suggestions", MODEL_NAME, response)
 
             # Extract text from response
             tip_text = extract_text_from_response(response)

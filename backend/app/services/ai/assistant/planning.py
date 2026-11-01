@@ -15,6 +15,8 @@ from app.repositories.planner import MAX_PLANNER_ENTRIES
 from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.parse_utils import safe_int
 from app.services.ai.response_utils import extract_text_from_response
+from app.services.ai.usage_logging import log_usage_metadata
+from app.services.ai.config import MINIMAL_THINKING, PLANNING_MAX_OUTPUT_TOKENS
 
 from .prompts import API_KEY_ENV_VAR, MODEL_NAME
 from .service import PlannerMealAdder, RecipeCatalogLoader
@@ -243,10 +245,13 @@ class MealPlanningMixin:
                 contents=[{"role": "user", "parts": [{"text": prompt}]}],
                 config={
                     "temperature": PLAN_TEMPERATURE,
+                    "max_output_tokens": PLANNING_MAX_OUTPUT_TOKENS,
                     "response_mime_type": "application/json",
                     "response_schema": MEAL_PLAN_SCHEMA,
+                    "thinking_config": MINIMAL_THINKING,
                 },
             )
+            log_usage_metadata("assistant_planning", MODEL_NAME, response)
             raw_text = extract_text_from_response(response)
             data = json.loads(raw_text) if raw_text else None
         except Exception as e:  # API errors and malformed JSON alike

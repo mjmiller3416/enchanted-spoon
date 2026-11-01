@@ -31,10 +31,18 @@ class CurrentUserDTO(BaseModel):
     cancel_at_period_end: bool = False
     has_pro_access: bool
     access_reason: str
+    usage_tier: str
+    is_read_only: bool
+    show_sunset_banner: bool = False
+    show_sunset_popup: bool = False
+    free_tier_sunset_at: Optional[datetime] = None
     created_at: datetime
 
     @classmethod
     def from_model(cls, user: User) -> CurrentUserDTO:
+        from app.core.offer_windows import free_tier_sunset_at
+
+        legacy_free = user.is_legacy_free_account() and not user.is_read_only
         return cls(
             id=user.id,
             email=user.email,
@@ -47,6 +55,11 @@ class CurrentUserDTO(BaseModel):
             cancel_at_period_end=user.cancel_at_period_end,
             has_pro_access=user.has_pro_access,
             access_reason=user.access_reason,
+            usage_tier=user.usage_tier,
+            is_read_only=user.is_read_only,
+            show_sunset_banner=legacy_free or user.is_read_only,
+            show_sunset_popup=legacy_free and user.sunset_notice_seen_at is None,
+            free_tier_sunset_at=free_tier_sunset_at(),
             created_at=user.created_at,
         )
 
@@ -202,9 +215,13 @@ class CurrentUserUsageDTO(BaseModel):
     ai_assistant_messages: int
     recipes_imported: int
     limits: AdminUsageLimitsDTO
+    usage_tier: str
+    resets: str
 
     @classmethod
     def from_models(cls, user: User, usage: UserUsage) -> CurrentUserUsageDTO:
+        tier = user.usage_tier
+        resets = "trial" if tier == "trial" else "none" if tier == "expired" else "monthly"
         return cls(
             month=usage.month,
             ai_images_generated=usage.ai_images_generated or 0,
@@ -212,6 +229,8 @@ class CurrentUserUsageDTO(BaseModel):
             ai_assistant_messages=usage.ai_assistant_messages or 0,
             recipes_imported=usage.recipes_imported or 0,
             limits=AdminUsageLimitsDTO.for_user(user),
+            usage_tier=tier,
+            resets=resets,
         )
 
 

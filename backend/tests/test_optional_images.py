@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from app.services.ai.optional_images import generate_optional_recipe_images
 from app.services.usage_service import UsageService
+from app.core.usage_limits import get_user_monthly_limit
 from app.models.user import User
 
 @pytest.fixture
@@ -22,16 +23,21 @@ async def test_reserves_before_provider_and_blocks_next_free_photo(photo_account
     db_session, test_user = photo_account
     test_user.is_admin = False
     test_user.subscription_tier = "free"
+    test_user.usage_plan = "launch"
+    db_session.commit()
+    cap = get_user_monthly_limit(test_user, "ai_images_generated")
     usage = UsageService(db_session, test_user.id)
+    for _ in range((cap or 1) - 1):
+        usage.reserve("ai_images_generated", cap)
     async def generate(name):
-        assert usage.get_usage().ai_images_generated == 1
-        return {"reference_image_data": "ref", "banner_image_data": "banner"}
+        assert usage.get_usage().ai_images_generated == cap
+        return {"reference_image_data": "ref", "banner_image_data": None}
     with patch("app.services.ai.optional_images.get_image_generation_service") as factory:
         provider = factory.return_value.generate_dual_recipe_images = AsyncMock(side_effect=generate)
-        assert await generate_optional_recipe_images(db_session, test_user, "Soup") == ("ref", "banner")
+        assert await generate_optional_recipe_images(db_session, test_user, "Soup") == ("ref", None)
         assert await generate_optional_recipe_images(db_session, test_user, "Soup") == (None, None)
         assert provider.await_count == 1
-        assert usage.get_usage().ai_images_generated == 1
+        assert usage.get_usage().ai_images_generated == cap
 
 
 @pytest.mark.anyio
@@ -127,6 +133,7 @@ async def test_provider_failure_preserves_recipe_and_accounts_for_images(photo_a
     assert result.banner_image_data is None
     assert bool(result.reference_image_data) == partial_success
     assert usage.get_usage().ai_images_generated == int(partial_success)
-    assert calls == 2
-    assert all(AI_UNAVAILABLE_MESSAGE in message for message in captured[0]["errors"])
+    assert calls == (1 if partial_success else 3)
+    if not partial_success:
+        assert all(AI_UNAVAILABLE_MESSAGE in message for message in captured[0]["errors"])
     assert "synthetic-private-provider-detail" not in str(captured)

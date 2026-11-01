@@ -35,6 +35,16 @@ from app.models import (  # noqa: F401 – side-effect import registers models
 # Database engine & session fixtures
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(autouse=True)
+def _reset_ai_rate_limits():
+    """Keep per-process AI rate buckets from leaking between tests."""
+    from app.core.rate_limit import ip_limiter, limiter
+    limiter.reset()
+    ip_limiter.reset()
+    yield
+    limiter.reset()
+    ip_limiter.reset()
+
 @pytest.fixture(scope="session")
 def engine():
     """Create an in-memory SQLite engine shared across the test session."""

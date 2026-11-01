@@ -59,6 +59,29 @@ def signed(data, secret="whsec_synthetic"):
     return payload, f"t={timestamp},v1={digest}"
 
 
+def test_paused_subscription_is_expired_not_pro(billing):
+    service, user = billing
+    with patch("stripe.Subscription.list", return_value=current(subscription("paused", paid=False))):
+        service.handle_event(snapshot("customer.subscription.paused", event_id="evt_paused"))
+    assert user.subscription_tier == "free"
+    assert user.subscription_status == "paused"
+    assert user.usage_tier == "expired"
+    assert user.has_pro_access is False
+
+
+def test_trialing_subscription_records_the_trial_window(billing):
+    service, user = billing
+    trial = subscription("trialing", paid=False, trial_start=1_900_000_000, trial_end=1_900_604_800)
+    with patch("stripe.Subscription.list", return_value=current(trial)):
+        service.handle_event(snapshot("customer.subscription.updated", event_id="evt_trial"))
+    assert user.subscription_status == "trialing"
+    assert user.has_used_trial is True
+    assert user.trial_started_at is not None
+    assert user.trial_ends_at is not None
+    assert user.usage_tier == "trial"
+    assert user.access_reason == "trial"
+
+
 def test_sdk_and_fixture_versions_are_pinned():
     from pathlib import Path
     assert stripe.VERSION == "16.0.0"
@@ -129,7 +152,7 @@ def test_failed_renewal_preserves_existing_access_without_granting_unpaid_access
     assert user.has_pro_access is existing_pro
 
 
-@pytest.mark.parametrize("status", ["active", "incomplete", "unknown_future_status", "paused"])
+@pytest.mark.parametrize("status", ["active", "incomplete", "unknown_future_status"])
 def test_unsettled_or_unknown_state_never_grants_new_access(billing, status):
     service, user = billing
     with patch("stripe.Subscription.list", return_value=current(subscription(status, paid=False))):

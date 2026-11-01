@@ -1,6 +1,5 @@
 """Service for generating AI images using Gemini."""
 
-import base64
 from typing import Optional
 
 from google.genai import types
@@ -8,17 +7,18 @@ from google.genai import types
 from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.response_utils import extract_image_data
+from app.services.ai.usage_logging import log_usage_metadata
 
 from .config import (
-    PROMPT_TEMPLATE,
-    BANNER_PROMPT_TEMPLATE,
-    BANNER_FROM_REFERENCE_PROMPT,
-    MODEL_NAME,
+    API_KEY_ENV_VAR,
     ASPECT_RATIO,
     BANNER_ASPECT_RATIO,
-    REFERENCE_IMAGE_SIZE,
+    BANNER_FROM_REFERENCE_PROMPT,
     BANNER_IMAGE_SIZE,
-    API_KEY_ENV_VAR,
+    FALLBACK_MODEL_NAME,
+    MODEL_NAME,
+    PROMPT_TEMPLATE,
+    REFERENCE_IMAGE_SIZE,
 )
 
 
@@ -27,7 +27,7 @@ class ImageGenerationService:
 
     def __init__(self) -> None:
         """Initialize the image generation service."""
-        get_gemini_client(API_KEY_ENV_VAR)
+        get_gemini_client(API_KEY_ENV_VAR, retry_attempts=1, timeout_ms=120_000)
 
     async def generate_recipe_image(
         self,
@@ -55,7 +55,7 @@ class ImageGenerationService:
             }
 
         try:
-            client = get_gemini_client(API_KEY_ENV_VAR)
+            client = get_gemini_client(API_KEY_ENV_VAR, retry_attempts=1, timeout_ms=120_000)
 
             template = (
                 custom_prompt
@@ -63,32 +63,45 @@ class ImageGenerationService:
                 else PROMPT_TEMPLATE
             )
             prompt = template.format(recipe_name=recipe_name.strip())
+            size = image_size or REFERENCE_IMAGE_SIZE
+            attempts: list[tuple[str, str]] = [(MODEL_NAME, size)]
+            if MODEL_NAME != FALLBACK_MODEL_NAME:
+                attempts.append((FALLBACK_MODEL_NAME, "1K"))
+                attempts.append((FALLBACK_MODEL_NAME, "512"))
+            elif size != "512":
+                attempts.append((MODEL_NAME, "512"))
 
-            image_config_kwargs = {"aspect_ratio": aspect_ratio}
-            if image_size:
-                image_config_kwargs["image_size"] = image_size
-
-            response = await client.aio.models.generate_content(
-                model=MODEL_NAME,
-                contents=[prompt],
-                config=types.GenerateContentConfig(
-                    response_modalities=["IMAGE"],
-                    image_config=types.ImageConfig(**image_config_kwargs),
-                ),
-            )
-
-            image_data = extract_image_data(response)
-            if image_data:
-                return {
-                    "success": True,
-                    "image_data": image_data,
-                    "error": None,
-                }
+            last_error = "No image data in response"
+            for model_name, attempt_size in attempts:
+                try:
+                    response = await client.aio.models.generate_content(
+                        model=model_name,
+                        contents=[prompt],
+                        config=types.GenerateContentConfig(
+                            response_modalities=["IMAGE"],
+                            image_config=types.ImageConfig(
+                                aspect_ratio=aspect_ratio,
+                                image_size=attempt_size,
+                            ),
+                        ),
+                    )
+                except Exception as exc:
+                    last_error = safe_ai_error(exc, "ImageGeneration")
+                    continue
+                log_usage_metadata("image_generation", model_name, response)
+                image_data = extract_image_data(response)
+                if image_data:
+                    return {
+                        "success": True,
+                        "image_data": image_data,
+                        "error": None,
+                    }
+                last_error = "No image data in response"
 
             return {
                 "success": False,
                 "image_data": None,
-                "error": "No image data in response",
+                "error": last_error,
             }
 
         except Exception as e:
@@ -111,7 +124,7 @@ class ImageGenerationService:
             dict with 'success', 'image_data' (base64), and optional 'error'.
         """
         try:
-            client = get_gemini_client(API_KEY_ENV_VAR)
+            client = get_gemini_client(API_KEY_ENV_VAR, retry_attempts=1, timeout_ms=120_000)
 
             prompt = BANNER_FROM_REFERENCE_PROMPT.format(recipe_name=recipe_name.strip())
 
@@ -154,14 +167,10 @@ class ImageGenerationService:
     async def generate_dual_recipe_images(
         self, recipe_name: str, custom_prompt: Optional[str] = None
     ) -> dict:
-        """Generate both reference (1:1) and banner (21:9) images for a recipe.
+        """Generate one square photo. Banners are cropped from it in the client.
 
-        Args:
-            recipe_name: The name of the recipe to generate images for.
-            custom_prompt: Optional custom prompt template (must include {recipe_name}).
-
-        Returns:
-            dict with 'success', 'reference_image_data', 'banner_image_data', and 'errors'.
+        ``banner_image_data`` is always None. One successful photo is one
+        provider image, counted as one allowance unit by the caller.
         """
         result = {
             "success": False,
@@ -169,8 +178,6 @@ class ImageGenerationService:
             "banner_image_data": None,
             "errors": [],
         }
-
-        # Generate reference image (1:1 square)
         ref_result = await self.generate_recipe_image(
             recipe_name,
             custom_prompt=custom_prompt or PROMPT_TEMPLATE,
@@ -179,32 +186,9 @@ class ImageGenerationService:
         )
         if ref_result["success"]:
             result["reference_image_data"] = ref_result["image_data"]
+            result["success"] = True
         else:
             result["errors"].append(f"Reference: {ref_result.get('error')}")
-
-        # Generate banner image using reference image as input (if available)
-        if ref_result["success"]:
-            reference_bytes = base64.b64decode(ref_result["image_data"])
-            banner_result = await self.generate_banner_from_reference(
-                recipe_name, reference_bytes
-            )
-        else:
-            banner_result = await self.generate_recipe_image(
-                recipe_name,
-                custom_prompt=BANNER_PROMPT_TEMPLATE,
-                aspect_ratio=BANNER_ASPECT_RATIO,
-                image_size=BANNER_IMAGE_SIZE,
-            )
-
-        if banner_result["success"]:
-            result["banner_image_data"] = banner_result["image_data"]
-        else:
-            result["errors"].append(f"Banner: {banner_result.get('error')}")
-
-        result["success"] = bool(
-            result["reference_image_data"] or result["banner_image_data"]
-        )
-
         return result
 
 

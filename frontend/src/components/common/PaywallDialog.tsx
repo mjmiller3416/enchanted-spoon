@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +18,7 @@ import {
 import { useCurrentUser, useStartCheckout } from "@/hooks/api";
 import { subscribePaywall, type PaywallEvent } from "@/lib/paywall";
 import { appConfig } from "@/lib/config";
+import { ANNUAL_PRICE_LABEL, MONTHLY_PRICE_LABEL, type CheckoutPlan } from "@/lib/pricing";
 
 /**
  * Upgrade prompt for AI access gates (#166). Opens when any AI call fails
@@ -28,6 +31,8 @@ export function PaywallDialog() {
   const [event, setEvent] = useState<PaywallEvent | null>(null);
   const { data: currentUser } = useCurrentUser();
   const startCheckout = useStartCheckout();
+  const [plan, setPlan] = useState<CheckoutPlan>("annual");
+  const [promotionCode, setPromotionCode] = useState("");
 
   useEffect(() => subscribePaywall(setEvent), []);
 
@@ -36,14 +41,17 @@ export function PaywallDialog() {
   const showUsage = isLimit && event?.limit != null && event?.current != null;
 
   const handleUpgrade = () => {
-    startCheckout.mutate(undefined, {
-      onError: (error) =>
-        toast.error(
-          error instanceof Error && error.message
-            ? error.message
-            : "Couldn't start checkout. Please try again.",
-        ),
-    });
+    startCheckout.mutate(
+      { plan, promotionCode: promotionCode.trim() || undefined },
+      {
+        onError: (error) =>
+          toast.error(
+            error instanceof Error && error.message
+              ? error.message
+              : "Couldn't start checkout. Please try again.",
+          ),
+      },
+    );
   };
 
   const title = !isLimit
@@ -56,7 +64,7 @@ export function PaywallDialog() {
     ? `AI-powered features — importing recipes from a URL, generating images, and the Genie assistant — are part of ${appConfig.appName} Pro.`
     : isPro
       ? `You've hit this month's cap for ${event?.featureLabel}. It resets at the start of next month.`
-      : `The free plan includes a taste of every AI feature. You've used this month's allowance for ${event?.featureLabel} — it resets at the start of next month.`;
+      : `The free plan includes a taste of every AI feature. You've used this allowance for ${event?.featureLabel}.`;
 
   return (
     <Dialog open={event !== null} onOpenChange={(open) => !open && setEvent(null)}>
@@ -71,11 +79,34 @@ export function PaywallDialog() {
 
         {showUsage && (
           <p className="text-sm text-muted-foreground">
-            Used this month:{" "}
+            Used:{" "}
             <span className="font-medium text-foreground">
               {event?.current}/{event?.limit}
             </span>
           </p>
+        )}
+
+        {!isPro && (
+          <div className="space-y-3">
+            <div className="flex flex-col gap-2">
+              <Button type="button" variant={plan === "annual" ? "default" : "outline"} onClick={() => setPlan("annual")}>
+                Annual — {ANNUAL_PRICE_LABEL}
+              </Button>
+              <Button type="button" variant={plan === "monthly" ? "default" : "outline"} onClick={() => setPlan("monthly")}>
+                Monthly — {MONTHLY_PRICE_LABEL}
+              </Button>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="paywall-code">Founding code</Label>
+              <Input
+                id="paywall-code"
+                value={promotionCode}
+                onChange={(input) => setPromotionCode(input.target.value)}
+                placeholder="FOUNDER30 or FOUNDER30Y"
+                autoComplete="off"
+              />
+            </div>
+          </div>
         )}
 
         <DialogFooter className="gap-2 sm:gap-2">
@@ -92,7 +123,7 @@ export function PaywallDialog() {
                 {startCheckout.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
                 )}
-                Upgrade to Pro — $4.99/mo
+                Start 7-day trial — {plan === "annual" ? ANNUAL_PRICE_LABEL : MONTHLY_PRICE_LABEL}
               </Button>
             </>
           )}

@@ -12,6 +12,11 @@ export interface CurrentUserDTO {
   cancel_at_period_end: boolean;
   has_pro_access: boolean;
   access_reason: string;
+  usage_tier: string;
+  is_read_only: boolean;
+  show_sunset_banner: boolean;
+  show_sunset_popup: boolean;
+  free_tier_sunset_at: string | null;
   created_at: string;
 }
 

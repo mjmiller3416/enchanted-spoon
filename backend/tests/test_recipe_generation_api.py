@@ -65,8 +65,10 @@ def _make_pro_user() -> User:
     """Create a User object with pro access."""
     user = MagicMock(spec=User)
     user.id = 1
-    user.usage_plan = "launch"
     user.is_admin = False
+    user.usage_plan = "launch"
+    user.usage_tier = "pro"
+    user.is_read_only = False
     user.has_pro_access = True
     return user
 

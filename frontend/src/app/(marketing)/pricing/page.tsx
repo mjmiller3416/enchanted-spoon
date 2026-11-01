@@ -12,20 +12,19 @@ export const metadata: Metadata = {
 };
 
 const FREE_FEATURES = [
-  "Unlimited recipes, collections, and favorites",
+  "Unlimited recipes, collections, and favorites until the free plan ends",
   "Meal planning with cooking streaks",
   "Shopping list that builds itself from your plan",
-  "Optional AI nutrition estimates and unit conversions",
-  "Monthly: 1 photo set, 10 AI requests, 10 Genie messages, 5 imports",
+  "A monthly taste of AI: 3 photos, 10 suggestions, 10 Genie messages, 5 imports",
 ];
 
 const PRO_FEATURES = [
-  "Everything in Free",
+  "7-day trial, card required",
   "Import recipes from a URL",
   "Generate complete recipes from a prompt",
-  "AI food photography for your recipes",
-  "Genie assistant — chat, ideas, and tips",
-  "Monthly: 10 photo sets, 50 AI requests, 50 Genie messages, 100 imports",
+  "On-demand AI photos (banners are cropped from the square photo)",
+  "Genie assistant",
+  "Monthly: 20 photos, 200 AI suggestions, 300 Genie messages, 50 imports",
 ];
 
 function FeatureList({ features }: { features: string[] }) {
@@ -49,9 +48,9 @@ export default function PricingPage() {
           Start free. <span className="text-primary">Go Pro for the magic.</span>
         </h1>
         <p className="text-lg text-muted-foreground">
-          Recipes, meal planning, and shopping lists are free forever. Pro
-          adds larger monthly allowances for optional AI import, generation,
-          photography, and the assistant.
+          Existing free accounts stay free until Mar 31, 2027, then become
+          read-only. Pro is $6.99/mo or $49.99/yr plus applicable tax, with a
+          7-day card-required trial.
         </p>
       </div>
 
@@ -85,11 +84,11 @@ export default function PricingPage() {
               </Badge>
             </div>
             <p className="flex items-baseline gap-1">
-              <span className="text-4xl font-bold tracking-tight text-foreground">$4.99</span>
-              <span className="text-sm text-muted-foreground">/ month</span>
+              <span className="text-4xl font-bold tracking-tight text-foreground">$6.99</span>
+              <span className="text-sm text-muted-foreground">/mo plus applicable tax</span>
             </p>
             <p className="text-sm text-muted-foreground">
-              For cooks who want the genie doing the heavy lifting.
+              or $49.99/yr plus applicable tax. Founding codes FOUNDER30 and FOUNDER30Y are web checkout only.
             </p>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col gap-6">
@@ -104,10 +103,9 @@ export default function PricingPage() {
       <p className="text-sm text-muted-foreground">
         Already using {appConfig.appName}? Upgrade anytime from{" "}
         <span className="font-medium text-foreground">Settings → Plan &amp; Billing</span>.
-        Cancel whenever. Your recipes stay yours. AI requests share one allowance
-        for recipe generation, suggestions, nutrition estimates, and tips. A photo
-        set includes up to a reference and banner image. Allowances reset each
-        calendar month and do not roll over.
+        Cancel whenever. Prices are tax-exclusive. A photo is one square image;
+        banners are cropped from it. Allowances reset each calendar month for
+        paid plans and cover the whole 7-day trial.
       </p>
     </section>
   );

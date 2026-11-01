@@ -16,7 +16,24 @@ export interface CurrentUserUsage {
   ai_assistant_messages: number;
   recipes_imported: number;
   limits: UsageLimits;
+  usage_tier: string;
+  resets: "monthly" | "trial" | "none";
 }
+
+export interface FounderSpot {
+  code: string;
+  plan: string;
+  spots_remaining: number | null;
+  spots_total: number | null;
+}
+
+export interface FounderOffer {
+  ends_at: string;
+  monthly: FounderSpot;
+  annual: FounderSpot;
+}
+
+export type CheckoutPlan = "monthly" | "annual";
 
 export interface CheckoutSessionResponse {
   checkout_url: string;
