@@ -44,7 +44,6 @@ from .config import (
     MAX_OUTPUT_TOKENS,
     MODEL_NAME,
     PROMPT_TEMPLATE,
-    TEMPERATURE,
 )
 
 # Hostname suffixes that only ever name private/internal services
@@ -515,7 +514,6 @@ class RecipeImportService:
                 model=MODEL_NAME,
                 contents=[{"role": "user", "parts": [{"text": prompt}]}],
                 config={
-                    "temperature": TEMPERATURE,
                     "max_output_tokens": MAX_OUTPUT_TOKENS,
                     "response_mime_type": "application/json",
                     "thinking_config": {"thinking_level": "minimal"},

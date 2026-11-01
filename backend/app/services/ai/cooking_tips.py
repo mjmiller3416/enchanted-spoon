@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 # ── Model settings ───────────────────────────────────────────────────────
 MODEL_NAME = GEMINI_LITE_MODEL
-TEMPERATURE = 0.9  # High temperature for variety
 MAX_OUTPUT_TOKENS = 150  # Constrain output length
 
 # Environment variable for API key
@@ -147,7 +146,6 @@ class CookingTipService:
                     model=MODEL_NAME,
                     contents=[prompt],
                     config={
-                        "temperature": TEMPERATURE,
                         "max_output_tokens": MAX_OUTPUT_TOKENS,
                         "thinking_config": {"thinking_level": "minimal"},
                     },

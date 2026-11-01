@@ -126,9 +126,10 @@ def test_checkout_attaches_trial_tax_and_first_time_promo_before_any_invoice():
     """
     user = _user(stripe_customer_id=None)
     service = BillingService(MagicMock(), settings=_settings())
+    service.session.execute.return_value.rowcount = 1
     with patch.object(service, "get_or_create_customer", return_value="cus_new") as customer, \
          patch("app.services.founder_codes.stripe.PromotionCode.list", return_value=_promo()), \
-         patch("stripe.checkout.Session.create", return_value=MagicMock(url="https://pay.test/c")) as create:
+         patch("stripe.checkout.Session.create", return_value=MagicMock(id="cs_trial", url="https://pay.test/c")) as create:
         assert service.create_checkout_session(user, plan="monthly", promotion_code=" founder30 ") == "https://pay.test/c"
     customer.assert_called_once()
     params = create.call_args.kwargs
@@ -412,3 +413,127 @@ def test_thinking_level_minimal_is_supported_by_the_sdk():
     from google.genai import types
     config = types.ThinkingConfig(thinking_level="minimal")
     assert config.thinking_level.value == "MINIMAL"
+
+
+def test_client_ip_uses_the_rightmost_forwarded_hop():
+    from starlette.requests import Request
+    from app.core.rate_limit import client_ip
+
+    def request_for(forwarded: str | None, peer: str = "10.0.0.8") -> Request:
+        headers = []
+        if forwarded is not None:
+            headers.append((b"x-forwarded-for", forwarded.encode()))
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": headers,
+            "query_string": b"",
+            "client": (peer, 1234),
+            "scheme": "http",
+            "server": ("test", 80),
+        }
+        return Request(scope)
+
+    assert client_ip(request_for("1.2.3.4, 203.0.113.9")) == "203.0.113.9"
+    assert client_ip(request_for(" 203.0.113.7 ")) == "203.0.113.7"
+    assert client_ip(request_for(None, "10.0.0.8")) == "10.0.0.8"
+
+
+def test_empty_or_safety_blocked_image_does_not_fall_back(monkeypatch, caplog):
+    from app.services.ai.image_generation.service import ImageGenerationService
+    from app.services.ai import image_generation as image_pkg
+
+    calls = []
+
+    async def generate_content(**kwargs):
+        calls.append(kwargs["model"])
+        if len(calls) == 1 and monkeypatch_mode["safety"]:
+            return SimpleNamespace(prompt_feedback=SimpleNamespace(block_reason="SAFETY"), candidates=[])
+        return SimpleNamespace(prompt_feedback=None, candidates=[])
+
+    monkeypatch_mode = {"safety": False}
+    client = MagicMock()
+    client.aio.models.generate_content = generate_content
+    monkeypatch.setattr(image_pkg.service, "get_gemini_client", lambda *a, **k: client)
+    monkeypatch.setattr(image_pkg.service, "extract_image_data", lambda response: None)
+    service = ImageGenerationService.__new__(ImageGenerationService)
+    import anyio
+    caplog.set_level("INFO")
+    empty = anyio.run(service.generate_recipe_image, "Soup")
+    assert empty["success"] is False
+    assert len(calls) == 1
+    assert "outcome=empty" in caplog.text
+
+    calls.clear()
+    caplog.clear()
+    monkeypatch_mode["safety"] = True
+    blocked = anyio.run(service.generate_recipe_image, "Soup")
+    assert blocked["success"] is False
+    assert len(calls) == 1
+    assert "outcome=safety_blocked" in caplog.text
+    assert "model=" in caplog.text
+
+
+def test_only_one_checkout_receives_a_trial(file_db):
+    import stripe
+    from app.services.billing_service import CheckoutSessionError
+    from app.services.stripe_webhook_service import StripeWebhookService
+
+    with file_db() as session:
+        user = session.get(User, 1)
+        user.has_used_trial = False
+        user.trial_started_at = None
+        session.commit()
+        service = BillingService(session, _settings())
+        created = []
+
+        def create(**kwargs):
+            created.append(kwargs)
+            return SimpleNamespace(id=f"cs_{len(created)}", url="https://pay.test/c")
+
+        with patch("stripe.Customer.create", return_value=SimpleNamespace(id="cus_new")), \
+             patch("stripe.Invoice.list", return_value=SimpleNamespace(data=[])), \
+             patch("stripe.checkout.Session.create", side_effect=create):
+            service.create_checkout_session(user, plan="monthly")
+            service.create_checkout_session(user, plan="monthly")
+
+        assert created[0]["subscription_data"]["trial_period_days"] == STRIPE_TRIAL_DAYS
+        assert "trial_period_days" not in created[1].get("subscription_data", {})
+        session.refresh(user)
+        assert user.has_used_trial is True
+        assert user.pending_trial_checkout_id == "cs_1"
+
+        webhook = StripeWebhookService(session, _settings())
+        webhook.handle_event({
+            "id": "evt_expire",
+            "type": "checkout.session.expired",
+            "data": {"object": {"id": "cs_1", "customer": "cus_new", "mode": "subscription"}},
+        })
+        session.refresh(user)
+        assert user.has_used_trial is False
+        assert user.pending_trial_checkout_id is None
+
+        user.has_used_trial = True
+        user.pending_trial_checkout_id = "cs_used"
+        user.trial_started_at = datetime.now(timezone.utc)
+        session.commit()
+        webhook.handle_event({
+            "id": "evt_expire_used",
+            "type": "checkout.session.expired",
+            "data": {"object": {"id": "cs_used", "customer": "cus_new", "mode": "subscription"}},
+        })
+        session.refresh(user)
+        assert user.has_used_trial is True
+
+        user.has_used_trial = False
+        user.pending_trial_checkout_id = None
+        user.trial_started_at = None
+        user.stripe_customer_id = None
+        session.commit()
+        with patch("stripe.Customer.create", return_value=SimpleNamespace(id="cus_fail")), \
+             patch("stripe.checkout.Session.create", side_effect=stripe.error.APIConnectionError("down")):
+            with pytest.raises(CheckoutSessionError):
+                service.create_checkout_session(user, plan="monthly")
+        session.refresh(user)
+        assert user.has_used_trial is False

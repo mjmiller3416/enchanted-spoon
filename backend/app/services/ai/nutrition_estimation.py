@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 # ── Model settings ───────────────────────────────────────────────────────
 MODEL_NAME = GEMINI_LITE_MODEL
-TEMPERATURE = 0.3  # Low temperature for factual accuracy
 # Recipes with many ingredients (e.g. combo dishes) need more headroom before
 # the model reaches a complete JSON object — too tight a cap silently
 # truncates the response mid-object, which then fails to parse.
@@ -124,7 +123,6 @@ class NutritionEstimationService:
                 model=MODEL_NAME,
                 contents=[{"role": "user", "parts": [{"text": prompt}]}],
                 config={
-                    "temperature": TEMPERATURE,
                     "max_output_tokens": MAX_OUTPUT_TOKENS,
                     "response_mime_type": "application/json",
                     "thinking_config": {"thinking_level": "minimal"},

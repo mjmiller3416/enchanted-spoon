@@ -16,7 +16,6 @@ providers:
     label: "gemini-3.1-flash-lite"
     config:
       generationConfig:
-        temperature: 0.9
         maxOutputTokens: 150
         thinkingConfig:
           thinkingLevel: minimal

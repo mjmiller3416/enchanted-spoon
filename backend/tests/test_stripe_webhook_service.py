@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.stripe_config import STRIPE_API_VERSION, StripeSettings
 from app.models import BillingEvent, User
 from app.services.stripe_webhook_service import (
-    HANDLED_EVENT_TYPES, REVIEW_EVENT_TYPES, InvalidStripeSignatureError,
+    HANDLED_EVENT_TYPES, RECONCILE_EVENT_TYPES, REVIEW_EVENT_TYPES, InvalidStripeSignatureError,
     StripeWebhookProcessingError, StripeWebhookService,
 )
 
@@ -120,7 +120,7 @@ def test_signed_real_sdk_event_reconciles_and_duplicate_does_not_fetch_again(bil
     assert user.subscription_ends_at.year == 2033
 
 
-@pytest.mark.parametrize("kind", sorted(HANDLED_EVENT_TYPES - REVIEW_EVENT_TYPES))
+@pytest.mark.parametrize("kind", sorted(RECONCILE_EVENT_TYPES))
 def test_all_billing_wakeups_use_current_subscription_not_event_snapshot(billing, kind):
     service, user = billing
     with patch("stripe.Subscription.list", return_value=current(subscription())):

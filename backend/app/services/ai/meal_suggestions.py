@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 # ── Model settings ───────────────────────────────────────────────────────
 MODEL_NAME = GEMINI_LITE_MODEL
-TEMPERATURE = 0.8  # Varied tips
 MAX_OUTPUT_TOKENS = 150  # Just need a short tip
 
 # Environment variable for API key (reuses existing tip key)
@@ -83,7 +82,6 @@ class MealSuggestionsService:
                     {"role": "user", "parts": [{"text": user_prompt}]},
                 ],
                 config={
-                    "temperature": TEMPERATURE,
                     "max_output_tokens": MAX_OUTPUT_TOKENS,
                     "thinking_config": {"thinking_level": "minimal"},
                 },

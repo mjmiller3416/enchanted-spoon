@@ -68,6 +68,8 @@ class User(Base):
     trial_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     trial_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     has_used_trial: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sql_false(), nullable=False)
+    # Checkout session that claimed the trial. Cleared when the session expires unused.
+    pending_trial_checkout_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # Set by the free-tier sunset job. Null means the account is not read-only
     # unless the sunset date has already passed for a legacy free account.

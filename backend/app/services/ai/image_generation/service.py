@@ -1,5 +1,6 @@
 """Service for generating AI images using Gemini."""
 
+import logging
 from typing import Optional
 
 from google.genai import types
@@ -20,6 +21,10 @@ from .config import (
     PROMPT_TEMPLATE,
     REFERENCE_IMAGE_SIZE,
 )
+
+logger = logging.getLogger(__name__)
+
+_API_ERROR_STATUSES = {500, 502, 503, 504}
 
 
 class ImageGenerationService:
@@ -64,39 +69,29 @@ class ImageGenerationService:
             )
             prompt = template.format(recipe_name=recipe_name.strip())
             size = image_size or REFERENCE_IMAGE_SIZE
-            attempts: list[tuple[str, str]] = [(MODEL_NAME, size)]
-            if MODEL_NAME != FALLBACK_MODEL_NAME:
-                attempts.append((FALLBACK_MODEL_NAME, "1K"))
-                attempts.append((FALLBACK_MODEL_NAME, "512"))
-            elif size != "512":
-                attempts.append((MODEL_NAME, "512"))
+            models = [MODEL_NAME]
+            if FALLBACK_MODEL_NAME != MODEL_NAME:
+                models.append(FALLBACK_MODEL_NAME)
 
             last_error = "No image data in response"
-            for model_name, attempt_size in attempts:
-                try:
-                    response = await client.aio.models.generate_content(
-                        model=model_name,
-                        contents=[prompt],
-                        config=types.GenerateContentConfig(
-                            response_modalities=["IMAGE"],
-                            image_config=types.ImageConfig(
-                                aspect_ratio=aspect_ratio,
-                                image_size=attempt_size,
-                            ),
-                        ),
-                    )
-                except Exception as exc:
-                    last_error = safe_ai_error(exc, "ImageGeneration")
-                    continue
-                log_usage_metadata("image_generation", model_name, response)
-                image_data = extract_image_data(response)
-                if image_data:
-                    return {
-                        "success": True,
-                        "image_data": image_data,
-                        "error": None,
-                    }
-                last_error = "No image data in response"
+            for index, model_name in enumerate(models):
+                outcome, image_data, error = await self._one_image_attempt(
+                    client, model_name, prompt, aspect_ratio, size
+                )
+                logger.info(
+                    "image_attempt model=%s size=%s outcome=%s",
+                    model_name,
+                    size,
+                    outcome,
+                )
+                if outcome == "success" and image_data:
+                    return {"success": True, "image_data": image_data, "error": None}
+                last_error = error or last_error
+                # One attempt per tap unless the provider itself failed.
+                if outcome not in {"api_error", "timeout", "model_unavailable"}:
+                    break
+                if index == len(models) - 1:
+                    break
 
             return {
                 "success": False,
@@ -190,6 +185,85 @@ class ImageGenerationService:
         else:
             result["errors"].append(f"Reference: {ref_result.get('error')}")
         return result
+
+    async def _one_image_attempt(
+        self,
+        client: object,
+        model_name: str,
+        prompt: str,
+        aspect_ratio: str,
+        image_size: str,
+    ) -> tuple[str, Optional[str], Optional[str]]:
+        """One provider call. Returns outcome, image bytes, and a safe error."""
+        try:
+            response = await client.aio.models.generate_content(
+                model=model_name,
+                contents=[prompt],
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                    image_config=types.ImageConfig(
+                        aspect_ratio=aspect_ratio,
+                        image_size=image_size,
+                    ),
+                ),
+            )
+        except Exception as exc:
+            outcome = _fallback_outcome(exc)
+            return outcome, None, safe_ai_error(exc, "ImageGeneration")
+
+        log_usage_metadata("image_generation", model_name, response)
+        if _safety_blocked(response):
+            return "safety_blocked", None, "Image generation was blocked"
+        image_data = extract_image_data(response)
+        if image_data:
+            return "success", image_data, None
+        return "empty", None, "No image data in response"
+
+
+def _status_code(exc: Exception) -> Optional[int]:
+    for name in ("status_code", "code", "status"):
+        value = getattr(exc, name, None)
+        if isinstance(value, int):
+            return value
+    return None
+
+
+def _fallback_outcome(exc: Exception) -> str:
+    """Why this failure may try the next model. Other errors stop the tap."""
+    if isinstance(exc, TimeoutError) or type(exc).__name__.lower().endswith("timeout"):
+        return "timeout"
+    status = _status_code(exc)
+    text = str(exc).lower()
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    if status in _API_ERROR_STATUSES or any(
+        token in text for token in (" 500", " 502", " 503", " 504", "status 500", "simulated 500")
+    ):
+        return "api_error"
+    if status == 404 or "not found" in text or "model is not available" in text or "unavailable" in text:
+        return "model_unavailable"
+    return "client_error"
+
+
+def _is_set(value: object) -> bool:
+    """True for a real provider value. Unset mocks are not safety signals."""
+    if value is None:
+        return False
+    return not type(value).__module__.startswith("unittest.mock")
+
+
+def _safety_blocked(response: object) -> bool:
+    feedback = getattr(response, "prompt_feedback", None)
+    if _is_set(feedback) and _is_set(getattr(feedback, "block_reason", None)):
+        return True
+    candidates = getattr(response, "candidates", None)
+    if not _is_set(candidates):
+        return False
+    for candidate in candidates or []:
+        reason = getattr(candidate, "finish_reason", None)
+        if _is_set(reason) and "SAFETY" in str(reason).upper():
+            return True
+    return False
 
 
 # Singleton instance

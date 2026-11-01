@@ -176,6 +176,7 @@ class BillingService:
         promotion_id = lookup_founder_promotion(code, plan) if code else None
 
         customer_id = self.get_or_create_customer(user)
+        claimed = self._claim_trial(user)
         params: dict = {
             "customer": customer_id,
             "mode": "subscription",
@@ -187,7 +188,7 @@ class BillingService:
             "billing_address_collection": "required",
             "customer_update": {"address": "auto"},
         }
-        if not user.has_used_trial:
+        if claimed:
             params["subscription_data"] = {
                 "trial_period_days": STRIPE_TRIAL_DAYS,
                 "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}},
@@ -199,12 +200,57 @@ class BillingService:
         try:
             checkout_session = stripe.checkout.Session.create(**params)
         except stripe.error.StripeError as e:
+            if claimed:
+                self._release_unused_trial_claim(user)
             logger.error(f"Stripe checkout session creation failed for user {user.id}: {e}")
             raise CheckoutSessionError("Failed to create checkout session.") from e
 
         if not checkout_session.url:
+            if claimed:
+                self._release_unused_trial_claim(user)
             raise CheckoutSessionError("Stripe did not return a checkout URL.")
+        if claimed:
+            self._remember_trial_checkout(user, checkout_session.id)
         return checkout_session.url
+
+    def _claim_trial(self, user: User) -> bool:
+        """Atomically take the one trial before Stripe Checkout is created.
+
+        Two overlapping checkouts cannot both receive ``trial_period_days``.
+        The loser creates a session with no trial. A failed Stripe call releases
+        the claim. An unused session is released by ``checkout.session.expired``.
+        """
+        from sqlalchemy import update
+
+        if user.has_used_trial:
+            return False
+        result = self.session.execute(
+            update(User)
+            .where(User.id == user.id, User.has_used_trial.is_(False))
+            .values(has_used_trial=True)
+        )
+        self.session.commit()
+        if getattr(result, "rowcount", 0) != 1:
+            return False
+        user.has_used_trial = True
+        return True
+
+    def _remember_trial_checkout(self, user: User, checkout_id: str | None) -> None:
+        if not checkout_id:
+            return
+        user.pending_trial_checkout_id = checkout_id
+        self.session.commit()
+
+    def _release_unused_trial_claim(self, user: User, checkout_id: str | None = None) -> bool:
+        """Give the trial back when Checkout never started a subscription."""
+        if user.trial_started_at is not None:
+            return False
+        if checkout_id is not None and user.pending_trial_checkout_id not in (None, checkout_id):
+            return False
+        user.has_used_trial = False
+        user.pending_trial_checkout_id = None
+        self.session.commit()
+        return True
 
     def create_portal_session(self, user: User) -> str:
         """

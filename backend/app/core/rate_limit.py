@@ -46,22 +46,28 @@ def rate_limit_key(request: Request) -> str:
     if api_key:
         return f"key:{_digest(api_key)}"
 
-    return f"ip:{get_remote_address(request)}"
+    return f"ip:{client_ip(request)}"
 
 
 limiter = Limiter(key_func=rate_limit_key)
 
 
 def client_ip(request: Request) -> str:
-    """First X-Forwarded-For hop, else the socket address.
+    """Client address for the per-IP limiter.
 
-    Railway appends the client address. Using the first hop matches the
-    cost-control spec. A client can spoof the header only if the proxy
-    forwards it unchanged.
+    Railway's edge proxy appends the connecting client to ``X-Forwarded-For``.
+    The leftmost entry is whatever the caller sent and is spoofable, so it is
+    not used. The rightmost entry is the hop Railway appended. When the header
+    is absent, the socket peer (``request.client.host``) is used.
+
+    uvicorn ``--proxy-headers`` is not enabled. ``--forwarded-allow-ips='*'``
+    would trust the whole chain and typically surface the spoofable leftmost
+    address. An allowlist of Railway proxy IPs is not fixed in this repo.
     """
     forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded.strip():
-        return forwarded.split(",")[0].strip()
+    parts = [part.strip() for part in forwarded.split(",") if part.strip()]
+    if parts:
+        return parts[-1]
     return get_remote_address(request)
 
 

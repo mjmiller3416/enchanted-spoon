@@ -133,7 +133,7 @@ async def test_provider_failure_preserves_recipe_and_accounts_for_images(photo_a
     assert result.banner_image_data is None
     assert bool(result.reference_image_data) == partial_success
     assert usage.get_usage().ai_images_generated == int(partial_success)
-    assert calls == (1 if partial_success else 3)
+    assert calls == 1
     if not partial_success:
         assert all(AI_UNAVAILABLE_MESSAGE in message for message in captured[0]["errors"])
     assert "synthetic-private-provider-detail" not in str(captured)

@@ -8,7 +8,7 @@ Do these by hand after this branch is deployed. This change does not create Stri
 - If Railway still sets `GEMINI_MODEL`, `GEMINI_ASSISTANT_MODEL`, or `GEMINI_IMAGE_MODEL`, those values override the new code defaults (`gemini-3.6-flash` for the assistant, `gemini-3.1-flash-lite` / `gemini-3.5-flash-lite` for the other text features, `gemini-3.1-flash-lite-image` for photos).
 - Set `LEGACY_FREE_CUTOFF` to the coordinated release deploy time (ISO 8601). Accounts created before that instant keep free until Mar 31, 2027, 11:59 PM ET. Leave it unset and nobody is grandfathered. PR #209 currently hardcodes 2026-10-31; it should read this same variable.
 - Schedule `python -m app.scripts.free_tier_sunset` daily. It no-ops the migration until Mar 31, 2027, 11:59 PM ET, and emits the 30/7/1-day reminder hooks.
-- Set App Store and Play prices to $6.99/mo and $49.99/yr in the US tier. Founding codes stay web-only; do not create store offer codes.
+- The per-IP limiter uses the rightmost `X-Forwarded-For` hop, which Railway's proxy appends. The leftmost value is client-supplied and is not trusted. uvicorn is not started with `--proxy-headers`.
 - Run the test-clock procedure in `docs/stripe-test-clock-founder-promo.md` in Stripe test mode before relying on FOUNDER30.
 
 # Manual verification (no live keys)

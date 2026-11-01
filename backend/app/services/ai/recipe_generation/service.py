@@ -23,7 +23,6 @@ from .config import (
     MODEL_NAME,
     NUTRITION_SCHEMA,
     PROMPT_TEMPLATE,
-    TEMPERATURE,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,7 +94,6 @@ class RecipeGenerationService:
                 model=MODEL_NAME,
                 contents=[{"role": "user", "parts": [{"text": prompt}]}],
                 config={
-                    "temperature": TEMPERATURE,
                     "max_output_tokens": MAX_OUTPUT_TOKENS,
                     "response_mime_type": "application/json",
                     "thinking_config": {"thinking_level": "minimal"},
