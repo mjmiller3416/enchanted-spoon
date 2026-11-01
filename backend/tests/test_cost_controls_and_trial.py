@@ -1,8 +1,8 @@
 """Cost controls, trial billing, founder codes, and the free-plan sunset.
 
-Stripe calls in this file are mocks. There are no test-mode keys in this
-environment, so the $0-invoice / first_time_transaction question is NOT
-verified against Stripe. See docs/stripe-test-clock-founder-promo.md.
+Stripe calls in this file are mocks. The monthly FOUNDER30 test-clock
+result is recorded in docs/stripe-test-clock-founder-promo.md. The annual
+code's $0-invoice minimum failure is also recorded there.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -118,13 +118,14 @@ def test_trial_usage_does_not_reset_on_a_new_calendar_month(file_db):
         assert session.query(UserUsage).filter(UserUsage.month != TRIAL_USAGE_WINDOW).count() == 0
 
 
-def test_checkout_attaches_trial_tax_and_first_time_promo_before_any_invoice():
-    """UNVERIFIED against Stripe.
+def test_checkout_attaches_trial_tax_and_first_time_promo_before_any_invoice(monkeypatch):
+    """Payload check. The live monthly result is in the test-clock doc.
 
     A first checkout has no invoices yet, so we attach FOUNDER30 together with
-    the 7-day trial. Whether Stripe's first_time_transaction later treats the
-    $0 trial invoice as a transaction is not proven here.
+    the 7-day trial. The lead's test clock showed the first paid invoice at $4.89.
     """
+    monkeypatch.delenv("STRIPE_PROMO_FOUNDER30_MONTHLY", raising=False)
+    monkeypatch.delenv("STRIPE_PROMO_FOUNDER30_ANNUAL", raising=False)
     user = _user(stripe_customer_id=None)
     service = BillingService(MagicMock(), settings=_settings())
     service.session.execute.return_value.rowcount = 1
@@ -140,6 +141,7 @@ def test_checkout_attaches_trial_tax_and_first_time_promo_before_any_invoice():
         "end_behavior": {"missing_payment_method": "cancel"}
     }
     assert params["discounts"] == [{"promotion_code": "promo_test"}]
+    assert "minimum_amount" not in params
     assert params["automatic_tax"] == {"enabled": True}
     assert "allow_promotion_codes" not in params
     assert params.get("payment_method_collection") != "if_required"
@@ -166,10 +168,63 @@ def test_second_checkout_omits_the_trial():
 
 
 def test_founder_code_must_match_the_plan():
-    with pytest.raises(PromotionCodeRejected):
+    with pytest.raises(PromotionCodeRejected, match="monthly"):
         lookup_founder_promotion("FOUNDER30", "annual")
-    with pytest.raises(PromotionCodeRejected):
+    with pytest.raises(PromotionCodeRejected, match="annual"):
         lookup_founder_promotion("FOUNDER30Y", "monthly")
+
+
+def test_configured_promo_ids_stay_on_their_plan_until_the_end_date(monkeypatch):
+    from app.core.offer_windows import founder_offer_ends_at
+
+    monkeypatch.setenv("STRIPE_PROMO_FOUNDER30_MONTHLY", "promo_month")
+    monkeypatch.setenv("STRIPE_PROMO_FOUNDER30_ANNUAL", "promo_year")
+    with patch("stripe.PromotionCode.list", side_effect=AssertionError("list should not run")):
+        assert lookup_founder_promotion("FOUNDER30", "monthly") == "promo_month"
+        assert lookup_founder_promotion("FOUNDER30Y", "annual") == "promo_year"
+        with pytest.raises(PromotionCodeRejected, match="annual"):
+            lookup_founder_promotion("FOUNDER30Y", "monthly")
+        with pytest.raises(PromotionCodeRejected, match="monthly"):
+            lookup_founder_promotion("FOUNDER30", "annual")
+        with pytest.raises(PromotionCodeRejected, match="ended"):
+            lookup_founder_promotion(
+                "FOUNDER30Y",
+                "annual",
+                now=founder_offer_ends_at() + timedelta(seconds=1),
+            )
+
+
+def test_founding_code_is_only_for_first_time_customers():
+    user = _user(has_used_trial=True)
+    service = BillingService(MagicMock(), settings=_settings())
+    with pytest.raises(PromotionCodeRejected, match="first-time"):
+        service.create_checkout_session(user, plan="monthly", promotion_code="FOUNDER30")
+    with pytest.raises(PromotionCodeRejected, match="first-time"):
+        service.create_checkout_session(user, plan="annual", promotion_code="FOUNDER30Y")
+
+
+def test_stripe_minimum_amount_is_not_required(monkeypatch):
+    monkeypatch.delenv("STRIPE_PROMO_FOUNDER30_MONTHLY", raising=False)
+    monkeypatch.delenv("STRIPE_PROMO_FOUNDER30_ANNUAL", raising=False)
+    payload = {
+        "data": [{
+            "id": "promo_with_minimum",
+            "active": True,
+            "times_redeemed": 0,
+            "max_redemptions": 30,
+            "promotion": {"type": "coupon", "coupon": "FOUNDER30_ANNUAL"},
+            "restrictions": {
+                "first_time_transaction": True,
+                "minimum_amount": 4999,
+                "minimum_amount_currency": "usd",
+            },
+        }]
+    }
+    with patch(
+        "app.services.founder_codes.stripe.PromotionCode.list",
+        return_value=SimpleNamespace(to_dict=lambda: payload),
+    ):
+        assert lookup_founder_promotion("FOUNDER30Y", "annual") == "promo_with_minimum"
 
 
 def test_zero_dollar_invoice_customer_is_not_reused_for_a_later_checkout():

@@ -45,6 +45,10 @@ class StripeSettings(BaseSettings):
     # Current prices. Monthly falls back to STRIPE_PRICE_ID_PRO when V2 is unset.
     stripe_price_pro_monthly_v2: Optional[str] = None
     stripe_price_pro_annual_v2: Optional[str] = None
+    # Promotion code ids (promo_...). The annual id must be a code with no
+    # minimum_amount. Checkout does not read restrictions.minimum_amount.
+    stripe_promo_founder30_monthly: Optional[str] = None
+    stripe_promo_founder30_annual: Optional[str] = None
     frontend_url: str = "http://localhost:3000"
 
     @property

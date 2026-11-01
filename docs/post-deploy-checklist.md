@@ -11,7 +11,8 @@ Set the cutoff before the deploy. The rest of this list is after the branch is d
 - Web and the #209 native paywall must open trial checkout when the JSON error code is `trial_required` (`detail.error`). Do not key that route off HTTP 403. The same status is also used for read-only accounts and for "Pro subscription required".
 - Schedule `python -m app.scripts.free_tier_sunset` daily. It no-ops the migration until Mar 31, 2027, 11:59 PM ET, and emits the 30/7/1-day reminder hooks.
 - The per-IP limiter uses the rightmost `X-Forwarded-For` hop, which Railway's proxy appends. The leftmost value is client-supplied and is not trusted. uvicorn is not started with `--proxy-headers`.
-- Run the test-clock procedure in `docs/stripe-test-clock-founder-promo.md` in Stripe test mode before relying on FOUNDER30.
+- Set Railway `STRIPE_PROMO_FOUNDER30_MONTHLY` and `STRIPE_PROMO_FOUNDER30_ANNUAL` to the promotion code ids (`promo_...`). FOUNDER30 stays monthly-only and FOUNDER30Y stays annual-only. The annual id must be the replacement code with no `minimum_amount`. The previous annual code failed test-clock with `promotion_code_amount_insufficient` because Stripe applied its $49.99 minimum to the $0 trial invoice. Checkout never reads that restriction. See `docs/stripe-test-clock-founder-promo.md`.
+- Run the test-clock procedure in `docs/stripe-test-clock-founder-promo.md` in Stripe test mode before relying on a new annual code. Monthly FOUNDER30 already produced a first paid invoice of $4.89.
 
 # Manual verification (no live keys)
 

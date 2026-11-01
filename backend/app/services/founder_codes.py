@@ -1,13 +1,17 @@
 """Server-side FOUNDER30 / FOUNDER30Y checks for web Checkout.
 
-The live promotion-code ids are not hardcoded. Checkout looks the typed code
-up in the Stripe account (test or live) and only then passes
-``discounts=[{promotion_code}]``. FOUNDER30 is monthly only. FOUNDER30Y is
-annual only. ``allow_promotion_codes`` is never enabled.
+Promotion-code ids come from ``STRIPE_PROMO_FOUNDER30_MONTHLY`` and
+``STRIPE_PROMO_FOUNDER30_ANNUAL`` when set, so a replacement id can be
+changed in Railway without a code change. Otherwise Checkout looks the
+typed code up in Stripe and then passes ``discounts=[{promotion_code}]``.
+FOUNDER30 is monthly only. FOUNDER30Y is annual only.
+``allow_promotion_codes`` is never enabled. ``restrictions.minimum_amount``
+is never read and is not required.
 """
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -18,6 +22,11 @@ from ..core.offer_windows import founder_offer_ends_at
 FOUNDER_OFFERS = {
     "FOUNDER30": {"plan": "monthly", "coupon_id": "FOUNDER30_MONTHLY"},
     "FOUNDER30Y": {"plan": "annual", "coupon_id": "FOUNDER30_ANNUAL"},
+}
+
+PROMO_ID_ENV = {
+    "FOUNDER30": "STRIPE_PROMO_FOUNDER30_MONTHLY",
+    "FOUNDER30Y": "STRIPE_PROMO_FOUNDER30_ANNUAL",
 }
 
 
@@ -32,8 +41,25 @@ def normalize_founder_code(raw: str | None) -> str | None:
     return code or None
 
 
+def configured_promotion_id(code: str) -> str | None:
+    """Railway promo id for this typed code, or None when the env var is unset."""
+    env_name = PROMO_ID_ENV.get(code)
+    if env_name is None:
+        return None
+    value = os.getenv(env_name, "").strip()
+    return value or None
+
+
 def _coupon_id(promo: dict) -> str | None:
+    """Coupon id from either the legacy ``coupon`` field or ``promotion.coupon``.
+
+    This account's API version creates codes with
+    ``promotion[type]=coupon&promotion[coupon]=``.
+    """
     coupon = promo.get("coupon")
+    promotion = promo.get("promotion")
+    if coupon is None and isinstance(promotion, dict) and promotion.get("type") == "coupon":
+        coupon = promotion.get("coupon")
     if isinstance(coupon, str):
         return coupon
     if isinstance(coupon, dict):
@@ -56,14 +82,15 @@ def _as_dict(value: Any) -> dict:
 def lookup_founder_promotion(code: str, plan: str, now: datetime | None = None) -> str:
     """Return the Stripe promotion_code id for a valid founder code.
 
-    Does not decide ``restrictions.first_time_transaction``. Stripe evaluates
-    that when the session is created. A $0 trial invoice does not exist yet
-    at that moment; whether Stripe later treats it as the customer's first
-    transaction is unverified without a test-mode clock.
+    First-time customers are rejected in ``BillingService`` when
+    ``has_used_trial`` is already set. ``restrictions.minimum_amount`` is
+    not consulted. A configured promo id is returned as-is after the plan
+    and end-date checks.
     """
     offer = FOUNDER_OFFERS.get(code)
     if offer is None:
         raise PromotionCodeRejected("That code isn't a founding offer.")
+    # FOUNDER30 is monthly only. FOUNDER30Y is annual only.
     if offer["plan"] != plan:
         expected = "monthly" if offer["plan"] == "monthly" else "annual"
         raise PromotionCodeRejected(f"{code} only works with the {expected} plan.")
@@ -73,6 +100,10 @@ def lookup_founder_promotion(code: str, plan: str, now: datetime | None = None) 
         moment = moment.replace(tzinfo=timezone.utc)
     if moment > founder_offer_ends_at():
         raise PromotionCodeRejected("The founding offer has ended.")
+
+    configured = configured_promotion_id(code)
+    if configured:
+        return configured
 
     listed = stripe.PromotionCode.list(code=code, active=True, limit=1)
     payload = listed.to_dict() if hasattr(listed, "to_dict") else listed
@@ -102,6 +133,10 @@ def founder_spots(code: str) -> dict:
     """Remaining redemptions, or None when Stripe can't be asked."""
     offer = FOUNDER_OFFERS[code]
     try:
+        configured = configured_promotion_id(code)
+        if configured:
+            promo = _as_dict(stripe.PromotionCode.retrieve(configured))
+            return _spots_from_promo(code, offer["plan"], promo)
         listed = stripe.PromotionCode.list(code=code, limit=1)
     except stripe.error.StripeError:
         return {"code": code, "plan": offer["plan"], "spots_remaining": None, "spots_total": None}
@@ -110,6 +145,10 @@ def founder_spots(code: str) -> dict:
     if not rows:
         return {"code": code, "plan": offer["plan"], "spots_remaining": None, "spots_total": None}
     promo = _as_dict(rows[0])
+    return _spots_from_promo(code, offer["plan"], promo)
+
+
+def _spots_from_promo(code: str, plan: str, promo: dict) -> dict:
     total = promo.get("max_redemptions")
     redeemed = promo.get("times_redeemed") or 0
     remaining = None
@@ -117,7 +156,7 @@ def founder_spots(code: str) -> dict:
         remaining = max(total - int(redeemed), 0)
     return {
         "code": code,
-        "plan": offer["plan"],
+        "plan": plan,
         "spots_remaining": remaining,
         "spots_total": total if isinstance(total, int) else None,
     }
