@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { useCurrentUser, useStartCheckout } from "@/hooks/api";
 import { subscribePaywall, type PaywallEvent } from "@/lib/paywall";
+import { useIsNativeApp } from "@/hooks/useIsNativeApp";
 import { appConfig } from "@/lib/config";
-import { isNativeApp } from "@/lib/native/platform";
 
 /**
  * Upgrade prompt for AI access gates and for a view-only account.
@@ -29,10 +29,9 @@ export function PaywallDialog() {
   const [event, setEvent] = useState<PaywallEvent | null>(null);
   const { data: currentUser } = useCurrentUser();
   const startCheckout = useStartCheckout();
-  const [native, setNative] = useState(false);
+  const native = useIsNativeApp();
 
   useEffect(() => subscribePaywall(setEvent), []);
-  useEffect(() => setNative(isNativeApp()), []);
 
   const isPro = currentUser?.has_pro_access ?? false;
   const isLimit = event?.reason === "limit_reached";

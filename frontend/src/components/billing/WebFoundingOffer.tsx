@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { FOUNDING_CODE, FOUNDING_PRICE_URL } from "@/lib/pro-plans";
 import { isFoundingOfferOpen } from "@/lib/plan-sunset";
+import { useIsClient } from "@/hooks/useIsClient";
 
 /**
  * Web-only founding price. Hidden after the shared plan sunset
@@ -12,13 +12,8 @@ import { isFoundingOfferOpen } from "@/lib/plan-sunset";
  * it in the system browser instead of Stripe Checkout inside the WebView.
  */
 export function WebFoundingOffer() {
-  const [open, setOpen] = useState(true);
-
-  useEffect(() => {
-    setOpen(isFoundingOfferOpen(new Date()));
-  }, []);
-
-  if (!open) return null;
+  const isClient = useIsClient();
+  if (isClient && !isFoundingOfferOpen(new Date())) return null;
 
   return (
     <p id="founding" className="web-founding-offer text-sm text-muted-foreground">

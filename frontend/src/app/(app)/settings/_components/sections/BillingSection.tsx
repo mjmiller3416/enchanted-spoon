@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CreditCard, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { ProPaywall } from "@/components/billing/ProPaywall";
@@ -25,7 +25,8 @@ import {
 } from "@/hooks/api";
 import type { CurrentUserDTO } from "@/types/admin";
 import type { CurrentUserUsage } from "@/types/billing";
-import { isNativeApp } from "@/lib/native/platform";
+import { useIsClient } from "@/hooks/useIsClient";
+import { useIsNativeApp } from "@/hooks/useIsNativeApp";
 
 const USAGE_ROWS: {
   field: keyof Pick<
@@ -132,12 +133,8 @@ export function BillingSection() {
   const startCheckout = useStartCheckout();
   const openPortal = useOpenBillingPortal();
   const [paywallOpen, setPaywallOpen] = useState(false);
-  const [native, setNative] = useState(false);
-  const [clientReady, setClientReady] = useState(false);
-  useEffect(() => {
-    setNative(isNativeApp());
-    setClientReady(true);
-  }, []);
+  const native = useIsNativeApp();
+  const clientReady = useIsClient();
 
   const handleUpgrade = () => {
     if (native) {
