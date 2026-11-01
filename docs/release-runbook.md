@@ -122,6 +122,17 @@ Run these with Stripe **test mode** (`sk_test_`) and `STRIPE_CHECKOUT_ENABLED=fa
 10. **Admin exemption.** An email in `ADMIN_EXEMPT_EMAILS` is uncapped for AI and cannot open admin routes. An id in `USAGE_EXEMPT_USER_IDS` keeps the pre-release Pro allowances.
 11. **Image one-call.** Generate a photo once. One square image is stored, the banner is cropped from it, and the usage meter moves by one.
 
+### Post-deploy UI click-through
+
+Do this in the deployed web app after the health check is green. Use Stripe test mode. Turn `STRIPE_CHECKOUT_ENABLED` on only for this pass, then set it back to `false` until the whole smoke list passes. Leave native in-app purchase off.
+
+1. **New signup.** Open the site signed out, choose sign up, and finish a new Clerk account created after `LEGACY_FREE_CUTOFF`. Expected: the app opens on an empty kitchen. No error banner. The account is not on the legacy free AI plan.
+2. **Trial start.** In Settings → Plan & Billing, start the 7-day trial on the monthly or annual test price. Expected: Stripe Checkout opens in test mode, asks for a card, and shows a $0 trial invoice. After returning to the app, Plan & Billing shows a trial, and one AI action succeeds.
+3. **Paywall on an AI action.** Before that trial exists, use a second new account and run any AI action (import, photo, or Genie). Expected: the paywall opens and says to start the 7-day trial. The screen is not a raw 403 and not the monthly cap message.
+4. **Social import and paste fallback.** On the trial account, start a recipe import from a public TikTok or Instagram link. Expected: a readable post becomes a recipe draft. If the caption cannot be read, the import step asks for a paste. Pasting the caption still produces ingredients and steps, not an empty failure.
+5. **Household invite and join.** On the trial account, create a household in Settings and send the invite. Sign up a second user and join with that code. Expected: both accounts show the same household. The member can open the shared kitchen. AI use by either person draws the owner's meter.
+6. **Cap-hit message.** On an account that has used up one AI allowance, repeat that action. Expected: the paywall says the monthly or trial cap was reached and shows the used and limit counts. The usage meter shows the same numbers. It does not look like a generic server error.
+
 After that list passes, set `STRIPE_CHECKOUT_ENABLED=true` for the live switch. Leave `NATIVE_IAP_ENABLED` and `NEXT_PUBLIC_NATIVE_IAP_ENABLED` false until store products exist.
 
 ## Rollback
