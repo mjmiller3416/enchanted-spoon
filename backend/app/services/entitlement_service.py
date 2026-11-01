@@ -314,6 +314,10 @@ class EntitlementService:
                     provider,
                 )
         self.repo.apply_store_fields(user, decision.updates)
+        if decision.result == "applied" and decision.updates.get("store_status") == "trialing":
+            from .push_service import PushService
+
+            PushService(self.session).schedule_trial_nudges(user)
 
     def _fetch_subscriber(self, app_user_id: str, api_key: str) -> dict[str, Any]:
         url = REVENUECAT_SUBSCRIBER_URL.format(app_user_id=app_user_id)

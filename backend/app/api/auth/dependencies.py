@@ -364,6 +364,8 @@ async def reject_read_only_writes(
     path = request.url.path
     if path.startswith("/api/webhooks") or path.startswith("/api/billing"):
         return
+    if path.startswith("/api/internal/push"):
+        return
     if request.method == "DELETE" and path == "/api/users/me":
         return
 

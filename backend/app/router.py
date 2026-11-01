@@ -14,6 +14,7 @@ from app.api import (
     conversion_rules,
     dashboard,
     data_management,
+    devices,
     feedback,
     hearth,
     ingredient_categories,
@@ -21,6 +22,7 @@ from app.api import (
     ingredients,
     meals,
     planner,
+    push_dispatch,
     recipe_groups,
     recipes,
     sample_data,
@@ -62,6 +64,8 @@ api_router.include_router(conversion_rules.router, prefix="/api/unit-conversions
 api_router.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 api_router.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 api_router.include_router(users.router, prefix="/api/users", tags=["users"])
+api_router.include_router(devices.router, prefix="/api/devices", tags=["devices"])
+api_router.include_router(push_dispatch.router, prefix="/api/internal/push", tags=["push"])
 api_router.include_router(sample_data.router, prefix="/api/sample-data", tags=["sample-data"])
 api_router.include_router(billing.router, prefix="/api/billing", tags=["billing"])
 

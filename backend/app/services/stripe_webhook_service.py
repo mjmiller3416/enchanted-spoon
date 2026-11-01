@@ -215,6 +215,10 @@ class StripeWebhookService:
             if allowed is False:
                 tier = "free"
                 logger.info("Stripe trial for user %s does not grant Pro", user.id)
+            else:
+                from .push_service import PushService
+
+                PushService(self.session).schedule_trial_nudges(user)
 
         self.repo.update_subscription(
             user,
