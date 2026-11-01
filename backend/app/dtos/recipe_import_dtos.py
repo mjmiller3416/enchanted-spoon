@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .nutrition_dtos import NutritionFactsDTO
 from .recipe_generation_dtos import RecipeGeneratedDTO
@@ -24,6 +24,17 @@ class RecipeImportRequestDTO(BaseModel):
     url: str = Field(..., min_length=1, max_length=2048)
     allowed_categories: List[str] = Field(default_factory=list)
     include_source_image: bool = True
+    # Caption or recipe text pasted after a TikTok/Instagram post could not
+    # be read. Only used for social URLs. Blank is treated as omitted.
+    pasted_text: Optional[str] = Field(None, max_length=8000)
+
+    @field_validator("pasted_text")
+    @classmethod
+    def blank_pasted_text(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
 
 
 # ── Response DTO ─────────────────────────────────────────────────────────────

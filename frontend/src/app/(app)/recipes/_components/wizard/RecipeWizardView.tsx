@@ -269,6 +269,8 @@ export function RecipeWizardView({
                 setUrl={wizard.setImportUrl}
                 isImporting={wizard.isImporting}
                 error={wizard.importError}
+                caption={wizard.importCaption}
+                setCaption={wizard.setImportCaption}
                 onSubmit={wizard.handleWizardImport}
               />
             ) : (
@@ -395,7 +397,7 @@ export function RecipeWizardView({
                   ) : (
                     <>
                       <Link className="size-4 mr-2" strokeWidth={1.5} />
-                      Import Recipe
+                      {wizard.importCaption.trim() ? "Import pasted recipe" : "Import Recipe"}
                     </>
                   )}
                 </Button>
