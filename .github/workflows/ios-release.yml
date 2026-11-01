@@ -1,0 +1,114 @@
+# Manual TestFlight release for the Capacitor iOS app (com.enchantedspoon.app).
+# workflow_dispatch only. There is no push or pull_request trigger: macOS
+# runners are the expensive ones, and this job must not start by accident.
+#
+# Signing is Xcode automatic signing with an App Store Connect API key
+# (-allowProvisioningUpdates and the authenticationKey* flags). No match
+# repo, no .p12, no local Mac. Secrets are listed in docs/IOS_RELEASE.md.
+#
+# Cost: macos-latest is the standard 3-core macOS runner ($0.062/min on a
+# private repo, free while this repo stays public). Do not change runs-on to
+# a larger macOS runner. Those are billed even on public repositories.
+# Spending needs Mitchell's OK before the first run on a private repo, before
+# making the repo private, and before any runner change.
+
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      marketing_version:
+        description: "Version name (1.0 or 1.0.0). Empty keeps the Xcode project value, currently 1.0."
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  testflight:
+    name: Signed IPA and TestFlight upload
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      MARKETING_VERSION: ${{ inputs.marketing_version }}
+      # The shell loads the hosted site. Do not bake a LAN or cleartext URL.
+      CAPACITOR_SERVER_URL: https://enchantedspoon.app
+      BUNDLE_GEMFILE: ${{ github.workspace }}/frontend/ios/App/fastlane/Gemfile
+      FASTLANE_SKIP_UPDATE_CHECK: "1"
+      FASTLANE_HIDE_CHANGELOG: "1"
+      FASTLANE_OPT_OUT_USAGE: "1"
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "60"
+      FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_API_KEY_P8 APPLE_TEAM_ID; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing GitHub Actions secret: ${name}"
+              missing=1
+            fi
+          done
+          if [[ "${missing}" -ne 0 ]]; then
+            echo "Add the secrets listed in docs/IOS_RELEASE.md. No archive was started."
+            exit 1
+          fi
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: frontend/ios/App/fastlane
+
+      - name: Check App Store Connect before the archive
+        working-directory: frontend/ios/App
+        run: bundle exec fastlane ios preflight
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build web assets
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          # webDir is the fallback page cap sync copies into the app. The
+          # Next.js production build is not inside the IPA. The WebView loads
+          # CAPACITOR_SERVER_URL (https://enchantedspoon.app).
+          test -f mobile/www/index.html
+          echo "webDir ready: mobile/www"
+
+      - name: Sync the Capacitor iOS project
+        working-directory: frontend
+        run: npx cap sync ios
+
+      - name: Skip Xcode package-plugin prompts
+        run: |
+          set -euo pipefail
+          # SPM fingerprint prompts have no UI on the runner and will hang
+          # the job until timeout. Apple's key is spelled Validatation.
+          defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
+
+      - name: Build the signed IPA and upload to TestFlight
+        working-directory: frontend/ios/App
+        run: bundle exec fastlane ios beta
