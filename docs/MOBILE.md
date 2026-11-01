@@ -197,25 +197,25 @@ Do not create the store records or submit as part of development. When you do:
 
 Not in this change:
 
-- Trial usage caps of 3/25/20/5 (the existing free and Pro meters stay as they are).
+- Trial usage caps, checkout, and who has a free AI allowance. That policy is #210 (`LEGACY_FREE_CUTOFF`, `FREE_TIER_SUNSET_AT`, `FOUNDER_OFFER_ENDS_AT`). This shell does not grant new accounts a metered free AI plan.
 - Onboarding: three questions, pick or import three recipes, auto-fill the week, aisle-sorted list, under three minutes, paywall after the list.
-- Day-5 trial reminder (push and email) and the days-left banner.
-- Push permission after trial start, and local notifications on days 1–6.
+- Email half of the day-5 reminder, and the days-left banner. Remote push for day 5 and day 6 is scheduled here.
+- Local notifications on days 1–4.
 - Home checklist for days 0–6.
 - Funnel analytics.
 - Store offer codes. FOUNDER30 stays web-only.
 - Cancel-flow survey and annual save offer.
 - Referral deep links.
-- Read-only immediately on lapse for accounts created after 2026-10-31. Existing free accounts do become read-only after 2027-03-31.
+- Read-only enforcement after the sunset. #210 owns that. This app only displays `is_read_only` when that API sends it.
 - Review prompt, paywall A/B test, win-back offers, home-screen widget.
 
 ## Known risks
 
-- **Guideline 4.2.** A shell that only loads a website can be rejected for minimum functionality. The paywall, restore, and native purchase path are the store-specific behavior; the rest of the product is the hosted app. Review may still ask for more native UI.
+- **Guideline 4.2.** Push, share-in, and the offline grocery list are the native surface. They still need a device pass before submission.
 - **Google sign-in** uses the system browser and `enchantedspoon://sso-callback`. It fails until that URL is on the Clerk redirect allowlist, and until the dashboard's Google provider is enabled.
 - **Push delivery** stays queued until `APNS_*` and `FCM_SERVER_KEY` are set. FCM's legacy server key is what this sender uses; a project that only has HTTP v1 needs that key or a follow-up sender.
 - **Share extension** needs its own provisioning profile (`com.enchantedspoon.app.share`) the first time you archive.
 - **Cookies and ITP.** First-party cookies on the hosted origin are the intended session. If Clerk is ever served from a different site inside the WebView, the session will not stick.
-- **`server.url` requires the network.** There is no offline copy of the app.
-- **Store products and RevenueCat do not exist yet.** With the flag off, the paywall still renders and purchase or restore reports that in-app purchases are not turned on. Do not submit until a sandbox purchase completes.
-- **Price ids in Stripe** still have to be changed in the dashboard. The UI now shows $6.99 and $49.99. Checkout charges whatever price those ids point at.
+- **`server.url` requires the network** for everything except the cached grocery list.
+- **Store products and RevenueCat do not exist yet.** With the flag off, purchase or restore reports that in-app purchases are not turned on.
+- **Stripe price ids** `STRIPE_PRICE_PRO_MONTHLY_V2` and `STRIPE_PRICE_PRO_ANNUAL_V2` are wired by #210, not here.
