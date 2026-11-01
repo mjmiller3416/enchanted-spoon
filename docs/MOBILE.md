@@ -114,7 +114,7 @@ Approved store ids: `com.enchantedspoon.app.pro.monthly`, `com.enchantedspoon.ap
 ### FCM
 
 1. Create a Firebase project and add an Android app with package `com.enchantedspoon.app`.
-2. Download `google-services.json` into `frontend/android/app/` when you are ready to ship push. It is not committed.
+2. Download `google-services.json` into `frontend/android/app/` when you are ready to ship push. It is gitignored. CI reads it from the `GOOGLE_SERVICES_JSON` secret. See [ANDROID_RELEASE.md](ANDROID_RELEASE.md).
 3. Cloud Messaging → manage service accounts, or use the legacy server key if the project still offers it. Set `FCM_SERVER_KEY` on the API service to that key. The sender posts to `https://fcm.googleapis.com/fcm/send`.
 4. The app requests `POST_NOTIFICATIONS` at runtime after the trial starts.
 
@@ -132,7 +132,7 @@ In the native shell, Continue with Google opens the system browser (Safari View 
 
 ## Release builds
 
-Do this on a Mac for iOS. Android can be built on macOS or Linux with the Android SDK. This repo does not contain signing keys, store listings, or a submission.
+Do this on a Mac for iOS. Android can be built on macOS or Linux with the Android SDK. This repo does not contain signing keys, store listings, or a submission. The Android upload key, signed AAB, and Play internal/closed test are in [ANDROID_RELEASE.md](ANDROID_RELEASE.md).
 
 ### iOS (Xcode archive)
 
@@ -147,20 +147,18 @@ Do this on a Mac for iOS. Android can be built on macOS or Linux with the Androi
 
 ### Android (AAB)
 
-1. Play Console app with application id `com.enchantedspoon.app`.
-2. Create an upload keystore and keep it out of git. `android/local.properties` (SDK path) is gitignored.
-3. `cd frontend && npm ci && npx cap sync android`
-4. Open `android/` in Android Studio, or:
+Follow [ANDROID_RELEASE.md](ANDROID_RELEASE.md). Short form, from `frontend/`:
 
 ```bash
-cd frontend/android
+npm ci
+CAPACITOR_SERVER_URL=https://enchantedspoon.app npx cap sync android
+cd android
 ./gradlew bundleRelease
 ```
 
-5. Sign the AAB with the upload key (`Play App Signing` is the usual choice). The artifact is `android/app/build/outputs/bundle/release/app-release.aab`.
-6. Upload to the Play Console internal testing track. Do not promote to production until the checklist is done.
+`bundleRelease` signs with `keystore.properties` or `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`, and writes `app/build/outputs/bundle/release/app-release.aab`. `versionName` is `package.json`. `versionCode` is `ANDROID_VERSION_CODE` or `GITHUB_RUN_NUMBER`. The upload key stays out of git. `com.android.vending.BILLING` is merged from the Play Billing library that `@revenuecat/purchases-capacitor` depends on.
 
-A `google-services.json` is not required for this shell.
+`google-services.json` is not required for the shell to load the site. It is required for FCM, it is gitignored, and the release workflow injects it from `GOOGLE_SERVICES_JSON`.
 
 ## Submission checklist
 

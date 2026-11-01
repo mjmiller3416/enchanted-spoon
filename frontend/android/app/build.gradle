@@ -1,5 +1,64 @@
 apply plugin: 'com.android.application'
 
+def firstNonBlank(String... values) {
+    for (value in values) {
+        if (value != null && !value.trim().isEmpty()) {
+            return value.trim()
+        }
+    }
+    return null
+}
+
+def frontendPackage = new groovy.json.JsonSlurper().parse(rootProject.file("../package.json"))
+def resolvedVersionName = frontendPackage.version?.toString()
+if (!resolvedVersionName) {
+    throw new GradleException("frontend/package.json is missing a version")
+}
+
+// ANDROID_VERSION_CODE wins. CI otherwise uses GITHUB_RUN_NUMBER. Local
+// builds that set neither fall back to 1 and must not be uploaded once CI
+// has published that versionCode.
+def explicitVersionCode = firstNonBlank(System.getenv("ANDROID_VERSION_CODE"))
+def ciRunNumber = firstNonBlank(System.getenv("GITHUB_RUN_NUMBER"))
+def resolvedVersionCode = (explicitVersionCode ?: ciRunNumber ?: "1").toInteger()
+if (resolvedVersionCode < 1) {
+    throw new GradleException("versionCode must be >= 1")
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
+}
+
+def releaseStorePath = firstNonBlank(
+        System.getenv("ANDROID_KEYSTORE_PATH"),
+        keystoreProperties.getProperty("storeFile")
+)
+def releaseStorePassword = firstNonBlank(
+        System.getenv("ANDROID_KEYSTORE_PASSWORD"),
+        keystoreProperties.getProperty("storePassword")
+)
+def releaseKeyAlias = firstNonBlank(
+        System.getenv("ANDROID_KEY_ALIAS"),
+        keystoreProperties.getProperty("keyAlias"),
+        "upload"
+)
+def releaseKeyPassword = firstNonBlank(
+        System.getenv("ANDROID_KEY_PASSWORD"),
+        keystoreProperties.getProperty("keyPassword")
+)
+
+def releaseStore = null
+if (releaseStorePath) {
+    def candidate = new File(releaseStorePath)
+    releaseStore = candidate.isAbsolute() ? candidate : new File(rootProject.projectDir, releaseStorePath)
+}
+
+def signingReady = releaseStore != null && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
 android {
     namespace = "com.enchantedspoon.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +66,8 @@ android {
         applicationId "com.enchantedspoon.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode resolvedVersionCode
+        versionName resolvedVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +75,51 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (signingReady) {
+                storeFile releaseStore
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            if (signingReady) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    // Play releases are Android App Bundles from `bundleRelease`
+    // (app/build/outputs/bundle/release/app-release.aab), not an APK.
+}
+
+def releaseSigningTasks = [
+        "bundleRelease",
+        "signReleaseBundle",
+        "packageReleaseBundle",
+        "assembleRelease",
+] as Set
+
+tasks.configureEach { task ->
+    if (releaseSigningTasks.contains(task.name)) {
+        task.doFirst {
+            if (!signingReady) {
+                throw new GradleException(
+                        "Release signing is not configured. Provide frontend/android/keystore.properties " +
+                                "(storeFile, storePassword, keyAlias, keyPassword) or set " +
+                                "ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, " +
+                                "and ANDROID_KEY_PASSWORD. Do not commit those values."
+                )
+            }
+            if (!releaseStore.isFile()) {
+                throw new GradleException("Upload keystore was not found at ${releaseStore}.")
+            }
+            logger.lifecycle("Signing release ${resolvedVersionName} (${resolvedVersionCode}) with alias ${releaseKeyAlias}")
         }
     }
 }
@@ -43,6 +143,11 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// com.android.vending.BILLING is not declared in this file. It is merged from
+// com.android.billingclient:billing, which @revenuecat/purchases-capacitor
+// pulls in through purchases-hybrid-common and com.revenuecat.purchases:purchases.
+// Play requires that permission before subscription products can be sold.
 
 try {
     def servicesJSON = file('google-services.json')
