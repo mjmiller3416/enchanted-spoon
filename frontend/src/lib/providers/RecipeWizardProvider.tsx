@@ -26,6 +26,10 @@ interface RecipeWizardContextValue {
   openWizardForEdit: (recipeId: number) => void;
   /** Open the wizard in create mode, pre-filled from a generated recipe */
   openWizardWithRecipe: (seed: RecipeGenerationResponseDTO) => void;
+  /** Share-sheet URL waiting to be imported. */
+  importUrl: string | null;
+  /** Open URL import for a link shared into the app. */
+  openWizardForImport: (url: string) => void;
   /** Close the wizard dialog */
   closeWizard: () => void;
   /** Toggle open/close */
@@ -39,12 +43,14 @@ export function RecipeWizardProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [editRecipeId, setEditRecipeId] = useState<number | null>(null);
   const [generatedSeed, setGeneratedSeed] = useState<RecipeGenerationResponseDTO | null>(null);
+  const [importUrl, setImportUrl] = useState<string | null>(null);
   const [seedKey, setSeedKey] = useState(0);
 
   const openWizard = useCallback(() => {
     setMode("create");
     setEditRecipeId(null);
     setGeneratedSeed(null);
+    setImportUrl(null);
     setIsOpen(true);
   }, []);
 
@@ -59,6 +65,16 @@ export function RecipeWizardProvider({ children }: { children: ReactNode }) {
     setMode("create");
     setEditRecipeId(null);
     setGeneratedSeed(seed);
+    setImportUrl(null);
+    setSeedKey((k) => k + 1);
+    setIsOpen(true);
+  }, []);
+
+  const openWizardForImport = useCallback((url: string) => {
+    setMode("create");
+    setEditRecipeId(null);
+    setGeneratedSeed(null);
+    setImportUrl(url);
     setSeedKey((k) => k + 1);
     setIsOpen(true);
   }, []);
@@ -83,10 +99,12 @@ export function RecipeWizardProvider({ children }: { children: ReactNode }) {
         mode,
         editRecipeId,
         generatedSeed,
+        importUrl,
         seedKey,
         openWizard,
         openWizardForEdit,
         openWizardWithRecipe,
+        openWizardForImport,
         closeWizard,
         setOpen,
       }}

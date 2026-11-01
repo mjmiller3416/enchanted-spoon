@@ -56,6 +56,8 @@ interface UseRecipeWizardOptions {
   recipeId?: number | null;
   /** Generated recipe used to pre-fill a create-mode wizard (e.g. from the Genie). */
   initialGenerated?: RecipeGenerationResponseDTO | null;
+  /** Share-sheet URL. Opens the URL import step and starts the import. */
+  initialImportUrl?: string | null;
 }
 
 export function useRecipeWizard({
@@ -63,6 +65,7 @@ export function useRecipeWizard({
   mode = "create",
   recipeId = null,
   initialGenerated = null,
+  initialImportUrl = null,
 }: UseRecipeWizardOptions = {}) {
   const router = useRouter();
   const { getToken } = useAuth();
@@ -109,8 +112,10 @@ export function useRecipeWizard({
   // ---------------------------------------------------------------------------
   // Step navigation (non-form state)
   // ---------------------------------------------------------------------------
-  const [currentStep, setCurrentStep] = useState<WizardStep>(1);
-  const [creationMethod, setCreationMethod] = useState<WizardCreationMethod | null>(null);
+  const [currentStep, setCurrentStep] = useState<WizardStep>(initialImportUrl ? 2 : 1);
+  const [creationMethod, setCreationMethod] = useState<WizardCreationMethod | null>(
+    initialImportUrl ? "url-import" : null,
+  );
 
   // ---------------------------------------------------------------------------
   // Image state (non-form)
@@ -144,7 +149,7 @@ export function useRecipeWizard({
   // ---------------------------------------------------------------------------
   // URL import state (non-form)
   // ---------------------------------------------------------------------------
-  const [importUrl, setImportUrl] = useState("");
+  const [importUrl, setImportUrl] = useState(initialImportUrl ?? "");
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   // Source page of a successful import — saved on the recipe as source_url.
@@ -668,6 +673,13 @@ export function useRecipeWizard({
       setIsImporting(false);
     }
   }, [importUrl, isImporting, getToken, populateFromGeneration]);
+
+  const shareImportStarted = useRef(false);
+  useEffect(() => {
+    if (!initialImportUrl || shareImportStarted.current) return;
+    shareImportStarted.current = true;
+    void handleWizardImport();
+  }, [initialImportUrl, handleWizardImport]);
 
   // ---------------------------------------------------------------------------
   // AI generation: accept generated recipe and populate wizard fields

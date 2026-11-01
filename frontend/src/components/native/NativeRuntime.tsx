@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useCurrentUser } from "@/hooks/api";
 import { mayMentionWebFoundingOffer } from "@/lib/native/founding-offer";
 import { isNativeApp, nativePlatform } from "@/lib/native/platform";
+import { importUrlFromDeepLink, isOAuthCallback } from "@/lib/native/share-link";
 
 const STOREFRONT_CLASS = "ios-storefront-us";
 
@@ -60,8 +61,19 @@ export function NativeRuntime() {
 
       document.addEventListener("click", onClick);
       removeClick = () => document.removeEventListener("click", onClick);
-      const handle = await App.addListener("appUrlOpen", () => {
+      const handle = await App.addListener("appUrlOpen", (event) => {
         void Browser.close().catch(() => undefined);
+        if (isOAuthCallback(event.url)) {
+          const incoming = new URL(event.url);
+          const next = new URL("/sso-callback", window.location.origin);
+          next.search = incoming.search;
+          window.location.assign(next.toString());
+          return;
+        }
+        const shared = importUrlFromDeepLink(event.url);
+        if (shared) {
+          window.dispatchEvent(new CustomEvent("enchantedspoon:import", { detail: shared }));
+        }
       });
       if (cancelled) {
         void handle.remove();
