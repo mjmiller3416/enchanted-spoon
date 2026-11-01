@@ -26,9 +26,6 @@ logger = logging.getLogger(__name__)
 # Mirrors MealServiceCore.MAX_SIDE_RECIPES (MealCreateDTO rejects more)
 MAX_SIDES_PER_MEAL = 3
 
-# Some variety between repeat requests, but the picks must follow the rules
-PLAN_TEMPERATURE = 0.7
-
 PLANNER_FAILED_REPLY = (
     "Hmm, I couldn't update your Menu just now — mind trying again in a sec?"
 )
@@ -244,7 +241,6 @@ class MealPlanningMixin:
                 model=MODEL_NAME,
                 contents=[{"role": "user", "parts": [{"text": prompt}]}],
                 config={
-                    "temperature": PLAN_TEMPERATURE,
                     "max_output_tokens": PLANNING_MAX_OUTPUT_TOKENS,
                     "response_mime_type": "application/json",
                     "response_schema": MEAL_PLAN_SCHEMA,

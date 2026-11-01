@@ -34,10 +34,13 @@ def apply_free_tier_sunset(session: Session, now: datetime | None = None) -> int
     moment = now or datetime.now(timezone.utc)
     if not sunset_is_due(moment):
         return 0
+    from ..core.offer_windows import legacy_free_cutoff
+
+    if legacy_free_cutoff() is None:
+        return 0
     changed = 0
     rows = session.scalars(
         select(User).where(
-            User.usage_plan == "legacy",
             User.subscription_tier == "free",
             User.subscription_status == "active",
             User.has_used_trial.is_(False),
@@ -46,7 +49,7 @@ def apply_free_tier_sunset(session: Session, now: datetime | None = None) -> int
         )
     ).all()
     for user in rows:
-        if user.has_pro_access:
+        if not user.is_legacy_free_account() or user.has_pro_access:
             continue
         user.read_only_at = moment
         changed += 1
@@ -112,7 +115,14 @@ def send_due_reminders(session: Session, now: datetime | None = None) -> int:
     if sunset_is_due(moment):
         return 0
     sent = 0
-    rows = session.scalars(select(User).where(User.usage_plan == "legacy")).all()
+    rows = session.scalars(
+        select(User).where(
+            User.subscription_tier == "free",
+            User.subscription_status == "active",
+            User.has_used_trial.is_(False),
+            User.is_admin.is_(False),
+        )
+    ).all()
     for user in rows:
         kind = due_reminder_kind(user, moment)
         if kind is None:

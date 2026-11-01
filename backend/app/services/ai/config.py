@@ -25,9 +25,10 @@ GEMINI_RECIPE_MODEL = os.getenv("GEMINI_RECIPE_MODEL", DEFAULT_GEMINI_RECIPE_MOD
 GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", DEFAULT_GEMINI_IMAGE_MODEL)
 
 # Shared generation settings. thinking_level "minimal" is accepted by the
-# installed google-genai SDK (ThinkingLevel.MINIMAL). Temperature is left on
-# the calls that already set it: Gemini 3.6 may ignore it, while the lite
-# models still accept it.
+# installed google-genai SDK (ThinkingLevel.MINIMAL). Gemini 3.6 calls omit
+# temperature: the model docs say to leave it at the default of 1.0, and the
+# SDK still accepts the field (it is not ignored). Lite and recipe models
+# keep their tuned temperatures.
 MINIMAL_THINKING: dict = {"thinking_level": "minimal"}
 ASSISTANT_MAX_OUTPUT_TOKENS = 1024
 PLANNING_MAX_OUTPUT_TOKENS = 2048

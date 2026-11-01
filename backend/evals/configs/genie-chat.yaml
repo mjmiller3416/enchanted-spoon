@@ -19,7 +19,6 @@ providers:
     label: "gemini-3.6-flash (prod)"
     config:
       generationConfig:
-        temperature: 0.8                  # production assistant temperature
         maxOutputTokens: 1024
         thinkingConfig:
           thinkingLevel: minimal

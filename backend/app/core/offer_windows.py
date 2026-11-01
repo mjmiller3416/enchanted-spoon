@@ -38,6 +38,33 @@ def founder_offer_ends_at() -> datetime:
     return _parse_deadline("FOUNDER_OFFER_ENDS_AT")
 
 
+def legacy_free_cutoff() -> datetime | None:
+    """Accounts created before this instant keep free until the sunset date.
+
+    This is the coordinated release deploy time, not a date baked into the
+    source. Set ``LEGACY_FREE_CUTOFF`` (ISO 8601) when this ships. A naive
+    value is read as Eastern Time. Unset means nobody is in the cohort.
+    PR #209 should read the same variable instead of its hardcoded
+    2026-10-31 cutoff.
+    """
+    raw = os.getenv("LEGACY_FREE_CUTOFF", "").strip()
+    if not raw:
+        return None
+    parsed = datetime.fromisoformat(raw)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=EASTERN)
+    return parsed
+
+
+def created_before_legacy_free_cutoff(created_at: datetime | None) -> bool:
+    """True when ``created_at`` is strictly before ``LEGACY_FREE_CUTOFF``."""
+    cutoff = legacy_free_cutoff()
+    if cutoff is None or created_at is None:
+        return False
+    moment = created_at if created_at.tzinfo else created_at.replace(tzinfo=EASTERN)
+    return moment.astimezone(EASTERN) < cutoff.astimezone(EASTERN)
+
+
 def sunset_is_due(now: datetime | None = None) -> bool:
     moment = now or datetime.now(EASTERN)
     if moment.tzinfo is None:

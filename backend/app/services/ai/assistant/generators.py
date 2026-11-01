@@ -171,7 +171,6 @@ class GeneratorsMixin:
             config={
                 "tools": [{"function_declarations": TOOL_DEFINITIONS}],
                 "tool_config": {"function_calling_config": {"mode": "NONE"}},
-                "temperature": 0.8,
                 "max_output_tokens": ASSISTANT_MAX_OUTPUT_TOKENS,
                 "thinking_config": MINIMAL_THINKING,
             },

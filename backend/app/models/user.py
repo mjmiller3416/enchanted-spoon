@@ -193,13 +193,17 @@ class User(Base):
         return False
 
     def is_legacy_free_account(self) -> bool:
-        """Existing free account that has not started a trial or subscription.
+        """Free account created before ``LEGACY_FREE_CUTOFF``.
 
-        New ORM accounts are ``usage_plan=launch`` and are not in this cohort.
+        Those accounts keep the free plan until the sunset date. The cutoff
+        is the coordinated release deploy time. ``usage_plan`` is a separate
+        allowance cohort and does not decide this.
         """
+        from ..core.offer_windows import created_before_legacy_free_cutoff
+
         return (
             not self.is_admin
-            and self.usage_plan == "legacy"
+            and created_before_legacy_free_cutoff(self.created_at)
             and self.subscription_tier == "free"
             and self.subscription_status == "active"
             and not self.has_used_trial

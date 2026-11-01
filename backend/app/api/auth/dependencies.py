@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
 from ...core.rate_limit import enforce_pre_quota_limits
-from ...core.usage_limits import get_user_monthly_limit, usage_window_for
+from ...core.usage_limits import usage_meter, usage_window_for
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -278,9 +278,9 @@ def require_within_usage_limit(
         if user_limits or ip_limits:
             enforce_pre_quota_limits(request, user_limits, ip_limits)
 
-        limit = None if user.is_admin else get_user_monthly_limit(user, field)
-        tier = user.usage_tier
-        usage_service = UsageService(session, user.id, window=usage_window_for(user))
+        subject, limit = usage_meter(user, field)
+        tier = subject.usage_tier
+        usage_service = UsageService(session, subject.id, window=usage_window_for(subject))
         try:
             usage_service.reserve(field, limit)
         except UsageLimitExceededError as e:

@@ -297,36 +297,86 @@ def test_legacy_free_users_stay_free_until_the_sunset_then_go_read_only(file_db,
     from app.core import offer_windows
     future = datetime(2099, 1, 1, tzinfo=timezone.utc)
     past = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    cutoff = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    monkeypatch.setattr(offer_windows, "legacy_free_cutoff", lambda: cutoff)
     monkeypatch.setattr(offer_windows, "free_tier_sunset_at", lambda: future)
     with file_db() as session:
         user = session.get(User, 1)
-        user.usage_plan = "legacy"
+        user.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
         session.commit()
         assert user.usage_tier == "free"
         assert user.is_read_only is False
+        assert user.is_legacy_free_account() is True
         assert apply_free_tier_sunset(session) == 0
     monkeypatch.setattr(offer_windows, "free_tier_sunset_at", lambda: past)
     monkeypatch.setattr(offer_windows, "sunset_is_due", lambda now=None: True)
     with file_db() as session:
         user = session.get(User, 1)
-        user.usage_plan = "legacy"
-        launch = User(clerk_id="launch", email="launch@example.test", usage_plan="launch", is_admin=False,
-                      subscription_tier="free", subscription_status="active", has_used_trial=False)
-        session.add(launch)
+        user.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        later = User(
+            clerk_id="later",
+            email="later@example.test",
+            usage_plan="launch",
+            is_admin=False,
+            subscription_tier="free",
+            subscription_status="active",
+            has_used_trial=False,
+            created_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        )
+        session.add(later)
         session.commit()
         assert apply_free_tier_sunset(session, now=datetime.now(timezone.utc)) == 1
         session.commit()
         assert user.read_only_at is not None
         assert user.is_read_only is True
         assert user.usage_tier == "expired"
-        assert launch.read_only_at is None
+        assert later.read_only_at is None
+        assert later.is_legacy_free_account() is False
+
+
+def test_unset_legacy_cutoff_grandfathers_nobody(monkeypatch):
+    from app.core import offer_windows
+    monkeypatch.delenv("LEGACY_FREE_CUTOFF", raising=False)
+    monkeypatch.setattr(offer_windows, "legacy_free_cutoff", offer_windows.legacy_free_cutoff)
+    user = _user(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    assert offer_windows.legacy_free_cutoff() is None
+    assert user.is_legacy_free_account() is False
+
+
+def test_household_hook_scales_pro_caps_and_can_meter_the_owner():
+    from app.core import usage_limits as limits
+    owner = _user(id=7, subscription_tier="pro", subscription_status="active")
+    member = _user(id=8, subscription_tier="free", subscription_status="active")
+    try:
+        limits.set_household_usage_hooks(
+            subject=lambda user: owner,
+            multiplier=lambda user: limits.HOUSEHOLD_PRO_CAP_MULTIPLIER,
+        )
+        subject, images = limits.usage_meter(member, "ai_images_generated")
+        assert subject.id == 7
+        assert images == 30
+        _, chats = limits.usage_meter(member, "ai_assistant_messages")
+        assert chats == 450
+        trial = _user(subscription_tier="pro", subscription_status="trialing")
+        assert limits.get_user_monthly_limit(trial, "ai_images_generated") == 3
+    finally:
+        limits.set_household_usage_hooks(
+            subject=limits.identity_usage_subject,
+            multiplier=limits.no_household_multiplier,
+        )
 
 
 def test_sunset_reminder_is_due_30_days_out(monkeypatch):
+    from app.core import offer_windows
     from app.services import free_tier_sunset as reminders
     sunset = datetime(2027, 3, 31, 23, 59, tzinfo=timezone.utc)
     monkeypatch.setattr(reminders, "free_tier_sunset_at", lambda: sunset)
-    user = _user(usage_plan="legacy")
+    monkeypatch.setattr(
+        offer_windows,
+        "legacy_free_cutoff",
+        lambda: datetime(2026, 12, 1, tzinfo=timezone.utc),
+    )
+    user = _user(created_at=datetime(2026, 1, 1, tzinfo=timezone.utc))
     assert reminders.due_reminder_kind(user, sunset - timedelta(days=30)) == "30"
     assert reminders.due_reminder_kind(user, sunset - timedelta(days=7)) == "7"
     assert reminders.due_reminder_kind(user, sunset - timedelta(days=1)) == "1"

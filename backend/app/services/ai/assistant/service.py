@@ -94,7 +94,6 @@ class AssistantServiceCore:
                     # and are identical on every turn.
                     "tools": [{"function_declarations": TOOL_DEFINITIONS}],
                     "tool_config": {"function_calling_config": {"mode": "AUTO"}},
-                    "temperature": 0.8,
                     "max_output_tokens": ASSISTANT_MAX_OUTPUT_TOKENS,
                     "thinking_config": MINIMAL_THINKING,
                 },
