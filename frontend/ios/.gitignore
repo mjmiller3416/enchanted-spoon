@@ -11,3 +11,7 @@ capacitor-cordova-ios-plugins
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
+
+# App Store Connect API keys. Never commit these.
+*.p8
+AuthKey_*

@@ -1,0 +1,6 @@
+source "https://rubygems.org"
+
+# Installed on the GitHub-hosted macOS runner by .github/workflows/ios-release.yml.
+# 2.241.2 is current as of October 2026. Its export method value is still
+# "app-store"; Xcode treats that as the deprecated alias of app-store-connect.
+gem "fastlane", "~> 2.241.0"

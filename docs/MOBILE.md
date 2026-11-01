@@ -102,7 +102,7 @@ Approved store ids: `com.enchantedspoon.app.pro.monthly`, `com.enchantedspoon.ap
 ### APNs
 
 1. Apple Developer → Keys → create an Apple Push Notifications service key (`.p8`). Note the Key ID and your Team ID.
-2. Enable Push Notifications on the App ID `com.enchantedspoon.app`. The Xcode target already points at `App/App.entitlements` (`aps-environment`). Use `development` for sandbox and switch that value to `production` for App Store builds.
+2. Enable Push Notifications on the App ID `com.enchantedspoon.app`. Debug points at `App/App.entitlements` (`aps-environment` = `development`). The Release configuration used by TestFlight points at `App/App.release.entitlements` (`production`). The APNs key below is not the App Store Connect API key used to upload builds. That key is in [IOS_RELEASE.md](IOS_RELEASE.md).
 3. On the API service set:
    - `APNS_KEY_ID`
    - `APNS_TEAM_ID`
@@ -132,18 +132,15 @@ In the native shell, Continue with Google opens the system browser (Safari View 
 
 ## Release builds
 
-Do this on a Mac for iOS. Android can be built on macOS or Linux with the Android SDK. This repo does not contain signing keys, store listings, or a submission. The Android upload key, signed AAB, and Play internal/closed test are in [ANDROID_RELEASE.md](ANDROID_RELEASE.md).
+iOS is built in GitHub Actions on a macOS runner. No local Mac. The runbook is [IOS_RELEASE.md](IOS_RELEASE.md). Android is [ANDROID_RELEASE.md](ANDROID_RELEASE.md). This repo does not contain signing keys or store listings.
 
-### iOS (Xcode archive)
+### iOS (TestFlight)
 
-1. Apple Developer account, App ID `com.enchantedspoon.app`, and a distribution certificate plus an App Store provisioning profile.
-2. `cd frontend && npm ci && npx cap sync ios`
-3. `npx cap open ios`
-4. In Xcode, select the App target. Signing & Capabilities: team, bundle id `com.enchantedspoon.app`. Add the In-App Purchase capability before shipping purchases.
-5. Associated Domains / universal links are not configured yet. Add them when Clerk email links should open the app.
-6. Product → Archive. Distribute to App Store Connect. Do not upload until the listing in the checklist below is ready.
+Follow [IOS_RELEASE.md](IOS_RELEASE.md). The workflow is manual (`workflow_dispatch` only). It runs `npm ci`, checks `mobile/www`, runs `npx cap sync ios`, then fastlane archives a signed IPA and uploads it to TestFlight. The shell loads `https://enchantedspoon.app`. A Next.js production build is not inside the IPA.
 
-`pod install` runs on the Mac as part of `cap sync` when CocoaPods is installed. Pods are not committed.
+The Xcode project is SPM (`frontend/ios/App/CapApp-SPM`), not CocoaPods. `cap sync` does not need `pod install` for this project. The shared scheme is `App`. Release signing stays automatic; the CI lane passes the App Store Connect API key to `xcodebuild -allowProvisioningUpdates`.
+
+Associated Domains / universal links are not configured yet. Add them when Clerk email links should open the app. Add the In-App Purchase capability on the App ID before testing purchases.
 
 ### Android (AAB)
 

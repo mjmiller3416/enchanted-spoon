@@ -1,0 +1,230 @@
+# TestFlight release for the Capacitor iOS app.
+#
+# Signing uses Xcode automatic signing plus Apple's cloud-managed distribution
+# certificate. xcodebuild is given -allowProvisioningUpdates and the App Store
+# Connect API key (-authenticationKeyPath / -authenticationKeyID /
+# -authenticationKeyIssuerID). The distribution private key stays with Apple.
+#
+# fastlane match is not used. Match needs a private certificate repo, a git
+# credential, and MATCH_PASSWORD on top of this same API key. This lane needs
+# only the four GitHub Actions secrets named in docs/IOS_RELEASE.md.
+#
+# Run from frontend/ios/App:
+#   bundle exec fastlane ios preflight
+#   bundle exec fastlane ios beta
+
+opt_out_usage
+
+default_platform(:ios)
+
+require "base64"
+require "fileutils"
+require "shellwords"
+require_relative "build_number"
+require_relative "signing_project"
+
+APP_IDENTIFIER = "com.enchantedspoon.app".freeze
+XCODEPROJ = "App.xcodeproj".freeze
+SCHEME = "App".freeze
+MARKETING_VERSION_PATTERN = /\A\d+\.\d+(\.\d+)?\z/.freeze
+
+platform :ios do
+  desc "Confirm the API key and the App Store Connect app record, and print the next build number. Does not archive."
+  lane :preflight do
+    validated_team_id
+    marketing_version = resolve_marketing_version
+    with_api_key do |api_key, _path|
+      build_number = next_build_number(api_key, marketing_version)
+      UI.success("#{APP_IDENTIFIER} #{marketing_version} (#{build_number}) is the next TestFlight build")
+    end
+  end
+
+  desc "Archive a signed release IPA and upload it to TestFlight"
+  lane :beta do
+    setup_ci if ENV["CI"]
+    validated_team_id
+    marketing_version = resolve_marketing_version
+
+    with_api_key do |api_key, key_path|
+      build_number = next_build_number(api_key, marketing_version)
+      apply_release_settings(build_number, marketing_version)
+      # gym appends xcargs to the archive and to -exportArchive. Keep this
+      # to the API-key flags. Version and team are written into the CI
+      # checkout above; -exportArchive rejects those build settings.
+      auth_flags = authentication_flags(key_path)
+
+      build_app(
+        project: XCODEPROJ,
+        scheme: SCHEME,
+        configuration: "Release",
+        clean: true,
+        destination: "generic/platform=iOS",
+        export_method: "app-store",
+        export_team_id: validated_team_id,
+        output_directory: "./build",
+        output_name: "EnchantedSpoon.ipa",
+        export_options: {
+          signingStyle: "automatic",
+          teamID: validated_team_id,
+          # Keep the build number this lane just chose.
+          manageAppVersionAndBuildNumber: false,
+          uploadSymbols: true,
+        },
+        xcargs: shell_join(auth_flags),
+      )
+
+      # App Store Connect tokens last at most 20 minutes. The archive may
+      # have taken longer than the token created for the build-number lookup.
+      upload_key = app_store_connect_api_key(
+        key_id: validated_key_id,
+        issuer_id: validated_issuer_id,
+        key_filepath: key_path,
+        duration: 1200,
+        in_house: false,
+      )
+
+      upload_to_testflight(
+        api_key: upload_key,
+        app_identifier: APP_IDENTIFIER,
+        ipa: lane_context[SharedValues::IPA_OUTPUT_PATH],
+        # Apple's processing queue is not billed runner time. Do not wait.
+        skip_waiting_for_build_processing: true,
+        skip_submission: true,
+        uses_non_exempt_encryption: false,
+      )
+
+      UI.success("Uploaded #{APP_IDENTIFIER} #{marketing_version} (#{build_number}) to TestFlight")
+    end
+  end
+end
+
+def resolve_marketing_version
+  override = ENV["MARKETING_VERSION"].to_s.strip
+  version = override.empty? ? marketing_version_from_project : override
+  unless version.match?(MARKETING_VERSION_PATTERN)
+    UI.user_error!("Marketing version #{version.inspect} must look like 1.0 or 1.0.0")
+  end
+  version
+end
+
+def marketing_version_from_project
+  text = File.read(File.join(XCODEPROJ, "project.pbxproj"))
+  match = text.match(/MARKETING_VERSION = ([0-9.]+);/)
+  UI.user_error!("MARKETING_VERSION is missing from #{XCODEPROJ}") unless match
+  match[1]
+end
+
+def next_build_number(api_key, marketing_version)
+  latest = latest_uploaded_build(api_key, marketing_version)
+  chosen = EnchantedSpoon::IosBuildNumber.choose(
+    latest_testflight_build: latest,
+    github_run_number: ENV.fetch("GITHUB_RUN_NUMBER", "1"),
+  )
+  UI.message("Latest TestFlight build for #{marketing_version} is #{latest}. GITHUB_RUN_NUMBER is #{ENV.fetch('GITHUB_RUN_NUMBER', '1')}. Using #{chosen}.")
+  chosen
+end
+
+def latest_uploaded_build(api_key, marketing_version)
+  latest_testflight_build_number(
+    api_key: api_key,
+    app_identifier: APP_IDENTIFIER,
+    version: marketing_version,
+    platform: "ios",
+    initial_build_number: 0,
+  )
+rescue StandardError => e
+  # An empty version train is not an auth failure. Auth errors and a missing
+  # app record still fail the lane before the archive.
+  message = e.message.to_s
+  if message.match?(/no build number|could not find build|couldn't find any builds|no builds found/i)
+    UI.important("No TestFlight build for #{marketing_version} yet. Starting from 0.")
+    return 0
+  end
+  if message.match?(/could not find an app|couldn't find app|app is not in|no app could be found|bundle identifier.*not found/i)
+    UI.user_error!("No App Store Connect app for #{APP_IDENTIFIER} yet. Create the app record first (docs/IOS_RELEASE.md). #{message}")
+  end
+  raise
+end
+
+def apply_release_settings(build_number, marketing_version)
+  path = File.join(XCODEPROJ, "project.pbxproj")
+  original = File.read(path)
+  updated = EnchantedSpoon::SigningProject.prepare(
+    original,
+    build_number: build_number,
+    marketing_version: marketing_version,
+    team_id: validated_team_id,
+  )
+  File.write(path, updated)
+  UI.message("Set CI signing to automatic for team #{validated_team_id}, version #{marketing_version} (#{build_number}).")
+end
+
+def authentication_flags(key_path)
+  [
+    "-allowProvisioningUpdates",
+    "-authenticationKeyPath",
+    key_path,
+    "-authenticationKeyID",
+    validated_key_id,
+    "-authenticationKeyIssuerID",
+    validated_issuer_id,
+  ]
+end
+
+def shell_join(args)
+  args.shelljoin
+end
+
+def with_api_key
+  key_id = validated_key_id
+  path = nil
+  begin
+    path = write_api_key(key_id)
+    api_key = app_store_connect_api_key(
+      key_id: key_id,
+      issuer_id: validated_issuer_id,
+      key_filepath: path,
+      duration: 1200,
+      in_house: false,
+    )
+    yield api_key, path
+  ensure
+    FileUtils.rm_f(path) if path
+  end
+end
+
+def write_api_key(key_id)
+  raw = ENV.fetch("APP_STORE_CONNECT_API_KEY_P8").strip
+  # A raw PEM secret is accepted so a multiline paste still works. The
+  # runbook stores base64, which is what GitHub's single-line secret box
+  # handles without eating newlines.
+  pem = raw.include?("PRIVATE KEY") ? raw.gsub('\n', "\n") : Base64.decode64(raw)
+  unless pem.include?("PRIVATE KEY")
+    UI.user_error!("APP_STORE_CONNECT_API_KEY_P8 is not a base64-encoded .p8 (it did not decode to a PEM private key). See docs/IOS_RELEASE.md.")
+  end
+
+  dir = File.join(ENV.fetch("RUNNER_TEMP", Dir.tmpdir), "asc-keys")
+  FileUtils.mkdir_p(dir)
+  path = File.join(dir, "AuthKey_#{key_id}.p8")
+  File.write(path, pem)
+  File.chmod(0o600, path)
+  path
+end
+
+def validated_key_id
+  value = ENV.fetch("APP_STORE_CONNECT_API_KEY_ID").strip
+  UI.user_error!("APP_STORE_CONNECT_API_KEY_ID must be the 10-character Key ID") unless value.match?(/\A[A-Za-z0-9]{10}\z/)
+  value
+end
+
+def validated_issuer_id
+  value = ENV.fetch("APP_STORE_CONNECT_ISSUER_ID").strip
+  UI.user_error!("APP_STORE_CONNECT_ISSUER_ID must be the Issuer ID UUID from the App Store Connect API page") unless value.match?(/\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/)
+  value
+end
+
+def validated_team_id
+  value = ENV.fetch("APPLE_TEAM_ID").strip
+  UI.user_error!("APPLE_TEAM_ID must be the 10-character Team ID from developer.apple.com → Membership details") unless value.match?(/\A[A-Za-z0-9]{10}\z/)
+  value
+end
