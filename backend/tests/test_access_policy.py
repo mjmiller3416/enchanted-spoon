@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from app.core.access_policy import (
     ACCESS_FULL,
     ACCESS_READ_ONLY,
+    AccessPolicySettings,
     at_or_before_plan_sunset,
     free_plan_sunset,
     resolve_access_mode,
@@ -14,6 +15,7 @@ from app.models.user import User
 
 EXISTING = datetime(2026, 6, 1, tzinfo=timezone.utc)
 NEW = datetime(2026, 11, 2, tzinfo=timezone.utc)
+RELEASE = AccessPolicySettings(legacy_free_cutoff="2026-11-01T00:00:00+00:00")
 
 
 def test_default_sunset_is_1159_pm_eastern_not_utc():
@@ -22,14 +24,27 @@ def test_default_sunset_is_1159_pm_eastern_not_utc():
     assert sunset != datetime(2027, 3, 31, 23, 59, tzinfo=timezone.utc)
 
 
+def test_unset_cutoff_does_not_grandfather_anyone():
+    assert (
+        resolve_access_mode(
+            is_admin=False,
+            has_pro_access=False,
+            created_at=EXISTING,
+            now=free_plan_sunset() + timedelta(days=1),
+        )
+        == ACCESS_FULL
+    )
+
+
 def test_existing_free_user_stays_full_through_the_eastern_instant():
-    sunset = free_plan_sunset()
+    sunset = free_plan_sunset(RELEASE)
     assert (
         resolve_access_mode(
             is_admin=False,
             has_pro_access=False,
             created_at=EXISTING,
             now=sunset,
+            settings=RELEASE,
         )
         == ACCESS_FULL
     )
@@ -40,6 +55,7 @@ def test_existing_free_user_stays_full_through_the_eastern_instant():
             has_pro_access=False,
             created_at=EXISTING,
             now=datetime(2027, 4, 1, 0, 0, tzinfo=timezone.utc),
+            settings=RELEASE,
         )
         == ACCESS_FULL
     )
@@ -51,7 +67,8 @@ def test_existing_free_user_is_read_only_after_the_eastern_instant():
             is_admin=False,
             has_pro_access=False,
             created_at=EXISTING,
-            now=free_plan_sunset() + timedelta(seconds=1),
+            now=free_plan_sunset(RELEASE) + timedelta(seconds=1),
+            settings=RELEASE,
         )
         == ACCESS_READ_ONLY
     )
@@ -69,20 +86,22 @@ def test_accounts_created_after_the_cutoff_stay_on_the_free_plan():
             is_admin=False,
             has_pro_access=False,
             created_at=NEW,
-            now=free_plan_sunset() + timedelta(days=1),
+            now=free_plan_sunset(RELEASE) + timedelta(days=1),
+            settings=RELEASE,
         )
         == ACCESS_FULL
     )
 
 
 def test_pro_and_admin_stay_full_after_the_deadline():
-    later = free_plan_sunset() + timedelta(days=1)
+    later = free_plan_sunset(RELEASE) + timedelta(days=1)
     assert (
         resolve_access_mode(
             is_admin=False,
             has_pro_access=True,
             created_at=EXISTING,
             now=later,
+            settings=RELEASE,
         )
         == ACCESS_FULL
     )
@@ -92,6 +111,7 @@ def test_pro_and_admin_stay_full_after_the_deadline():
             has_pro_access=False,
             created_at=EXISTING,
             now=later,
+            settings=RELEASE,
         )
         == ACCESS_FULL
     )
@@ -106,9 +126,10 @@ def test_user_property_matches_the_policy_before_the_deadline():
         subscription_status="active",
         created_at=EXISTING,
     )
+    # Cutoff is unset in the default config, so this account is metered free.
     assert user.access_mode == ACCESS_FULL
-    assert user.access_reason == "grandfathered_free"
-    assert user.grandfathered_free_until == free_plan_sunset()
+    assert user.access_reason == "free"
+    assert user.grandfathered_free_until is None
 
 
 def test_store_subscription_grants_pro_without_stripe():
