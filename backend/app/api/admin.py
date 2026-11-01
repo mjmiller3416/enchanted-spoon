@@ -9,13 +9,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user, require_admin
+from app.api.auth import get_current_user, require_admin, require_admin_mutator
 from app.database.db import get_session
 from app.dtos.admin_dtos import (
     AdminActivityResponseDTO,
     AdminGrantProDTO,
     AdminQueryRequestDTO,
     AdminQueryResponseDTO,
+    AdminSetUsageExemptDTO,
     AdminToggleAdminDTO,
     AdminUsageResponseDTO,
     AdminUserListDTO,
@@ -69,6 +70,17 @@ def get_usage(
     return service.get_usage_by_user(month=month)
 
 
+@router.get("/status")
+def admin_status(
+    current_admin: User = Depends(require_admin),
+) -> dict:
+    """Runtime flags an operator needs, including a missing free-tier cutoff."""
+    del current_admin
+    from app.core.offer_windows import legacy_cutoff_status
+
+    return legacy_cutoff_status()
+
+
 @router.get("/activity", response_model=AdminActivityResponseDTO)
 def get_activity(
     session: Session = Depends(get_session),
@@ -84,7 +96,7 @@ def grant_pro(
     user_id: int,
     dto: AdminGrantProDTO,
     session: Session = Depends(get_session),
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_admin_mutator),
 ) -> AdminUserListDTO:
     """Grant temporary pro access to a user."""
     service = AdminService(session, current_admin.id)
@@ -100,7 +112,7 @@ def grant_pro(
 def revoke_pro(
     user_id: int,
     session: Session = Depends(get_session),
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_admin_mutator),
 ) -> AdminUserListDTO:
     """Revoke granted pro access from a user."""
     service = AdminService(session, current_admin.id)
@@ -112,12 +124,29 @@ def revoke_pro(
         raise HTTPException(status_code=500, detail="Failed to revoke pro access")
 
 
+@router.patch("/users/{user_id}/usage-exempt", response_model=AdminUserListDTO)
+def set_usage_exempt(
+    user_id: int,
+    dto: AdminSetUsageExemptDTO,
+    session: Session = Depends(get_session),
+    current_admin: User = Depends(require_admin_mutator),
+) -> AdminUserListDTO:
+    """Keep one account on the pre-release Pro allowances, or clear that override."""
+    service = AdminService(session, current_admin.id)
+    try:
+        return service.set_usage_exempt(user_id, dto.usage_exempt)
+    except AdminUserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
+    except AdminSaveError:
+        raise HTTPException(status_code=500, detail="Failed to update usage exemption")
+
+
 @router.patch("/users/{user_id}/admin", response_model=AdminUserListDTO)
 def toggle_admin(
     user_id: int,
     dto: AdminToggleAdminDTO,
     session: Session = Depends(get_session),
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_admin_mutator),
 ) -> AdminUserListDTO:
     """Toggle admin flag on a user."""
     service = AdminService(session, current_admin.id)
@@ -140,7 +169,7 @@ def toggle_admin(
 def delete_user(
     user_id: int,
     session: Session = Depends(get_session),
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_admin_mutator),
 ) -> None:
     """Delete a user and all their data."""
     service = AdminService(session, current_admin.id)
@@ -163,7 +192,7 @@ def delete_user(
 def execute_query(
     dto: AdminQueryRequestDTO,
     session: Session = Depends(get_session),
-    current_admin: User = Depends(require_admin),
+    current_admin: User = Depends(require_admin_mutator),
 ) -> AdminQueryResponseDTO:
     """Execute a read-only SQL query against the database."""
     service = AdminService(session, current_admin.id)

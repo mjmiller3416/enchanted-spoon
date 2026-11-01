@@ -7,7 +7,7 @@ import { shoppingQueryKeys, useUndoShoppingAdd } from "@/hooks/api/useShopping";
 import { useUndoPlannerAdd } from "@/hooks/api/usePlanner";
 import { dashboardQueryKeys, plannerQueryKeys } from "@/hooks/api/queryKeys";
 import { dispatchPlannerUpdate, dispatchShoppingUpdate } from "@/hooks/api/events";
-import { classifyAiGateError } from "@/lib/paywall";
+import { aiGateChatReply } from "@/lib/paywall";
 import type { RecipeGeneratedDTO } from "@/types/ai";
 import type { PlannerEntryResponseDTO } from "@/types/planner";
 import type { ManualItemsAddResultDTO } from "@/types/shopping";
@@ -57,9 +57,7 @@ export function useAssistantSession() {
       }
       addMessage({ role: "assistant", content: response.response || "I've created a recipe for you." });
     } catch (error) {
-      addMessage({ role: "assistant", content: classifyAiGateError(error)
-        ? "You've used this month's assistant allowance — see the upgrade options to keep chatting."
-        : "Sorry, something went wrong. Please try again." });
+      addMessage({ role: "assistant", content: aiGateChatReply(error) });
     } finally { sending.current = false; }
   }, [chatMutation, messages, addMessage, queryClient]);
   const undoShoppingUpdate = useCallback(async () => {

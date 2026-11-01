@@ -16,8 +16,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.api.admin import router as admin_router
-from app.api.auth import require_admin
-from app.core.usage_limits import TIER_USAGE_LIMITS
+from app.api.auth import require_admin, require_admin_mutator
+from app.core.usage_limits import TIER_USAGE_LIMITS, get_user_monthly_limit
 from app.database.db import get_session
 from app.dtos.admin_dtos import AdminUsageResponseDTO
 from app.models.user import User
@@ -180,8 +180,16 @@ class TestUsageLimits:
         assert row.limits.ai_assistant_messages == pro["ai_assistant_messages"]
         assert row.limits.recipes_imported == pro["recipes_imported"]
 
-    def test_free_user_gets_free_caps(self, db_session: Session):
-        user = _make_user(db_session, is_admin=False, subscription_tier="free")
+    def test_legacy_free_user_gets_free_caps(self, db_session: Session, monkeypatch):
+        from datetime import datetime, timezone
+
+        monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2026-06-01T00:00:00+00:00")
+        user = _make_user(
+            db_session,
+            is_admin=False,
+            subscription_tier="free",
+            created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        )
         service = AdminService(db_session, current_user_id=user.id)
 
         row = _row_for(service.get_usage_by_user(month=MONTH), user.id)
@@ -192,6 +200,26 @@ class TestUsageLimits:
         assert row.limits.ai_suggestions_requested == free["ai_suggestions_requested"]
         assert row.limits.ai_assistant_messages == free["ai_assistant_messages"]
         assert row.limits.recipes_imported == free["recipes_imported"]
+
+    def test_new_free_user_has_no_ai_allowance(self, db_session: Session, monkeypatch):
+        from datetime import datetime, timezone
+
+        monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2026-06-01T00:00:00+00:00")
+        user = _make_user(
+            db_session,
+            is_admin=False,
+            subscription_tier="free",
+            created_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        )
+        service = AdminService(db_session, current_user_id=user.id)
+
+        row = _row_for(service.get_usage_by_user(month=MONTH), user.id)
+
+        assert user.usage_tier == "none"
+        assert row.limits.ai_images_generated == 0
+        assert row.limits.ai_suggestions_requested == 0
+        assert row.limits.ai_assistant_messages == 0
+        assert row.limits.recipes_imported == 0
 
     def test_granted_pro_user_gets_pro_caps(self, db_session: Session):
         # has_pro_access can also come from a temporary grant (free tier still).
@@ -295,3 +323,56 @@ class TestUsageEndpoint:
         response = client.get("/api/admin/usage", params={"month": bad_month})
 
         assert response.status_code == 422
+
+
+def test_admin_route_keeps_one_account_on_pre_release_caps(file_db, monkeypatch):
+    monkeypatch.delenv("USAGE_EXEMPT_USER_IDS", raising=False)
+    with file_db() as session:
+        admin = session.get(User, 1)
+        admin.is_admin = True
+        target = User(
+            clerk_id="legacy-pro",
+            email="legacy-pro@example.test",
+            is_admin=False,
+            usage_plan="legacy",
+            subscription_tier="pro",
+            subscription_status="active",
+        )
+        session.add(target)
+        session.commit()
+        target_id = target.id
+
+    app = FastAPI()
+    app.include_router(admin_router, prefix="/api/admin")
+
+    def session_dependency():
+        with file_db() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = session_dependency
+    app.dependency_overrides[require_admin] = lambda: admin
+    app.dependency_overrides[require_admin_mutator] = lambda: admin
+    client = TestClient(app)
+
+    response = client.patch(
+        f"/api/admin/users/{target_id}/usage-exempt",
+        json={"usage_exempt": True},
+    )
+    assert response.status_code == 200
+    assert response.json()["usage_exempt"] is True
+
+    with file_db() as session:
+        stored = session.get(User, target_id)
+        assert stored.usage_exempt is True
+        assert get_user_monthly_limit(stored, "ai_images_generated") == 150
+        assert get_user_monthly_limit(stored, "ai_assistant_messages") == 500
+
+    cleared = client.patch(
+        f"/api/admin/users/{target_id}/usage-exempt",
+        json={"usage_exempt": False},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["usage_exempt"] is False
+    with file_db() as session:
+        stored = session.get(User, target_id)
+        assert get_user_monthly_limit(stored, "ai_images_generated") == 20

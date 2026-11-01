@@ -33,6 +33,7 @@ from app.dtos.recipe_import_dtos import (
 from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.parse_utils import parse_recipe_dict, safe_float, safe_int
 from app.services.ai.response_utils import extract_text_from_response
+from app.services.ai.usage_logging import log_usage_metadata
 
 from .config import (
     API_KEY_ENV_VAR,
@@ -44,7 +45,6 @@ from .config import (
     MAX_OUTPUT_TOKENS,
     MODEL_NAME,
     PROMPT_TEMPLATE,
-    TEMPERATURE,
 )
 
 # Hostname suffixes that only ever name private/internal services
@@ -609,12 +609,12 @@ class RecipeImportService:
                 model=MODEL_NAME,
                 contents=[{"role": "user", "parts": [{"text": prompt}]}],
                 config={
-                    "temperature": TEMPERATURE,
                     "max_output_tokens": MAX_OUTPUT_TOKENS,
                     "response_mime_type": "application/json",
-                    "thinking_config": {"thinking_budget": 0},
+                    "thinking_config": {"thinking_level": "minimal"},
                 },
             )
+            log_usage_metadata("recipe_import", MODEL_NAME, response)
         except Exception as e:
             logger.error(f"[RecipeImport] Gemini call failed: {e}")
             raise RecipeImportError(f"Recipe import failed: {str(e)}") from e

@@ -1,165 +1,88 @@
-"""API router for AI image generation."""
+"""API router for on-demand AI photos."""
 
-import base64
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.dtos.image_generation_dtos import (
     ImageGenerationRequestDTO,
     ImageGenerationResponseDTO,
     BannerGenerationRequestDTO,
-    BannerGenerationResponseDTO,
 )
 from app.services.ai.image_generation import get_image_generation_service
-from app.services.ai.image_generation.config import (
-    PROMPT_TEMPLATE,
-    BANNER_PROMPT_TEMPLATE,
-    ASPECT_RATIO,
-    BANNER_ASPECT_RATIO,
-    REFERENCE_IMAGE_SIZE,
-    BANNER_IMAGE_SIZE,
-)
+from app.services.ai.image_generation.config import PROMPT_TEMPLATE, ASPECT_RATIO, REFERENCE_IMAGE_SIZE
 from app.api.auth import require_within_usage_limit
+from app.core.rate_limit import IMAGE_IP_LIMITS, IMAGE_USER_LIMITS, ip_limiter, limiter
 from app.database.db import get_session
 from app.models.user import User
 from app.api.errors import internal_error
 
 router = APIRouter()
 
+_image_limit = require_within_usage_limit(
+    "ai_images_generated",
+    user_limits=IMAGE_USER_LIMITS,
+    ip_limits=IMAGE_IP_LIMITS,
+)
+
 
 @router.post("", response_model=ImageGenerationResponseDTO)
+@limiter.limit("3/minute")
+@limiter.limit("15/hour")
+@ip_limiter.limit("6/minute")
 async def generate_recipe_image(
-    request: ImageGenerationRequestDTO,
+    request: Request,
+    body: ImageGenerationRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_within_usage_limit("ai_images_generated")),
+    current_user: User = Depends(_image_limit),
 ) -> ImageGenerationResponseDTO:
-    """
-    Generate an AI image for a recipe based on its name.
-
-    The image is generated using Gemini AI with a professional food photography style.
-
-    Args:
-        request: Request containing the recipe name
-
-    Returns:
-        Response with base64 encoded image data on success
-    """
-    if not request.recipe_name or not request.recipe_name.strip():
+    """Generate one square photo. Wide banners are cropped from it in the app."""
+    del session, current_user
+    if body.image_type == "banner":
+        raise HTTPException(
+            status_code=410,
+            detail="Banner images are cropped from the square photo. Use Generate photo.",
+        )
+    if not body.recipe_name or not body.recipe_name.strip():
         raise HTTPException(status_code=400, detail="Recipe name is required")
 
     try:
         service = get_image_generation_service()
-
-        if request.image_type == "both":
-            result = await service.generate_dual_recipe_images(
-                request.recipe_name,
-                custom_prompt=request.custom_prompt,
+        ref_result = await service.generate_recipe_image(
+            body.recipe_name,
+            custom_prompt=body.custom_prompt or PROMPT_TEMPLATE,
+            aspect_ratio=ASPECT_RATIO,
+            image_size=REFERENCE_IMAGE_SIZE,
+        )
+        if not ref_result["success"]:
+            raise HTTPException(
+                status_code=500,
+                detail=ref_result.get("error") or "Image generation failed",
             )
-            if not result["success"]:
-                errors = result.get("errors", [])
-                raise HTTPException(
-                    status_code=500,
-                    detail="; ".join(errors) if errors else "Image generation failed",
-                )
-            reference_data = result.get("reference_image_data")
-            banner_data = result.get("banner_image_data")
-
-        elif request.image_type == "reference":
-            ref_result = await service.generate_recipe_image(
-                request.recipe_name,
-                custom_prompt=request.custom_prompt or PROMPT_TEMPLATE,
-                aspect_ratio=ASPECT_RATIO,
-                image_size=REFERENCE_IMAGE_SIZE,
-            )
-            if not ref_result["success"]:
-                raise HTTPException(
-                    status_code=500,
-                    detail=ref_result.get("error") or "Reference image generation failed",
-                )
-            reference_data = ref_result["image_data"]
-            banner_data = None
-
-        else:  # banner
-            banner_result = await service.generate_recipe_image(
-                request.recipe_name,
-                custom_prompt=request.custom_prompt or BANNER_PROMPT_TEMPLATE,
-                aspect_ratio=BANNER_ASPECT_RATIO,
-                image_size=BANNER_IMAGE_SIZE,
-            )
-            if not banner_result["success"]:
-                raise HTTPException(
-                    status_code=500,
-                    detail=banner_result.get("error") or "Banner image generation failed",
-                )
-            reference_data = None
-            banner_data = banner_result["image_data"]
-
         return ImageGenerationResponseDTO(
             success=True,
-            reference_image_data=reference_data,
-            banner_image_data=banner_data,
+            reference_image_data=ref_result["image_data"],
+            banner_image_data=None,
             error=None,
         )
-
     except HTTPException:
         raise
-    except ValueError as e:
-        # Configuration errors (e.g., missing API key)
+    except ValueError:
         raise internal_error()
-    except Exception as e:
+    except Exception:
         raise internal_error("Image generation failed. Please try again.")
 
 
-@router.post("/banner", response_model=BannerGenerationResponseDTO)
+@router.post("/banner")
+@limiter.limit("3/minute")
+@limiter.limit("15/hour")
+@ip_limiter.limit("6/minute")
 async def generate_banner_image(
-    request: BannerGenerationRequestDTO,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(require_within_usage_limit("ai_images_generated")),
-) -> BannerGenerationResponseDTO:
-    """
-    Generate a banner (21:9) image from an existing reference image.
-
-    Uses the reference image as visual input to create a wider banner version
-    that maintains the same food presentation and styling.
-
-    Args:
-        request: Request containing recipe name and base64 encoded reference image
-
-    Returns:
-        Response with base64 encoded banner image data on success
-    """
-    if not request.recipe_name or not request.recipe_name.strip():
-        raise HTTPException(status_code=400, detail="Recipe name is required")
-
-    if not request.reference_image_data:
-        raise HTTPException(status_code=400, detail="Reference image data is required")
-
-    try:
-        service = get_image_generation_service()
-
-        # Decode base64 reference image to bytes
-        reference_bytes = base64.b64decode(request.reference_image_data)
-
-        result = await service.generate_banner_from_reference(
-            request.recipe_name, reference_bytes
-        )
-
-        if not result["success"]:
-            raise HTTPException(
-                status_code=500,
-                detail=result.get("error") or "Banner generation failed",
-            )
-
-        return BannerGenerationResponseDTO(
-            success=True,
-            banner_image_data=result.get("image_data"),
-            error=None,
-        )
-
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise internal_error()
-    except Exception as e:
-        raise internal_error("Banner generation failed. Please try again.")
+    request: Request,
+    body: BannerGenerationRequestDTO,
+) -> None:
+    """Retired. Banners are cropped from the square Generate photo image."""
+    del request, body
+    raise HTTPException(
+        status_code=410,
+        detail="Banner generation was removed. Crop the square photo in the app.",
+    )

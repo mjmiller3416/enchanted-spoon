@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 # SDK 16.0.0 and snapshot webhook fixtures are tested against this version.
 STRIPE_API_VERSION = "2026-09-30.endive"
+STRIPE_TRIAL_DAYS = 7
 
 
 class StripeSettings(BaseSettings):
@@ -41,12 +42,38 @@ class StripeSettings(BaseSettings):
     stripe_secret_key: Optional[str] = Field(default=None, repr=False)
     stripe_webhook_secret: Optional[str] = Field(default=None, repr=False)
     stripe_price_id_pro: Optional[str] = None
+    # Current prices. Monthly falls back to STRIPE_PRICE_ID_PRO when V2 is unset.
+    stripe_price_pro_monthly_v2: Optional[str] = None
+    stripe_price_pro_annual_v2: Optional[str] = None
+    # Promotion code ids (promo_...). The annual id must be a code with no
+    # minimum_amount. Checkout does not read restrictions.minimum_amount.
+    stripe_promo_founder30_monthly: Optional[str] = None
+    stripe_promo_founder30_annual: Optional[str] = None
     frontend_url: str = "http://localhost:3000"
+
+    @property
+    def monthly_price_id(self) -> Optional[str]:
+        return self.stripe_price_pro_monthly_v2 or self.stripe_price_id_pro
+
+    @property
+    def annual_price_id(self) -> Optional[str]:
+        return self.stripe_price_pro_annual_v2
+
+    def pro_price_ids(self) -> set[str]:
+        return {
+            price
+            for price in (
+                self.monthly_price_id,
+                self.annual_price_id,
+                self.stripe_price_id_pro,
+            )
+            if price
+        }
 
     @property
     def is_configured(self) -> bool:
         """Check if Stripe is configured well enough to create checkout sessions."""
-        return bool(self.stripe_secret_key and self.stripe_price_id_pro)
+        return bool(self.stripe_secret_key and self.monthly_price_id)
 
 
 @lru_cache()

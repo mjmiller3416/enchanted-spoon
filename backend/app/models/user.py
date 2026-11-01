@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, DateTime, String, Text
+from sqlalchemy import Boolean, DateTime, String, Text, false as sql_false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database.base import Base
@@ -63,6 +63,24 @@ class User(Base):
     # Existing rows retain legacy allowances; only newly created ORM accounts
     # receive the launch plan. Never accept this field from a client payload.
     usage_plan: Mapped[str] = mapped_column(String(20), default="launch", server_default="legacy", nullable=False)
+    # Admin override. Pro-tier accounts with this flag keep the pre-release
+    # allowances instead of the launch caps. Does not grant Pro or admin.
+    usage_exempt: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sql_false(), nullable=False)
+
+    # Trial window. Null until Stripe reports a trialing subscription.
+    trial_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    trial_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    has_used_trial: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sql_false(), nullable=False)
+    # Checkout session that claimed the trial. Cleared when the session expires unused.
+    pending_trial_checkout_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # Set by the free-tier sunset job. Null means the account is not read-only
+    # unless the sunset date has already passed for a legacy free account.
+    read_only_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    sunset_notice_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    sunset_reminder_30_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    sunset_reminder_7_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    sunset_reminder_1_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Subscription fields (Stripe-managed)
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, unique=True)
@@ -155,34 +173,123 @@ class User(Base):
     )
 
     # ── Properties ──────────────────────────────────────────────────────────
+    @staticmethod
+    def _aware(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
     @property
     def has_pro_access(self) -> bool:
-        """Check if user has pro-level access through any path."""
-        # Admins always have full access
-        if self.is_admin:
+        """Check if user has pro-level access through any path.
+
+        Trialing stays inside this gate so Pro features stay visible during
+        the 7-day trial. Usage caps use ``usage_tier``, which is stricter.
+        """
+        if self.keeps_admin_access():
             return True
 
-        # Active paid subscription
         if self.subscription_tier == "pro" and self.subscription_status in ACTIVE_SUBSCRIPTION_STATUSES:
             return True
 
-        # Granted temporary access (testers, promos)
-        if self.granted_pro_until:
-            if self.granted_pro_until > datetime.now(timezone.utc):
-                return True
+        if self.granted_pro_until and self._aware(self.granted_pro_until) > datetime.now(timezone.utc):
+            return True
 
         return False
+
+    def is_legacy_free_account(self) -> bool:
+        """Free account created before ``LEGACY_FREE_CUTOFF``.
+
+        Those accounts keep the free plan until the sunset date. The cutoff
+        is the coordinated release deploy time. ``usage_plan`` is a separate
+        allowance cohort and does not decide this.
+        """
+        from ..core.offer_windows import created_before_legacy_free_cutoff
+
+        return (
+            not self.keeps_admin_access()
+            and created_before_legacy_free_cutoff(self.created_at)
+            and self.subscription_tier == "free"
+            and self.subscription_status == "active"
+            and not self.has_used_trial
+            and not (
+                self.granted_pro_until
+                and self._aware(self.granted_pro_until) > datetime.now(timezone.utc)
+            )
+        )
+
+    @property
+    def is_read_only(self) -> bool:
+        """View and export only. Create, plan, and AI are locked."""
+        if self.keeps_admin_access() or self.has_pro_access:
+            return False
+        if self.read_only_at is not None:
+            return True
+        from ..core.offer_windows import sunset_is_due
+
+        return self.is_legacy_free_account() and sunset_is_due()
+
+    @property
+    def usage_tier(self) -> str:
+        """Cap tier: pro, trial, free, or expired.
+
+        Admins and active grants use pro (admins are then uncapped by the
+        caller). A trialing subscription past ``trial_ends_at`` is expired.
+        Only accounts created before ``LEGACY_FREE_CUTOFF`` stay on the
+        metered free plan until the sunset date. Accounts created on or
+        after that cutoff have no recurring free AI allowance (``none``).
+        After the sunset date, legacy free accounts are read-only and
+        resolve to expired (zero AI).
+        """
+        now = datetime.now(timezone.utc)
+        if self.keeps_admin_access():
+            return "pro"
+        if self.granted_pro_until and self._aware(self.granted_pro_until) > now:
+            return "pro"
+        if self.subscription_tier == "pro" and self.subscription_status == "trialing":
+            if self.trial_ends_at is not None and self._aware(self.trial_ends_at) <= now:
+                return "expired"
+            return "trial"
+        if self.subscription_tier == "pro" and self.subscription_status in {"active", "past_due"}:
+            return "pro"
+        if self.is_read_only:
+            return "expired"
+        if self.is_legacy_free_account():
+            return "free"
+        if (
+            self.subscription_tier == "free"
+            and self.subscription_status == "active"
+            and not self.has_used_trial
+        ):
+            return "none"
+        return "expired"
 
     @property
     def access_reason(self) -> str:
         """Why does this user have their current access level? (for debugging/support)"""
-        if self.is_admin:
+        if self.keeps_admin_access():
             return "admin"
+        if self.usage_tier == "trial":
+            return "trial"
         if self.subscription_tier == "pro" and self.subscription_status in ACTIVE_SUBSCRIPTION_STATUSES:
             return "subscription"
-        if self.granted_pro_until and self.granted_pro_until > datetime.now(timezone.utc):
+        if self.granted_pro_until and self._aware(self.granted_pro_until) > datetime.now(timezone.utc):
             return f"granted ({self.granted_by or 'manual'})"
+        if self.is_read_only:
+            return "read_only"
+        if self.usage_tier == "none":
+            return "trial_required"
+        if self.usage_tier == "expired":
+            return "expired"
         return "free"
+
+    def keeps_admin_access(self) -> bool:
+        """Database admin flag only.
+
+        ``ADMIN_EXEMPT_EMAILS`` does not grant this. Those accounts get
+        uncapped AI only, after Clerk confirms the verified primary email.
+        """
+        return bool(self.is_admin)
 
     # ── Helper Methods ──────────────────────────────────────────────────────
     def __repr__(self) -> str:

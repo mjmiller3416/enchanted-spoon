@@ -40,13 +40,16 @@ class UsageService:
         UsageService(session, user_id).increment("recipes_created")
     """
 
-    def __init__(self, session: Session, user_id: int):
+    def __init__(self, session: Session, user_id: int, window: Optional[str] = None):
         self.session = session
         self.user_id = user_id
+        self._window = window
         self._reserved_month: Optional[str] = None
 
     def _get_current_month(self) -> str:
-        """Get current month string in YYYY-MM format."""
+        """Usage window: an explicit key, otherwise the current UTC month."""
+        if self._window:
+            return self._window
         return datetime.now(timezone.utc).strftime("%Y-%m")
 
     def _get_or_create_usage(self, month: Optional[str] = None) -> UserUsage:

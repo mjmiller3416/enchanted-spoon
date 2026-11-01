@@ -4,6 +4,7 @@ import type {
   AdminUserDTO,
   AdminGrantProRequest,
   AdminToggleAdminRequest,
+  AdminSetUsageExemptRequest,
   AdminQueryRequest,
   AdminQueryResponse,
   AdminUsageResponse,
@@ -50,6 +51,17 @@ export const adminApi = {
     fetchApi<AdminUserDTO>(
       `/api/admin/users/${userId}/pro`,
       { method: "DELETE" },
+      token,
+    ),
+
+  setUsageExempt: (
+    userId: number,
+    data: AdminSetUsageExemptRequest,
+    token?: string | null,
+  ): Promise<AdminUserDTO> =>
+    fetchApi<AdminUserDTO>(
+      `/api/admin/users/${userId}/usage-exempt`,
+      { method: "PATCH", body: JSON.stringify(data) },
       token,
     ),
 
