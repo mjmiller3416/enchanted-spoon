@@ -394,9 +394,12 @@ def test_legacy_free_users_stay_free_until_the_sunset_then_go_read_only(file_db,
         assert later.is_legacy_free_account() is False
 
 
-def test_unset_legacy_cutoff_keeps_every_account_legacy(monkeypatch, caplog):
+def test_unset_legacy_cutoff_keeps_every_account_legacy_in_dev(monkeypatch, caplog):
     import logging
     from app.core import offer_windows
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
     monkeypatch.delenv("LEGACY_FREE_CUTOFF", raising=False)
     monkeypatch.setattr(offer_windows, "legacy_free_cutoff", offer_windows.legacy_free_cutoff)
     existing = _user(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
@@ -412,12 +415,40 @@ def test_unset_legacy_cutoff_keeps_every_account_legacy(monkeypatch, caplog):
     assert get_user_monthly_limit(existing, "ai_images_generated") == 3
     assert signed_up_while_unset.is_legacy_free_account() is True
     assert signed_up_while_unset.usage_tier == "free"
-    caplog.set_level(logging.CRITICAL, logger="app.core.offer_windows")
-    offer_windows.log_legacy_cutoff_if_unset()
-    assert "LEGACY_FREE_CUTOFF is unset" in caplog.text
+    monkeypatch.setenv("LEGACY_FREE_CUTOFF", "not-a-date")
+    assert signed_up_while_unset.is_legacy_free_account() is True
+    caplog.set_level(logging.WARNING, logger="app.core.startup")
+    from app.core.startup import validate_config
+    validate_config()
+    assert "LEGACY_FREE_CUTOFF" in caplog.text
     status = offer_windows.legacy_cutoff_status()
     assert status["legacy_free_cutoff_configured"] is False
     assert status["legacy_free_cutoff_error"]
+
+
+def test_production_refuses_to_start_without_a_parseable_cutoff(monkeypatch):
+    from app.core.startup import ConfigError, validate_config
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
+    monkeypatch.delenv("LEGACY_FREE_CUTOFF", raising=False)
+    user = _user(created_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+    assert user.is_legacy_free_account() is False
+    with pytest.raises(ConfigError, match="LEGACY_FREE_CUTOFF is unset"):
+        validate_config()
+    monkeypatch.setenv("LEGACY_FREE_CUTOFF", "not-a-date")
+    with pytest.raises(ConfigError, match="not valid ISO 8601"):
+        validate_config()
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("LEGACY_FREE_CUTOFF", raising=False)
+    with pytest.raises(ConfigError, match="LEGACY_FREE_CUTOFF is unset"):
+        validate_config()
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2026-11-15T12:00:00")
+    with pytest.raises(ConfigError) as started:
+        validate_config()
+    assert "LEGACY_FREE_CUTOFF" not in str(started.value)
 
 
 def test_household_hook_scales_pro_caps_and_can_meter_the_owner():

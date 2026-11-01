@@ -7,6 +7,8 @@ deleting the Clerk identity when a user deletes their account.
 """
 
 import logging
+import threading
+import time
 from typing import Optional
 
 import httpx
@@ -17,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 CLERK_API_BASE = "https://api.clerk.com/v1"
 CLERK_API_TIMEOUT = 8.0
+VERIFIED_EMAIL_TTL_SECONDS = 300
+
+_verified_email_cache: dict[str, tuple[float, Optional[str]]] = {}
+_verified_email_lock = threading.Lock()
 
 
 class ClerkApiError(Exception):
@@ -78,6 +84,38 @@ def verified_primary_email(clerk_user: Optional[dict]) -> Optional[str]:
             return email.strip().lower()
         return None
     return None
+
+
+def clear_verified_email_cache() -> None:
+    """Drop the in-process Clerk email cache. Tests use this."""
+    with _verified_email_lock:
+        _verified_email_cache.clear()
+
+
+def cached_verified_primary_email(clerk_id: str, now: float | None = None) -> Optional[str]:
+    """Verified primary email for ``clerk_id``, reused for about five minutes.
+
+    A miss, an unverified primary, and a failed lookup are cached too, so
+    ``ADMIN_EXEMPT_EMAILS`` does not call Clerk on every request. ``now`` is
+    a monotonic timestamp for tests.
+    """
+    moment = time.monotonic() if now is None else now
+    with _verified_email_lock:
+        cached = _verified_email_cache.get(clerk_id)
+        if cached is not None and moment - cached[0] < VERIFIED_EMAIL_TTL_SECONDS:
+            return cached[1]
+    email = verified_primary_email(fetch_clerk_user(clerk_id))
+    with _verified_email_lock:
+        _verified_email_cache[clerk_id] = (moment, email)
+        expired = [
+            key
+            for key, (stored_at, _email) in _verified_email_cache.items()
+            if moment - stored_at >= VERIFIED_EMAIL_TTL_SECONDS
+        ]
+        for key in expired:
+            _verified_email_cache.pop(key, None)
+        _verified_email_cache[clerk_id] = (moment, email)
+    return email
 
 
 def clerk_user_has_verified_email(clerk_id: str, email: str) -> bool:

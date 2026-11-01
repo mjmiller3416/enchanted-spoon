@@ -31,7 +31,7 @@ def is_production() -> bool:
     # A stale development override must never disable Railway production guards.
     return any(
         os.environ.get(name, "").strip().lower() == "production"
-        for name in ("ENVIRONMENT", "RAILWAY_ENVIRONMENT_NAME")
+        for name in ("ENVIRONMENT", "RAILWAY_ENVIRONMENT", "RAILWAY_ENVIRONMENT_NAME")
     )
 
 
@@ -49,6 +49,10 @@ def validate_config() -> None:
     auth = get_auth_settings()
     production = is_production()
 
+    from app.core.offer_windows import legacy_cutoff_issue
+
+    cutoff_issue = legacy_cutoff_issue()
+
     if not production:
         # Dev/test: surface the state without blocking startup.
         if auth.auth_disabled:
@@ -58,9 +62,15 @@ def validate_config() -> None:
             )
         if _uses_sqlite():
             logger.info("Using SQLite database for local development.")
+        if cutoff_issue:
+            logger.warning(cutoff_issue)
         return
 
     problems: list[str] = []
+    if cutoff_issue:
+        problems.append(
+            cutoff_issue + " Refusing to start so the previous deploy stays up."
+        )
 
     if auth.auth_disabled:
         problems.append(

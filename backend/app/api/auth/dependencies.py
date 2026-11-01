@@ -182,11 +182,11 @@ async def get_current_user(
         )
 
     if admin_exempt_emails():
-        from ...services.clerk_service import fetch_clerk_user, verified_primary_email
+        from ...services.clerk_service import cached_verified_primary_email
 
-        # Match only Clerk's verified primary address. The JWT email claim
-        # and users.email are not proof, and a failed lookup stores None.
-        remember_verified_primary_email(user, verified_primary_email(fetch_clerk_user(clerk_id)))
+        # Match only Clerk's verified primary address, cached for a few
+        # minutes. The JWT email claim and users.email are not proof.
+        remember_verified_primary_email(user, cached_verified_primary_email(clerk_id))
 
     user_service.touch_last_active(user)
     set_error_reporting_user(user.id)
@@ -349,11 +349,11 @@ def require_admin(
     user: User = Depends(get_current_user),
 ) -> User:
     """
-    Read-only admin views.
+    Admin views.
 
-    Allows the database admin flag, ``USAGE_EXEMPT_USER_IDS``, or a
-    Clerk-verified primary email on ``ADMIN_EXEMPT_EMAILS``. Email matches
-    cannot call mutation routes; those use ``require_admin_mutator``.
+    Allows the database admin flag or ``USAGE_EXEMPT_USER_IDS``.
+    ``ADMIN_EXEMPT_EMAILS`` does not open these routes. Mutations use
+    ``require_admin_mutator`` and the same two checks.
 
     Raises:
         HTTPException 403: User cannot view admin data.

@@ -4,7 +4,10 @@ Promotion-code ids come from ``STRIPE_PROMO_FOUNDER30_MONTHLY`` and
 ``STRIPE_PROMO_FOUNDER30_ANNUAL`` when set, so a replacement id can be
 changed in Railway without a code change. Otherwise Checkout looks the
 typed code up in Stripe and then passes ``discounts=[{promotion_code}]``.
-FOUNDER30 is monthly only. FOUNDER30Y is annual only.
+Unset promo env vars do not turn the offer off: FOUNDER30 and FOUNDER30Y
+stay live through that lookup until ``FOUNDER_OFFER_ENDS_AT`` or until the
+codes are deactivated in Stripe. FOUNDER30 is monthly only. FOUNDER30Y is
+annual only.
 ``allow_promotion_codes`` is never enabled. ``restrictions.minimum_amount``
 is never read and is not required.
 """

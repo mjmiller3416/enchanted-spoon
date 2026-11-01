@@ -287,8 +287,7 @@ class User(Base):
         """Database admin flag only.
 
         ``ADMIN_EXEMPT_EMAILS`` does not grant this. Those accounts get
-        uncapped AI and read-only admin views through the usage and admin
-        view checks, which require Clerk's verified primary email.
+        uncapped AI only, after Clerk confirms the verified primary email.
         """
         return bool(self.is_admin)
 

@@ -111,8 +111,11 @@ def test_verified_primary_is_uncapped_and_cannot_mutate_admin(file_db, monkeypat
     client = TestClient(app)
     assert is_admin_exempt_email(user) is True
     assert get_user_monthly_limit(user, "ai_images_generated") is None
-    assert client.get("/api/admin/users").status_code == 200
-    assert client.get("/api/admin/status").json()["legacy_free_cutoff_configured"] in (True, False)
+    assert client.get("/api/admin/users").status_code == 403
+    assert client.get("/api/admin/status").status_code == 403
+    with pytest.raises(HTTPException) as view_denied:
+        require_admin(user)
+    assert view_denied.value.status_code == 403
     denied = client.patch(f"/api/admin/users/{user_id}/usage-exempt", json={"usage_exempt": True})
     assert denied.status_code == 403
     assert client.patch(f"/api/admin/users/{user_id}/admin", json={"is_admin": True}).status_code == 403
@@ -135,6 +138,8 @@ def test_database_admin_and_id_allowlist_can_mutate(file_db, monkeypatch):
 
     user.is_admin = False
     monkeypatch.setenv("USAGE_EXEMPT_USER_IDS", str(user_id))
+    assert client.get("/api/admin/users").status_code == 200
+    assert client.get("/api/admin/status").status_code == 200
     assert client.patch(f"/api/admin/users/{user_id}/usage-exempt", json={"usage_exempt": False}).status_code == 200
 
 
@@ -145,6 +150,9 @@ def test_health_reports_an_unset_cutoff():
 
     script = """
 import os
+os.environ["ENVIRONMENT"] = "development"
+os.environ.pop("RAILWAY_ENVIRONMENT", None)
+os.environ.pop("RAILWAY_ENVIRONMENT_NAME", None)
 os.environ.pop("LEGACY_FREE_CUTOFF", None)
 from fastapi.testclient import TestClient
 from app.main import app
@@ -155,6 +163,27 @@ assert "LEGACY_FREE_CUTOFF is unset" in body["legacy_free_cutoff_error"]
 """
     result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_clerk_verified_email_is_cached_for_five_minutes(monkeypatch):
+    from app.services import clerk_service
+
+    calls = []
+
+    def fetch(clerk_id: str):
+        calls.append(clerk_id)
+        return _clerk(primary="owner@example.com", primary_status="verified")
+
+    monkeypatch.setattr(clerk_service, "fetch_clerk_user", fetch)
+    clerk_service.clear_verified_email_cache()
+    assert clerk_service.cached_verified_primary_email("user_a", now=1_000) == "owner@example.com"
+    assert clerk_service.cached_verified_primary_email("user_a", now=1_100) == "owner@example.com"
+    assert calls == ["user_a"]
+    assert clerk_service.cached_verified_primary_email("user_a", now=1_000 + clerk_service.VERIFIED_EMAIL_TTL_SECONDS) == "owner@example.com"
+    assert calls == ["user_a", "user_a"]
+    assert clerk_service.cached_verified_primary_email("user_b", now=1_400) == "owner@example.com"
+    assert calls[-1] == "user_b"
+    clerk_service.clear_verified_email_cache()
 
 
 def _admin_app(file_db, user: User) -> FastAPI:

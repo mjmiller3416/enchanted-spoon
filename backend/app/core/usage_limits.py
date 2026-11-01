@@ -7,7 +7,8 @@ accounts persisted as ``usage_plan=legacy``. A usage-exempt account (the
 ``usage_exempt`` flag, an id in ``USAGE_EXEMPT_USER_IDS``, or a Clerk-verified
 primary email in ``ADMIN_EXEMPT_EMAILS``) keeps the pre-release Pro
 allowances. A verified primary on ``ADMIN_EXEMPT_EMAILS`` is uncapped for
-AI and may open read-only admin views. It does not grant admin mutations.
+AI only. Admin views and mutations require ``is_admin`` or
+``USAGE_EXEMPT_USER_IDS``.
 Legacy free accounts still use the free caps.
 Trial caps cover the whole trial, not a calendar month. Expired and
 read-only accounts are capped at zero. Accounts created on or after
@@ -191,8 +192,11 @@ def _usage_exempt_user_id(user: User) -> bool:
 
 
 def can_view_admin(user: User) -> bool:
-    """Read-only admin views: database admins, id allowlist, or verified email."""
-    if user.is_admin or is_admin_exempt_email(user):
+    """Admin reads: the database flag or ``USAGE_EXEMPT_USER_IDS`` only.
+
+    ``ADMIN_EXEMPT_EMAILS`` lifts usage caps and does not open admin views.
+    """
+    if user.is_admin:
         return True
     return _usage_exempt_user_id(user)
 
@@ -211,8 +215,9 @@ def is_usage_exempt(user: User) -> bool:
     """True for the admin override: flag, id allowlist, or exempt email.
 
     A MagicMock flag is not an exemption. Only a real ``True``, an integer
-    id in ``USAGE_EXEMPT_USER_IDS``, or an email in ``ADMIN_EXEMPT_EMAILS``
-    counts. Exempt emails are also treated as admins, which uncaps them.
+    id in ``USAGE_EXEMPT_USER_IDS``, or a verified primary email in
+    ``ADMIN_EXEMPT_EMAILS`` counts. The email match uncaps AI and does not
+    grant admin access.
     """
     if getattr(user, "usage_exempt", False) is True:
         return True

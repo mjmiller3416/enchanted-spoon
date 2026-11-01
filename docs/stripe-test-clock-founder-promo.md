@@ -14,7 +14,7 @@ For a customer with no invoices and `has_used_trial=false`:
 - `line_items` with `STRIPE_PRICE_PRO_MONTHLY_V2` or `STRIPE_PRICE_PRO_ANNUAL_V2` (monthly falls back to `STRIPE_PRICE_ID_PRO`)
 - `subscription_data.trial_period_days=7`
 - `subscription_data.trial_settings.end_behavior.missing_payment_method=cancel`
-- `discounts=[{promotion_code}]` using `STRIPE_PROMO_FOUNDER30_MONTHLY` or `STRIPE_PROMO_FOUNDER30_ANNUAL` when set, otherwise the id from a server lookup of the typed code
+- `discounts=[{promotion_code}]` using `STRIPE_PROMO_FOUNDER30_MONTHLY` or `STRIPE_PROMO_FOUNDER30_ANNUAL` when set. When those variables are unset, FOUNDER30 and FOUNDER30Y stay live: Checkout looks the typed code up in Stripe (`PromotionCode.list(code=...)`). Only `FOUNDER_OFFER_ENDS_AT`, or deactivating the codes in Stripe, turns that lookup off. Unset promo env vars do not disable the offer.
 - no `allow_promotion_codes`
 - no `payment_method_collection=if_required` (card stays required)
 - no `minimum_amount`
