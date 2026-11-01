@@ -14,6 +14,7 @@ from app.api import (
     conversion_rules,
     dashboard,
     data_management,
+    devices,
     feedback,
     hearth,
     household,
@@ -22,11 +23,13 @@ from app.api import (
     ingredients,
     meals,
     planner,
+    push_dispatch,
     recipe_groups,
     recipes,
     sample_data,
     settings,
     shopping,
+    revenuecat_webhooks,
     stripe_webhooks,
     upload,
     users,
@@ -63,6 +66,8 @@ api_router.include_router(conversion_rules.router, prefix="/api/unit-conversions
 api_router.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 api_router.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 api_router.include_router(users.router, prefix="/api/users", tags=["users"])
+api_router.include_router(devices.router, prefix="/api/devices", tags=["devices"])
+api_router.include_router(push_dispatch.router, prefix="/api/internal/push", tags=["push"])
 api_router.include_router(
     household.router, prefix="/api/household", tags=["household"], dependencies=_writes
 )
@@ -77,6 +82,11 @@ api_router.include_router(hearth.router, prefix="/api/hearth", tags=["hearth", "
 
 # ── Webhooks (unauthenticated, verified via provider signature) ─────────
 api_router.include_router(stripe_webhooks.router, prefix="/api/webhooks/stripe", tags=["webhooks"])
+api_router.include_router(
+    revenuecat_webhooks.router,
+    prefix="/api/webhooks/revenuecat",
+    tags=["webhooks"],
+)
 
 # ── AI-powered routes ────────────────────────────────────────────────────
 api_router.include_router(cooking_tips_router, prefix="/api/ai/cooking-tip", tags=["ai", "cooking-tips"], dependencies=_writes)

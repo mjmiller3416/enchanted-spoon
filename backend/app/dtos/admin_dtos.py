@@ -31,11 +31,18 @@ class CurrentUserDTO(BaseModel):
     cancel_at_period_end: bool = False
     has_pro_access: bool
     access_reason: str
+    trial_consumed: bool = False
     usage_tier: str
     is_read_only: bool
     show_sunset_banner: bool = False
     show_sunset_popup: bool = False
     free_tier_sunset_at: Optional[datetime] = None
+    billing_channel: Optional[str] = None
+    store_provider: Optional[str] = None
+    store_product_id: Optional[str] = None
+    store_status: Optional[str] = None
+    store_expires_at: Optional[datetime] = None
+    store_will_renew: bool = False
     created_at: datetime
 
     @classmethod
@@ -61,11 +68,18 @@ class CurrentUserDTO(BaseModel):
             cancel_at_period_end=user.cancel_at_period_end,
             has_pro_access=user.has_pro_access if has_pro_access is None else has_pro_access,
             access_reason=user.access_reason if access_reason is None else access_reason,
+            trial_consumed=user.trial_consumed_at is not None,
             usage_tier=user.usage_tier,
             is_read_only=user.is_read_only,
             show_sunset_banner=legacy_free or user.is_read_only,
             show_sunset_popup=legacy_free and user.sunset_notice_seen_at is None,
             free_tier_sunset_at=free_tier_sunset_at(),
+            billing_channel=user.billing_channel,
+            store_provider=user.store_provider,
+            store_product_id=user.store_product_id,
+            store_status=user.store_status,
+            store_expires_at=user.store_expires_at,
+            store_will_renew=bool(user.store_will_renew),
             created_at=user.created_at,
         )
 

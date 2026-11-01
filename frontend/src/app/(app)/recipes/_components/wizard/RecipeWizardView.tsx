@@ -64,6 +64,8 @@ interface RecipeWizardViewProps {
   recipeId?: number | null;
   /** Generated recipe to pre-fill a create-mode wizard (e.g. from the Genie). */
   initialGenerated?: RecipeGenerationResponseDTO | null;
+  /** Share-sheet URL that should start URL import immediately. */
+  initialImportUrl?: string | null;
 }
 
 // ============================================================================
@@ -76,6 +78,7 @@ export function RecipeWizardView({
   mode = "create",
   recipeId = null,
   initialGenerated = null,
+  initialImportUrl = null,
 }: RecipeWizardViewProps) {
   const { data: categories = [], isLoading: categoriesLoading } = useCategories();
 
@@ -83,7 +86,7 @@ export function RecipeWizardView({
     onOpenChange(false);
   }, [onOpenChange]);
 
-  const wizard = useRecipeWizard({ onSave: handleSave, mode, recipeId, initialGenerated });
+  const wizard = useRecipeWizard({ onSave: handleSave, mode, recipeId, initialGenerated, initialImportUrl });
   const { currentStep, resetWizard, isEditMode, isLoadingRecipe } = wizard;
   const leave = useUnsavedChanges({
     isDirty: open && wizard.hasUnsavedData,

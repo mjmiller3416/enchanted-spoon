@@ -4,7 +4,9 @@ import { Check, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { WebFoundingOffer } from "@/components/billing/WebFoundingOffer";
 import { appConfig } from "@/lib/config";
+import { PRO_ANNUAL_PRICE_LABEL, PRO_MONTHLY_PRICE_LABEL, PRO_TRIAL_DAYS } from "@/lib/pro-plans";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -83,12 +85,18 @@ export default function PricingPage() {
                 More AI
               </Badge>
             </div>
-            <p className="flex items-baseline gap-1">
-              <span className="text-4xl font-bold tracking-tight text-foreground">$6.99</span>
-              <span className="text-sm text-muted-foreground">/mo plus applicable tax</span>
+            <p className="flex flex-col gap-1">
+              <span className="flex items-baseline gap-1">
+                <span className="text-4xl font-bold tracking-tight text-foreground">{PRO_MONTHLY_PRICE_LABEL}</span>
+                <span className="text-sm text-muted-foreground">/ month plus applicable tax</span>
+              </span>
+              <span className="flex items-baseline gap-1">
+                <span className="text-2xl font-semibold tracking-tight text-foreground">{PRO_ANNUAL_PRICE_LABEL}</span>
+                <span className="text-sm text-muted-foreground">/ year plus applicable tax</span>
+              </span>
             </p>
             <p className="text-sm text-muted-foreground">
-              or $49.99/yr plus applicable tax. Founding codes FOUNDER30 and FOUNDER30Y are web checkout only.
+              {PRO_TRIAL_DAYS}-day free trial, then the plan you choose. Founding codes FOUNDER30 and FOUNDER30Y are web checkout only.
             </p>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col gap-6">
@@ -100,11 +108,13 @@ export default function PricingPage() {
         </Card>
       </div>
 
+      <WebFoundingOffer />
+
       <p className="text-sm text-muted-foreground">
         Already using {appConfig.appName}? Upgrade anytime from{" "}
         <span className="font-medium text-foreground">Settings → Plan &amp; Billing</span>.
-        Cancel whenever. Prices are tax-exclusive. A photo is one square image;
-        banners are cropped from it. Allowances reset each calendar month for
+        Cancel whenever — your recipes stay yours. Prices are tax-exclusive. In the iOS and Android apps, Pro is
+        purchased through the App Store or Google Play at the same prices. Allowances reset each calendar month for
         paid plans and cover the whole 7-day trial.
       </p>
     </section>

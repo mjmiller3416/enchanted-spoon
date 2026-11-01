@@ -23,6 +23,8 @@ import {
 import { Logo } from "@/components/layout/Logo";
 import { appConfig } from "@/lib/config";
 import { getPostAuthRedirect } from "@/lib/authRedirect";
+import { isNativeApp } from "@/lib/native/platform";
+import { startGoogleOAuthInSystemBrowser } from "@/lib/native/google-oauth";
 
 type SignInStep =
   | "email"
@@ -102,6 +104,10 @@ export function SignInForm() {
     setIsLoading(true);
 
     try {
+      if (isNativeApp()) {
+        await startGoogleOAuthInSystemBrowser(signIn);
+        return;
+      }
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/sso-callback",

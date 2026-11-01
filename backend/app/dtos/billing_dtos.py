@@ -1,6 +1,7 @@
 """app/dtos/billing_dtos.py
 
-DTOs for Stripe billing endpoints (Checkout session, billing portal).
+DTOs for Stripe billing endpoints (Checkout session, billing portal)
+and the native store entitlement sync.
 """
 
 from __future__ import annotations
@@ -42,10 +43,17 @@ class PortalSessionResponseDTO(BaseModel):
     portal_url: str
 
 
+class StoreSyncResponseDTO(BaseModel):
+    """Response DTO for POST /api/billing/store/sync."""
+
+    result: str = Field(description="applied, ignored, or trial_suppressed")
+
+
 __all__ = [
     "CheckoutSessionRequestDTO",
     "CheckoutSessionResponseDTO",
     "FounderOfferResponseDTO",
     "FounderSpotDTO",
     "PortalSessionResponseDTO",
+    "StoreSyncResponseDTO",
 ]

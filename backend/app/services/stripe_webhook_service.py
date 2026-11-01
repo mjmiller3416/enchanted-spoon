@@ -199,6 +199,10 @@ class StripeWebhookService:
         if status == "trialing" or isinstance(end, int):
             user.has_used_trial = True
             user.pending_trial_checkout_id = None
+        if status == "trialing":
+            from .push_service import PushService
+
+            PushService(self.session).schedule_trial_nudges(user, user.trial_started_at)
 
     def _release_expired_checkout(self, checkout_session: dict) -> tuple[str, User | None]:
         """Return an unused trial claim when its Checkout session expires."""

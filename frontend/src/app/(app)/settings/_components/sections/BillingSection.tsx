@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { CreditCard, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { ProPaywall } from "@/components/billing/ProPaywall";
+import { WebFoundingOffer } from "@/components/billing/WebFoundingOffer";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 import { QueryError } from "@/components/common/QueryError";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +28,8 @@ import {
 import { ANNUAL_PRICE_LABEL, MONTHLY_PRICE_LABEL, type CheckoutPlan } from "@/lib/pricing";
 import type { CurrentUserDTO } from "@/types/admin";
 import type { CurrentUserUsage } from "@/types/billing";
+import { useIsClient } from "@/hooks/useIsClient";
+import { useIsNativeApp } from "@/hooks/useIsNativeApp";
 
 const USAGE_ROWS: {
   field: keyof Pick<
@@ -79,6 +87,19 @@ function planDetail(user: CurrentUserDTO): string {
     }
     return "Your Pro subscription is active.";
   }
+  if (user.access_reason === "store_subscription") {
+    const store = user.billing_channel === "play_store" ? "Google Play" : "the App Store";
+    if (user.store_expires_at) {
+      return user.store_will_renew
+        ? `Your Pro subscription renews on ${formatDate(user.store_expires_at)} through ${store}.`
+        : `Your Pro subscription is paid through ${store} until ${formatDate(user.store_expires_at)}.`;
+    }
+    return `Your Pro subscription is billed through ${store}.`;
+  }
+  if (user.is_read_only) {
+    const until = user.free_tier_sunset_at ? ` as of ${formatDate(user.free_tier_sunset_at)}` : "";
+    return `Your account is view-only${until}. You can still view and export recipes. Subscribe to Pro to make changes.`;
+  }
   if (user.has_pro_access) {
     return "You have complimentary Pro access.";
   }
@@ -128,10 +149,17 @@ export function BillingSection() {
   const { data: usage, isLoading: usageLoading, error: usageError, refetch: retryUsage, isFetching: fetchingUsage } = useMyUsage();
   const startCheckout = useStartCheckout();
   const openPortal = useOpenBillingPortal();
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const native = useIsNativeApp();
+  const clientReady = useIsClient();
   const [plan, setPlan] = useState<CheckoutPlan>("annual");
   const [promotionCode, setPromotionCode] = useState("");
 
   const handleUpgrade = () => {
+    if (native) {
+      setPaywallOpen(true);
+      return;
+    }
     startCheckout.mutate(
       { plan, promotionCode: promotionCode.trim() || undefined },
       {
@@ -149,7 +177,10 @@ export function BillingSection() {
   };
 
   const showUpgrade = !!user && !user.has_pro_access;
-  const showManageBilling = !!user && user.subscription_tier === "pro" && !user.is_admin;
+  const showStripeManage =
+    !!user && user.billing_channel === "stripe" && !user.is_admin && !native;
+  const showStoreManage = !!user && (user.billing_channel === "app_store" || user.billing_channel === "play_store");
+  const showWebSubscriptionNote = !!user && user.billing_channel === "stripe" && native;
 
   return (
     <Card>
@@ -176,7 +207,13 @@ export function BillingSection() {
               <p className="text-sm text-muted-foreground">{planDetail(user)}</p>
 
               <div className="flex flex-col gap-3 pt-1">
-                {showUpgrade && (
+                {clientReady && showUpgrade && (
+                  native ? (
+                    <Button onClick={handleUpgrade} className="w-fit gap-2">
+                      <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                      View Pro plans
+                    </Button>
+                  ) : (
                   <>
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -216,13 +253,15 @@ export function BillingSection() {
                       Start 7-day trial
                     </Button>
                   </>
+                  )
                 )}
-                {showManageBilling && (
+                {clientReady && showUpgrade && <WebFoundingOffer />}
+                {clientReady && showStripeManage && (
                   <Button
                     variant="outline"
                     onClick={handleManageBilling}
                     disabled={openPortal.isPending}
-                    className="gap-2"
+                    className="w-fit gap-2"
                   >
                     {openPortal.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
@@ -232,7 +271,28 @@ export function BillingSection() {
                     Manage billing
                   </Button>
                 )}
+                {showStoreManage && (
+                  <p className="text-sm text-muted-foreground">
+                    Manage or cancel this subscription in{" "}
+                    {user?.billing_channel === "play_store" ? "Google Play" : "the App Store"}{" "}
+                    subscription settings.
+                  </p>
+                )}
+                {showWebSubscriptionNote && (
+                  <p className="text-sm text-muted-foreground">
+                    This Pro plan is billed on the web. Manage it from a browser signed in to
+                    your account. The app doesn&apos;t sell or change web subscriptions.
+                  </p>
+                )}
               </div>
+              <Dialog open={paywallOpen} onOpenChange={setPaywallOpen}>
+                <DialogContent size="lg" className="max-h-screen overflow-y-auto">
+                  <ProPaywall
+                    onClose={() => setPaywallOpen(false)}
+                    trialAvailable={!user?.trial_consumed}
+                  />
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

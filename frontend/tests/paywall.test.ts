@@ -17,7 +17,7 @@ describe("trial_required is the error code, not HTTP 403", () => {
     const readOnly = new ApiError("read only", 403, {
       detail: { error: "read_only", message: "This account is read-only." },
     });
-    expect(classifyAiGateError(readOnly)?.reason).toBe("pro_required");
+    expect(classifyAiGateError(readOnly)?.reason).toBe("read_only");
 
     const prose = new ApiError("Pro subscription required for this feature", 403, {
       detail: "Pro subscription required for this feature",

@@ -44,3 +44,7 @@ export interface CheckoutSessionResponse {
 export interface PortalSessionResponse {
   portal_url: string;
 }
+
+export interface StoreSyncResponse {
+  result: string;
+}

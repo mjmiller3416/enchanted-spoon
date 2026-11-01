@@ -12,11 +12,18 @@ export interface CurrentUserDTO {
   cancel_at_period_end: boolean;
   has_pro_access: boolean;
   access_reason: string;
+  trial_consumed: boolean;
   usage_tier: string;
   is_read_only: boolean;
   show_sunset_banner: boolean;
   show_sunset_popup: boolean;
   free_tier_sunset_at: string | null;
+  billing_channel: "stripe" | "app_store" | "play_store" | null;
+  store_provider: string | null;
+  store_product_id: string | null;
+  store_status: string | null;
+  store_expires_at: string | null;
+  store_will_renew: boolean;
   created_at: string;
 }
 

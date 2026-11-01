@@ -35,6 +35,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -42,3 +43,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Capacitor — generated on cap sync / local builds
+ios/App/Pods
+ios/App/App/public
+ios/DerivedData
+ios/App/App.xcworkspace/xcuserdata
+android/.gradle
+android/build
+android/app/build
+android/local.properties
+android/app/src/main/assets/public
+android/capacitor-cordova-android-plugins
+*.xcuserstate

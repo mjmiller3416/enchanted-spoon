@@ -19,7 +19,11 @@ import { PwaInstallProvider } from "@/lib/providers/PwaInstallProvider";
 import { WhatsNewProvider } from "@/lib/providers/WhatsNewProvider";
 import { RecipeWizardView } from "@/app/(app)/recipes/_components/wizard/RecipeWizardView";
 import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
+import { ReadOnlyBanner } from "@/components/billing/ReadOnlyBanner";
 import { PaywallDialog } from "@/components/common/PaywallDialog";
+import { IdentifyStoreAccount } from "@/components/native/NativeRuntime";
+import { ShareImportListener } from "@/components/native/ShareImportListener";
+import { TrialPushRegistration } from "@/components/native/TrialPushRegistration";
 import { FreePlanNotice } from "@/components/common/FreePlanNotice";
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
@@ -29,11 +33,15 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     openAssistant,
   } = useAssistantDialog();
 
-  const { isOpen, setOpen, mode, editRecipeId, generatedSeed, seedKey } = useRecipeWizardDialog();
+  const { isOpen, setOpen, mode, editRecipeId, generatedSeed, importUrl, seedKey } = useRecipeWizardDialog();
 
   return (
     <div className="flex flex-col min-h-screen print:block print:min-h-0">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">Skip to main content</a>
+      <ReadOnlyBanner />
+      <IdentifyStoreAccount />
+      <ShareImportListener />
+      <TrialPushRegistration />
       <TopNav onOpenAssistant={openAssistant} />
       <FreePlanNotice />
       <MobileBottomNav onOpenAssistant={openAssistant} />
@@ -46,15 +54,18 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         key={
           mode === "edit"
             ? `edit-${editRecipeId}`
-            : generatedSeed
-              ? `gen-${seedKey}`
-              : "create"
+            : importUrl
+              ? `import-${seedKey}`
+              : generatedSeed
+                ? `gen-${seedKey}`
+                : "create"
         }
         open={isOpen}
         onOpenChange={setOpen}
         mode={mode}
         recipeId={editRecipeId}
         initialGenerated={generatedSeed}
+        initialImportUrl={importUrl}
       />}
       <ScrollToTopButton />
       <PaywallDialog />

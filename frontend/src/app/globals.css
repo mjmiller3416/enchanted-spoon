@@ -1624,6 +1624,21 @@ input[type="number"] {
   }
 }
 
+/* Web founding price: visible on the website, hidden in the native shell
+   until the US App Store storefront class is applied. Android never gets
+   that class. See lib/native/founding-offer.ts. */
+html.native-app .web-founding-offer {
+  display: none;
+}
+
+html.native-ios.ios-storefront-us .web-founding-offer {
+  display: block;
+}
+
+html:not(.native-app) .native-founding-link {
+  display: none;
+}
+
 @utility assistant-dialog {
   max-height: calc(100dvh - 3rem);
   @media (width < 48rem) {

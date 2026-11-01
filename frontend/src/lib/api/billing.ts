@@ -3,6 +3,7 @@ import type {
   CurrentUserUsage,
   FounderOffer,
   PortalSessionResponse,
+  StoreSyncResponse,
 } from "@/types/billing";
 import { fetchApi } from "./base";
 
@@ -24,6 +25,13 @@ export const billingApi = {
       },
       token,
     ),
+
+  /**
+   * Ask the server to read this account's store entitlement from RevenueCat.
+   * The client cannot grant itself Pro.
+   */
+  syncStoreEntitlement: (token?: string | null): Promise<StoreSyncResponse> =>
+    fetchApi<StoreSyncResponse>("/api/billing/store/sync", { method: "POST" }, token),
 
   founderOffer: (token?: string | null): Promise<FounderOffer> =>
     fetchApi<FounderOffer>("/api/billing/founder-offer", undefined, token),

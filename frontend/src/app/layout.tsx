@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import { NativeRuntime } from "@/components/native/NativeRuntime";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
 import { appConfig } from "@/lib/config";
@@ -79,6 +80,20 @@ const themeInitScript = `(function () {
 // hydrates, so it's stashed on window here for PwaInstallProvider to pick up.
 // preventDefault suppresses Chrome's own mini-infobar in favor of our prompt.
 // Keep the global/event names in sync with lib/pwa.ts.
+// Marks the document before paint when the Capacitor shell injected its bridge,
+// so native-only CSS (hiding the web founding offer) applies without a flash.
+const nativeClientScript = `(function () {
+  try {
+    var cap = window.Capacitor;
+    if (cap && typeof cap.isNativePlatform === "function" && cap.isNativePlatform()) {
+      var root = document.documentElement;
+      root.classList.add("native-app");
+      var platform = typeof cap.getPlatform === "function" ? cap.getPlatform() : "unknown";
+      root.classList.add("native-" + platform);
+    }
+  } catch (e) {}
+})();`;
+
 const installPromptCaptureScript = `(function () {
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
@@ -99,9 +114,11 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: nativeClientScript }} />
         <script dangerouslySetInnerHTML={{ __html: installPromptCaptureScript }} />
         <ClerkProvider>
           <QueryProvider>
+            <NativeRuntime />
             {children}
             <Toaster />
           </QueryProvider>

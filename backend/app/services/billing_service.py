@@ -141,7 +141,7 @@ class BillingService:
         includes a 7-day trial. The founding code, when present, is attached
         as ``discounts=[{promotion_code}]`` and is not typed into Stripe's
         own promotion-code box. Tax is calculated by Stripe Tax; prices stay
-        tax-exclusive.
+        tax-exclusive. The native shell does not call this path.
         """
         if plan not in ("monthly", "annual"):
             raise CheckoutSessionError("Choose the monthly or annual plan.")
