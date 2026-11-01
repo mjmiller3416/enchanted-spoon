@@ -1,8 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import { shoppingApi } from "@/lib/api";
+import {
+  cacheShoppingList,
+  enqueueShoppingWrite,
+  readShoppingListForDisplay,
+  readShoppingQueue,
+  replaceShoppingQueue,
+} from "@/lib/offline-shopping";
 import type {
   ShoppingListResponseDTO,
   ManualItemCreateDTO,
@@ -32,12 +40,55 @@ export const shoppingQueryKeys = {
  */
 export function useShoppingList() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+    const flush = () => {
+      const queue = readShoppingQueue();
+      if (queue.length === 0) return;
+      void (async () => {
+        const token = await getToken();
+        const remaining = [];
+        for (const entry of queue) {
+          try {
+            await shoppingApi.updateItem(entry.id, { [entry.field]: entry.value }, token);
+          } catch {
+            remaining.push(entry);
+          }
+        }
+        replaceShoppingQueue(remaining);
+        if (remaining.length < queue.length) {
+          void queryClient.invalidateQueries({ queryKey: shoppingQueryKeys.list() });
+        }
+      })();
+    };
+    window.addEventListener("online", flush);
+    if (typeof navigator !== "undefined" && navigator.onLine) flush();
+    return () => window.removeEventListener("online", flush);
+  }, [getToken, isSignedIn, queryClient]);
 
   return useQuery({
     queryKey: shoppingQueryKeys.list(),
     queryFn: async () => {
-      const token = await getToken();
-      return shoppingApi.getList(undefined, token);
+      try {
+        const token = await getToken();
+        const list = await shoppingApi.getList(undefined, token);
+        cacheShoppingList(list);
+        return list;
+      } catch (error) {
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          const cached = readShoppingListForDisplay();
+          if (cached) return cached;
+        }
+        throw error;
+      }
+    },
+    placeholderData: () => {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        return readShoppingListForDisplay() ?? undefined;
+      }
+      return undefined;
     },
     staleTime: 0, // Always fresh - shopping list changes frequently
     enabled: isLoaded && isSignedIn, // Only fetch when auth is ready
@@ -96,7 +147,16 @@ function useShoppingField(field: "have" | "flagged") {
   });
   return useMutation({
     mutationKey: ["shopping", "write"],
-    mutationFn: async ({ id, value }: { id: number; value: boolean }) => shoppingApi.updateItem(id, { [field]: value }, await getToken()),
+    mutationFn: async ({ id, value }: { id: number; value: boolean }) => {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        enqueueShoppingWrite({ id, field, value });
+        const cached = readShoppingListForDisplay();
+        const item = cached?.items.find((entry) => entry.id === id);
+        if (!item) throw new Error("This item isn't in the saved list.");
+        return { ...item, [field]: value };
+      }
+      return shoppingApi.updateItem(id, { [field]: value }, await getToken());
+    },
     onMutate: async ({ id, value }) => {
       await queryClient.cancelQueries({ queryKey: shoppingQueryKeys.list() });
       const previous = queryClient.getQueryData<ShoppingListResponseDTO>(shoppingQueryKeys.list())?.items.find(item => item.id === id)?.[field];
