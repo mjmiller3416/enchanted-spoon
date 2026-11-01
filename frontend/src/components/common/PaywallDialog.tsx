@@ -59,13 +59,16 @@ export function PaywallDialog() {
         ? "Monthly limit reached"
         : "You've used this month's free allowance";
 
+  const legacyFreeAllowance = currentUser?.usage_tier === "free";
   const description = isReadOnly
     ? "You can still view and export your recipes. Subscribe to Pro to add and edit again."
     : !isLimit
-      ? `AI-powered features — importing recipes from a URL, generating images, and the Genie assistant — are part of ${appConfig.appName} Pro.`
+      ? `AI features are part of ${appConfig.appName} Pro. In the app, the first one starts a 7-day trial. Recipes, planning, and shopping stay free.`
       : isPro
         ? `You've hit this month's cap for ${event?.featureLabel}. It resets at the start of next month.`
-        : `The free plan includes a taste of every AI feature. You've used this month's allowance for ${event?.featureLabel} — it resets at the start of next month.`;
+        : legacyFreeAllowance
+          ? `You've used this month's free allowance for ${event?.featureLabel}. It resets at the start of next month, or you can start a 7-day trial.`
+          : `This account doesn't include a free AI allowance. A 7-day trial unlocks ${event?.featureLabel}. Recipes, planning, and shopping stay free.`;
 
   return (
     <Dialog open={event !== null} onOpenChange={(open) => !open && setEvent(null)}>

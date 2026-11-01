@@ -117,7 +117,9 @@ export function ProPaywall({
           {appConfig.appName} Pro
         </h2>
         <p className="text-sm text-muted-foreground">
-          Recipe import, generation, food photography, and the Genie assistant.
+          Recipes, planning, and shopping stay free. AI — import, generation,
+          photos, and Genie — starts with a 7-day trial. There is no free AI
+          allowance on accounts created at or after the release.
         </p>
       </div>
 

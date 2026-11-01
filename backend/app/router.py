@@ -3,9 +3,7 @@
 Centralised route registration for the Enchanted Spoon API.
 """
 
-from fastapi import APIRouter, Depends
-
-from app.api.auth.dependencies import reject_read_only_writes
+from fastapi import APIRouter
 
 from app.api import (
     admin,
@@ -43,7 +41,7 @@ from app.api.ai import (
     recipe_import_router,
 )
 
-api_router = APIRouter(dependencies=[Depends(reject_read_only_writes)])
+api_router = APIRouter()
 
 # ── Core domain routes ───────────────────────────────────────────────────
 api_router.include_router(recipes.router, prefix="/api/recipes", tags=["recipes"])

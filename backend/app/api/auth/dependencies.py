@@ -7,12 +7,11 @@ Provides get_current_user and related dependencies for protecting routes.
 import logging
 from typing import Callable, Generator, Optional
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
-from ...core.access_policy import ACCESS_READ_ONLY
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
 from ...core.usage_limits import get_monthly_limit
@@ -341,45 +340,3 @@ def require_admin(
             detail="Admin access required for this feature",
         )
     return user
-
-
-_WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-
-
-async def reject_read_only_writes(
-    request: Request,
-    session: Session = Depends(get_session),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    settings: AuthSettings = Depends(get_auth_settings),
-) -> None:
-    """Block mutations once an account is view-only.
-
-    Reads, recipe export, billing (so they can subscribe again), store
-    webhooks, and account deletion stay available. Everything else that
-    writes returns 403 ``account_read_only``.
-    """
-    if request.method not in _WRITE_METHODS:
-        return
-
-    path = request.url.path
-    if path.startswith("/api/webhooks") or path.startswith("/api/billing"):
-        return
-    if path.startswith("/api/internal/push"):
-        return
-    if request.method == "DELETE" and path == "/api/users/me":
-        return
-
-    user = await get_current_user_optional(credentials, session, settings)
-    if user is None or user.access_mode != ACCESS_READ_ONLY:
-        return
-
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail={
-            "error": "account_read_only",
-            "message": (
-                "This account is view-only. You can still view and export your "
-                "recipes. Subscribe to Pro to make changes."
-            ),
-        },
-    )

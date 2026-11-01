@@ -81,11 +81,9 @@ function planDetail(user: CurrentUserDTO): string {
     }
     return `Your Pro subscription is billed through ${store}.`;
   }
-  if (user.access_mode === "read_only") {
-    return "Your account is view-only. You can still view and export recipes. Subscribe to Pro to make changes.";
-  }
-  if (user.access_reason === "grandfathered_free" && user.grandfathered_free_until) {
-    return `You're on the free plan through ${formatDate(user.grandfathered_free_until)}.`;
+  if (user.is_read_only) {
+    const until = user.free_tier_sunset_at ? ` as of ${formatDate(user.free_tier_sunset_at)}` : "";
+    return `Your account is view-only${until}. You can still view and export recipes. Subscribe to Pro to make changes.`;
   }
   if (user.has_pro_access) {
     return "You have complimentary Pro access.";

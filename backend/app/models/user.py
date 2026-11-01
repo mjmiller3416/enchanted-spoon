@@ -12,13 +12,6 @@ from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import BigInteger, Boolean, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..core.access_policy import (
-    ACCESS_READ_ONLY,
-    as_utc,
-    free_plan_sunset,
-    is_existing_free_cohort,
-    resolve_access_mode,
-)
 from ..database.base import Base
 
 if TYPE_CHECKING:
@@ -37,6 +30,13 @@ if TYPE_CHECKING:
 def _utcnow() -> datetime:
     """Return current UTC datetime."""
     return datetime.now(timezone.utc)
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Treat naive timestamps as UTC. SQLite returns them without tzinfo."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 # Stripe subscription statuses that keep pro access. Anything else (canceled,
@@ -185,7 +185,7 @@ class User(Base):
         if self.store_expires_at is None:
             return True
         now = now or datetime.now(timezone.utc)
-        return as_utc(self.store_expires_at) > as_utc(now)
+        return _as_utc(self.store_expires_at) > _as_utc(now)
 
     @property
     def has_pro_access(self) -> bool:
@@ -204,7 +204,7 @@ class User(Base):
 
         # Granted temporary access (testers, promos)
         if self.granted_pro_until:
-            if as_utc(self.granted_pro_until) > datetime.now(timezone.utc):
+            if _as_utc(self.granted_pro_until) > datetime.now(timezone.utc):
                 return True
 
         return False
@@ -219,25 +219,6 @@ class User(Base):
         return None
 
     @property
-    def access_mode(self) -> str:
-        """``full`` or ``read_only``. Read-only accounts can view and export."""
-        return resolve_access_mode(
-            is_admin=self.is_admin,
-            has_pro_access=self.has_pro_access,
-            created_at=self.created_at,
-            now=datetime.now(timezone.utc),
-        )
-
-    @property
-    def grandfathered_free_until(self) -> Optional[datetime]:
-        """When an existing free account stops being a full free plan, if ever."""
-        if self.is_admin or self.has_pro_access:
-            return None
-        if not is_existing_free_cohort(self.created_at):
-            return None
-        return free_plan_sunset()
-
-    @property
     def access_reason(self) -> str:
         """Why does this user have their current access level? (for debugging/support)"""
         if self.is_admin:
@@ -246,12 +227,8 @@ class User(Base):
             return "subscription"
         if self._store_is_current():
             return "store_subscription"
-        if self.granted_pro_until and as_utc(self.granted_pro_until) > datetime.now(timezone.utc):
+        if self.granted_pro_until and _as_utc(self.granted_pro_until) > datetime.now(timezone.utc):
             return f"granted ({self.granted_by or 'manual'})"
-        if self.access_mode == ACCESS_READ_ONLY:
-            return "read_only"
-        if self.grandfathered_free_until is not None:
-            return "grandfathered_free"
         return "free"
 
     # ── Helper Methods ──────────────────────────────────────────────────────

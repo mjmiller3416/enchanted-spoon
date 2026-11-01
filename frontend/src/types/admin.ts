@@ -12,9 +12,15 @@ export interface CurrentUserDTO {
   cancel_at_period_end: boolean;
   has_pro_access: boolean;
   access_reason: string;
-  access_mode: "full" | "read_only";
-  grandfathered_free_until: string | null;
   trial_consumed: boolean;
+  /**
+   * From the billing/access API (#210). Absent on older responses.
+   * `free` is only the legacy cohort; accounts created at or after
+   * LEGACY_FREE_CUTOFF have no free AI allowance.
+   */
+  usage_tier?: string;
+  is_read_only?: boolean;
+  free_tier_sunset_at?: string | null;
   billing_channel: "stripe" | "app_store" | "play_store" | null;
   store_provider: string | null;
   store_product_id: string | null;

@@ -16,15 +16,14 @@ import { useCurrentUser, useStartCheckout } from "@/hooks/api";
 import { isNativeApp } from "@/lib/native/platform";
 
 /**
- * Shown when the account API says access_mode is read-only. Writes are
- * rejected by the backend; this banner is how the app explains that and
- * offers a subscription again.
+ * Shown when #210's account API says `is_read_only`. Writes are rejected
+ * there; this banner explains that and offers a subscription again.
  */
 export function ReadOnlyBanner() {
   const { data: user } = useCurrentUser();
   const [open, setOpen] = useState(false);
   const startCheckout = useStartCheckout();
-  if (user?.access_mode !== "read_only") return null;
+  if (!user?.is_read_only) return null;
 
   const native = isNativeApp();
 

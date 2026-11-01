@@ -1,18 +1,19 @@
 /**
- * Shared end of grandfathered free access and the FOUNDER30 offer.
- * Default is March 31, 2027 at 11:59 PM America/New_York.
- * Keep in sync with backend FREE_PLAN_SUNSET_AT / FREE_PLAN_SUNSET_TIMEZONE.
+ * When the web founding offer stops being shown.
+ * Same default and name as #210's FOUNDER_OFFER_ENDS_AT: March 31, 2027
+ * at 11:59 PM America/New_York. A value with no offset is Eastern Time.
+ * Who stays free, and who has no free AI allowance, is decided by #210.
  */
 
 const DEFAULT_SUNSET_LOCAL = "2027-03-31T23:59:00";
 const DEFAULT_SUNSET_TIME_ZONE = "America/New_York";
 
 export function planSunsetTimeZone(): string {
-  return process.env.NEXT_PUBLIC_FREE_PLAN_SUNSET_TIMEZONE || DEFAULT_SUNSET_TIME_ZONE;
+  return process.env.NEXT_PUBLIC_FOUNDER_OFFER_TIMEZONE || DEFAULT_SUNSET_TIME_ZONE;
 }
 
 export function planSunsetLocal(): string {
-  return process.env.NEXT_PUBLIC_FREE_PLAN_SUNSET_AT || DEFAULT_SUNSET_LOCAL;
+  return process.env.NEXT_PUBLIC_FOUNDER_OFFER_ENDS_AT || DEFAULT_SUNSET_LOCAL;
 }
 
 /**

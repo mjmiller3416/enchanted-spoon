@@ -54,7 +54,9 @@ export function classifyAiGateError(error: unknown): PaywallEvent | null {
       detail &&
       typeof detail === "object" &&
       !Array.isArray(detail) &&
-      (detail as { error?: string }).error === "account_read_only"
+      ["account_read_only", "read_only"].includes(
+        (detail as { error?: string }).error ?? "",
+      )
     ) {
       return { reason: "read_only", featureLabel: "editing" };
     }

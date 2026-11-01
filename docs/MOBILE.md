@@ -89,9 +89,9 @@ Web only. The native UI mentions it only where the store currently allows a link
 
 ### Read-only accounts
 
-`LEGACY_FREE_CUTOFF` is the coordinated release instant (ISO-8601). It is empty until that deploy, so nobody is grandfathered yet. Accounts created **before** the cutoff keep the full free plan through **March 31, 2027 at 11:59 PM America/New_York** (`FREE_PLAN_SUNSET_AT=2027-03-31T23:59:00`, `FREE_PLAN_SUNSET_TIMEZONE=America/New_York`). That is 2027-04-01 03:59 UTC, not 23:59 UTC. After that instant they are `access_mode: "read_only"`: they can view and export, delete the account, and subscribe, and other writes return 403 `account_read_only`. The app shows a banner and the paywall. Pro, admin, and granted access stay full. Accounts created at or after the cutoff stay on the metered free plan until trial onboarding ships. Set the cutoff to the release timestamp when that deploy goes out, for example `LEGACY_FREE_CUTOFF=2026-12-01T16:00:00Z`.
+Who is free, who is read-only, and who has no free AI allowance is owned by #210. This shell does not enforce that policy. It reads the account payload #210 returns (`is_read_only`, `usage_tier`, `free_tier_sunset_at`) and, in the native app, sends an AI action that the API rejects to the 7-day trial paywall.
 
-FOUNDER30 ends at the same configured instant. The website reads the matching `NEXT_PUBLIC_FREE_PLAN_SUNSET_AT` and `NEXT_PUBLIC_FREE_PLAN_SUNSET_TIMEZONE` (same defaults). Changing one without the other makes the banner and the founding offer disagree.
+The shared setting is `LEGACY_FREE_CUTOFF` (ISO 8601, naive values are Eastern Time). It is the coordinated release instant. Leave it unset until that deploy. Accounts created before it keep the free plan until `FREE_TIER_SUNSET_AT` (default March 31, 2027, 11:59 PM America/New_York). Accounts created at or after it get no free AI allowance: any AI action starts the 7-day card trial, and recipes, planning, and shopping stay free. `FOUNDER_OFFER_ENDS_AT` is the same default instant for the web founding code. Do not add a second name for these.
 
 ## Push notifications
 
@@ -170,7 +170,7 @@ Do not create the store records or submit as part of development. When you do:
 
 - [ ] Subscription group with `com.enchantedspoon.app.pro.monthly` ($6.99) and `com.enchantedspoon.app.pro.annual` ($49.99), 7-day free trial intro, same entitlement `pro` in RevenueCat.
 - [ ] RevenueCat project, iOS and Android public SDK keys, secret API key, webhook `https://<api>/api/webhooks/revenuecat` with the authorization header. Then set `NATIVE_IAP_ENABLED=true` and the `NEXT_PUBLIC_REVENUECAT_*` keys and redeploy the web app **before** sending sandbox purchases.
-- [ ] Stripe monthly and annual prices stay on `STRIPE_PRICE_PRO_MONTHLY_V2` and `STRIPE_PRICE_PRO_ANNUAL_V2` (already set in Railway production). Checkout, the 7-day web trial, and trial caps are wired by the cost/trial change (`bc-ced52f02`), not by this shell. FOUNDER30 is a web coupon only and ends with `FREE_PLAN_SUNSET_AT`.
+- [ ] Stripe monthly and annual prices stay on `STRIPE_PRICE_PRO_MONTHLY_V2` and `STRIPE_PRICE_PRO_ANNUAL_V2` (already set in Railway production). Checkout, the 7-day card trial, trial caps, `LEGACY_FREE_CUTOFF`, `FREE_TIER_SUNSET_AT`, and `FOUNDER_OFFER_ENDS_AT` are #210, not this shell.
 - [ ] Privacy policy URL `https://enchantedspoon.app/privacy` and Terms of Use URL `https://enchantedspoon.app/terms` (the terms include the subscription disclosure).
 - [ ] Support URL and `info@enchantedspoon.app`.
 - [ ] Screenshots, description, age rating, and a review account Clerk can sign into. The reviewer must be able to reach the paywall from Settings → Plan & Billing and from a Pro-gated action, close it, and tap Restore purchases.
