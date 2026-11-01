@@ -36,6 +36,7 @@ export function PaywallDialog() {
 
   useEffect(() => subscribePaywall(setEvent), []);
 
+  const isTrialGate = event?.reason === "trial_required";
   const isPro = currentUser?.has_pro_access ?? false;
   const isLimit = event?.reason === "limit_reached";
   const showUsage = isLimit && event?.limit != null && event?.current != null;
@@ -54,17 +55,21 @@ export function PaywallDialog() {
     );
   };
 
-  const title = !isLimit
+  const title = isTrialGate
+    ? "Start your 7-day trial"
+    : !isLimit
     ? "This is a Pro feature"
     : isPro
       ? "Monthly limit reached"
       : "You've used this month's free allowance";
 
-  const description = !isLimit
+  const description = isTrialGate
+    ? "Recipes, browsing, and your grocery list stay free. AI — photos, chat, suggestions, and imports — starts with a 7-day trial."
+    : !isLimit
     ? `AI-powered features — importing recipes from a URL, generating images, and the Genie assistant — are part of ${appConfig.appName} Pro.`
     : isPro
       ? `You've hit this month's cap for ${event?.featureLabel}. It resets at the start of next month.`
-      : `The free plan includes a taste of every AI feature. You've used this allowance for ${event?.featureLabel}.`;
+      : `You've used this month's allowance for ${event?.featureLabel}. It resets at the start of next month.`;
 
   return (
     <Dialog open={event !== null} onOpenChange={(open) => !open && setEvent(null)}>

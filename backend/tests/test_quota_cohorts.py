@@ -8,8 +8,17 @@ from app.dtos.admin_dtos import AdminUsageLimitsDTO
 from app.models.user import User
 
 
-def test_existing_accounts_keep_legacy_caps_and_usage_display():
-    user = User(is_admin=False, usage_plan="legacy", subscription_tier="pro", subscription_status="active")
+def test_existing_accounts_keep_legacy_caps_and_usage_display(monkeypatch):
+    from datetime import datetime, timezone
+    monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2026-06-01T00:00:00+00:00")
+    user = User(
+        is_admin=False,
+        usage_plan="legacy",
+        subscription_tier="pro",
+        subscription_status="active",
+        has_used_trial=False,
+        created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+    )
     assert get_user_monthly_limit(user, "ai_images_generated") == 150
     assert AdminUsageLimitsDTO.for_user(user).ai_assistant_messages == 500
     user.subscription_tier = "free"

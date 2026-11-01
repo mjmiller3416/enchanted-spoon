@@ -221,7 +221,7 @@ class CurrentUserUsageDTO(BaseModel):
     @classmethod
     def from_models(cls, user: User, usage: UserUsage) -> CurrentUserUsageDTO:
         tier = user.usage_tier
-        resets = "trial" if tier == "trial" else "none" if tier == "expired" else "monthly"
+        resets = "trial" if tier == "trial" else "none" if tier in {"expired", "none"} else "monthly"
         return cls(
             month=usage.month,
             ai_images_generated=usage.ai_images_generated or 0,

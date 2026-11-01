@@ -13,7 +13,10 @@ def anyio_backend():
 
 
 @pytest.fixture
-def photo_account(file_db):
+def photo_account(file_db, monkeypatch):
+    # Seeded accounts are created "now". A future cutoff keeps them on the
+    # metered free plan so these reservation tests still have a positive cap.
+    monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2099-01-01T00:00:00+00:00")
     with file_db() as session:
         yield session, session.get(User, 1)
 

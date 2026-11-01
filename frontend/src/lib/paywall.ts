@@ -1,6 +1,7 @@
 // Single interception layer for AI access errors (#166).
 //
-// The backend gates AI features two ways:
+// The backend gates AI features three ways:
+//   403 {error: "trial_required"}        → new account, start the 7-day trial
 //   403 "Pro subscription required..."  → feature needs a Pro plan
 //   429 {error: "usage_limit_exceeded"} → monthly tier cap hit (carries current/limit)
 //
@@ -12,7 +13,7 @@
 
 import { ApiError } from "@/lib/api/base";
 
-export type PaywallReason = "pro_required" | "limit_reached";
+export type PaywallReason = "pro_required" | "limit_reached" | "trial_required";
 
 export interface PaywallEvent {
   reason: PaywallReason;
@@ -50,6 +51,14 @@ export function classifyAiGateError(error: unknown): PaywallEvent | null {
 
   if (error.status === 403) {
     const detail = error.details?.detail;
+    if (
+      detail &&
+      typeof detail === "object" &&
+      !Array.isArray(detail) &&
+      (detail as { error?: string }).error === "trial_required"
+    ) {
+      return { reason: "trial_required", featureLabel: "AI features" };
+    }
     if (
       detail &&
       typeof detail === "object" &&
@@ -96,4 +105,12 @@ export function maybeHandleAiGateError(error: unknown): boolean {
   if (!event) return false;
   openPaywall(event);
   return true;
+}
+
+/** Chat bubble that matches the paywall the mutation cache already opened. */
+export function aiGateChatReply(error: unknown): string {
+  const event = classifyAiGateError(error);
+  if (!event) return "Sorry, something went wrong. Please try again.";
+  if (event.reason === "trial_required") return "Start your 7-day trial to use AI.";
+  return "You've used this month's assistant allowance — see the upgrade options to keep chatting.";
 }

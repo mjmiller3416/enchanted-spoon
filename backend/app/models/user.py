@@ -232,10 +232,11 @@ class User(Base):
 
         Admins and active grants use pro (admins are then uncapped by the
         caller). A trialing subscription past ``trial_ends_at`` is expired.
-        Legacy and launch accounts that never subscribed stay on free. That
-        free fallback is intentional: existing free users are not backfilled
-        to expired. After the sunset date, legacy free accounts are read-only
-        and resolve to expired (zero AI).
+        Only accounts created before ``LEGACY_FREE_CUTOFF`` stay on the
+        metered free plan until the sunset date. Accounts created on or
+        after that cutoff have no recurring free AI allowance (``none``).
+        After the sunset date, legacy free accounts are read-only and
+        resolve to expired (zero AI).
         """
         now = datetime.now(timezone.utc)
         if self.is_admin:
@@ -250,12 +251,14 @@ class User(Base):
             return "pro"
         if self.is_read_only:
             return "expired"
+        if self.is_legacy_free_account():
+            return "free"
         if (
             self.subscription_tier == "free"
             and self.subscription_status == "active"
             and not self.has_used_trial
         ):
-            return "free"
+            return "none"
         return "expired"
 
     @property
@@ -271,6 +274,8 @@ class User(Base):
             return f"granted ({self.granted_by or 'manual'})"
         if self.is_read_only:
             return "read_only"
+        if self.usage_tier == "none":
+            return "trial_required"
         if self.usage_tier == "expired":
             return "expired"
         return "free"

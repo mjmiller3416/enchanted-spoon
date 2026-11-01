@@ -180,8 +180,16 @@ class TestUsageLimits:
         assert row.limits.ai_assistant_messages == pro["ai_assistant_messages"]
         assert row.limits.recipes_imported == pro["recipes_imported"]
 
-    def test_free_user_gets_free_caps(self, db_session: Session):
-        user = _make_user(db_session, is_admin=False, subscription_tier="free")
+    def test_legacy_free_user_gets_free_caps(self, db_session: Session, monkeypatch):
+        from datetime import datetime, timezone
+
+        monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2026-06-01T00:00:00+00:00")
+        user = _make_user(
+            db_session,
+            is_admin=False,
+            subscription_tier="free",
+            created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        )
         service = AdminService(db_session, current_user_id=user.id)
 
         row = _row_for(service.get_usage_by_user(month=MONTH), user.id)
@@ -192,6 +200,26 @@ class TestUsageLimits:
         assert row.limits.ai_suggestions_requested == free["ai_suggestions_requested"]
         assert row.limits.ai_assistant_messages == free["ai_assistant_messages"]
         assert row.limits.recipes_imported == free["recipes_imported"]
+
+    def test_new_free_user_has_no_ai_allowance(self, db_session: Session, monkeypatch):
+        from datetime import datetime, timezone
+
+        monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2026-06-01T00:00:00+00:00")
+        user = _make_user(
+            db_session,
+            is_admin=False,
+            subscription_tier="free",
+            created_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        )
+        service = AdminService(db_session, current_user_id=user.id)
+
+        row = _row_for(service.get_usage_by_user(month=MONTH), user.id)
+
+        assert user.usage_tier == "none"
+        assert row.limits.ai_images_generated == 0
+        assert row.limits.ai_suggestions_requested == 0
+        assert row.limits.ai_assistant_messages == 0
+        assert row.limits.recipes_imported == 0
 
     def test_granted_pro_user_gets_pro_caps(self, db_session: Session):
         # has_pro_access can also come from a temporary grant (free tier still).

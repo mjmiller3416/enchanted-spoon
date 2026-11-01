@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatMessageList } from "./ChatMessageList";
-import { classifyAiGateError } from "@/lib/paywall";
+import { aiGateChatReply } from "@/lib/paywall";
 
 export function AskAssistantWidget() {
   const [input, setInput] = useState("");
@@ -41,9 +41,7 @@ export function AskAssistantWidget() {
       // MutationCache) — keep the chat bubble consistent with it.
       addMessage({
         role: "assistant",
-        content: classifyAiGateError(error)
-          ? "You've used this month's assistant allowance — see the upgrade options to keep chatting."
-          : "Sorry, something went wrong. Please try again.",
+        content: aiGateChatReply(error),
       });
     }
   }, [input, askMutation, messages, addMessage]);

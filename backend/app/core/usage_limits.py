@@ -5,7 +5,9 @@ Usage caps for Gemini-backed AI features.
 Launch accounts use the approved cost-control caps. Accounts persisted as
 `usage_plan=legacy` (see the soft-launch migration) keep their previous
 allowances. Trial caps cover the whole trial, not a calendar month. Expired
-and read-only accounts are capped at zero. Unknown tiers fall back to free.
+and read-only accounts are capped at zero. Accounts created on or after
+``LEGACY_FREE_CUTOFF`` use the ``none`` tier (also zero). Unknown tiers fall
+back to free.
 """
 
 from __future__ import annotations
@@ -34,6 +36,13 @@ TIER_USAGE_LIMITS: dict[str, dict[str, int]] = {
         "recipes_imported": 5,
     },
     "expired": {
+        "ai_images_generated": 0,
+        "ai_suggestions_requested": 0,
+        "ai_assistant_messages": 0,
+        "recipes_imported": 0,
+    },
+    # Accounts created on or after LEGACY_FREE_CUTOFF. No monthly free AI.
+    "none": {
         "ai_images_generated": 0,
         "ai_suggestions_requested": 0,
         "ai_assistant_messages": 0,
@@ -99,7 +108,7 @@ def set_household_usage_hooks(
     ``multiplier`` should return ``HOUSEHOLD_PRO_CAP_MULTIPLIER`` (1.5) for
     that owner when the household has 2 or more people, and 1.0 otherwise.
     The reserve path in ``require_within_usage_limit`` calls ``usage_meter``,
-    which applies both hooks. Caps for trial, free, and expired are not scaled.
+    which applies both hooks. Caps for trial, free, expired, and none are not scaled.
     """
     global _usage_subject_resolver, _household_multiplier
     if subject is not None:
@@ -147,13 +156,13 @@ def usage_window_for(user: User, now: datetime | None = None) -> str:
 def get_user_monthly_limit(user: User, field: str) -> Optional[int]:
     """Resolve the cap used for enforcement and the usage meter.
 
-    Admins are uncapped. Trial and expired ignore the legacy cohort. Pro and
-    free legacy accounts keep LEGACY_USAGE_LIMITS even if they later upgrade.
+    Admins are uncapped. Trial, expired, and none ignore the legacy cohort.
+    Pro and free legacy accounts keep LEGACY_USAGE_LIMITS even if they later upgrade.
     """
     if user.is_admin:
         return None
     tier = user.usage_tier
-    if tier in ("trial", "expired"):
+    if tier in ("trial", "expired", "none"):
         return get_monthly_limit(tier, field)
     plan = getattr(user, "usage_plan", None)
     if plan is not None and plan != "launch":

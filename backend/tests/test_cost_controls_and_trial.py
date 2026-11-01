@@ -253,6 +253,9 @@ def test_rate_limit_429_does_not_reserve_quota(file_db):
     app.include_router(image_router, prefix="/api/ai/image-generation")
     with file_db() as session:
         user = session.get(User, 1)
+        user.subscription_tier = "pro"
+        user.subscription_status = "active"
+        session.commit()
 
     def session_dependency():
         with file_db() as session:
@@ -413,6 +416,79 @@ def test_thinking_level_minimal_is_supported_by_the_sdk():
     from google.genai import types
     config = types.ThinkingConfig(thinking_level="minimal")
     assert config.thinking_level.value == "MINIMAL"
+
+
+def test_new_accounts_must_start_a_trial_for_ai(file_db, monkeypatch):
+    from app.core import offer_windows
+    from app.core.usage_limits import LEGACY_USAGE_LIMITS
+
+    cutoff = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    monkeypatch.setattr(offer_windows, "legacy_free_cutoff", lambda: cutoff)
+    assert LEGACY_USAGE_LIMITS["pro"]["ai_images_generated"] == 150
+    assert LEGACY_USAGE_LIMITS["pro"]["ai_assistant_messages"] == 500
+
+    with file_db() as session:
+        user = session.get(User, 1)
+        user.is_admin = False
+        user.subscription_tier = "free"
+        user.subscription_status = "active"
+        user.has_used_trial = False
+        user.created_at = cutoff
+        session.commit()
+        assert user.is_legacy_free_account() is False
+        assert user.usage_tier == "none"
+        assert user.access_reason == "trial_required"
+        assert get_user_monthly_limit(user, "ai_assistant_messages") == 0
+
+        legacy = User(
+            clerk_id="legacy-free",
+            email="legacy@example.test",
+            is_admin=False,
+            usage_plan="legacy",
+            subscription_tier="free",
+            subscription_status="active",
+            has_used_trial=False,
+            created_at=cutoff - timedelta(seconds=1),
+        )
+        session.add(legacy)
+        session.commit()
+        assert legacy.usage_tier == "free"
+        assert get_user_monthly_limit(legacy, "ai_images_generated") == 3
+
+    from app.api.ai.assistant import router as assistant_router
+    from app.api.ai.meal_suggestions import router as meal_router
+    from app.api.ai.recipe_import import router as import_router
+
+    app = FastAPI()
+    app.state.limiter = limiter
+    app.include_router(image_router, prefix="/api/ai/image-generation")
+    app.include_router(assistant_router, prefix="/api/ai/assistant")
+    app.include_router(meal_router, prefix="/api/ai/meal-suggestions")
+    app.include_router(import_router, prefix="/api/ai/recipe-import")
+    app.include_router(recipe_router, prefix="/api/recipes")
+
+    def session_dependency():
+        with file_db() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = session_dependency
+    app.dependency_overrides[get_current_user] = lambda: user
+    client = TestClient(app)
+    expected = {"error": "trial_required", "message": "Start your 7-day trial"}
+    calls = [
+        ("/api/ai/image-generation", {"recipe_name": "Soup", "image_type": "reference"}),
+        ("/api/ai/assistant/chat", {"message": "What can I make?"}),
+        ("/api/ai/meal-suggestions", {"main_recipe_name": "Soup"}),
+        ("/api/ai/recipe-import", {"url": "https://example.test/soup"}),
+    ]
+    for path, body in calls:
+        response = client.post(path, json=body)
+        assert response.status_code == 403, path
+        assert response.json()["detail"] == expected
+    manual = client.post("/api/recipes", json={"recipe_name": "Soup", "recipe_category": "Dinner"})
+    assert manual.status_code == 201
+    with file_db() as session:
+        assert session.query(UserUsage).count() == 0
 
 
 def test_client_ip_uses_the_rightmost_forwarded_hop():

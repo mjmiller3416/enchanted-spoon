@@ -79,7 +79,10 @@ function planDetail(user: CurrentUserDTO): string {
   if (user.has_pro_access) {
     return "You have complimentary Pro access.";
   }
-  return "The free plan includes all core features and a monthly taste of every AI feature.";
+  if (user.access_reason === "trial_required") {
+    return "Recipes, browsing, and your grocery list are free. Start a 7-day trial to use AI.";
+  }
+  return "Recipes, browsing, and your grocery list are included.";
 }
 
 function UsageRow({
@@ -236,14 +239,20 @@ export function BillingSection() {
           <div className="space-y-4">
             <div>
               <h3 className="text-sm font-medium text-foreground">
-                {usage?.resets === "trial" ? "AI usage this trial" : "AI usage this month"}
+                {usage?.resets === "trial"
+                  ? "AI usage this trial"
+                  : usage?.resets === "none"
+                    ? "AI usage"
+                    : "AI usage this month"}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {usage?.resets === "trial"
-                  ? "Trial allowances cover the whole trial and do not reset mid-trial."
-                  : usage?.resets === "none"
-                    ? "AI is unavailable on this plan."
-                    : "Counters reset at the start of each month."}
+                {usage?.usage_tier === "none"
+                  ? "Start a 7-day trial to use photos, chat, suggestions, and imports."
+                  : usage?.resets === "trial"
+                    ? "Trial allowances cover the whole trial and do not reset mid-trial."
+                    : usage?.resets === "none"
+                      ? "AI is unavailable on this plan."
+                      : "Counters reset at the start of each month."}
               </p>
             </div>
 

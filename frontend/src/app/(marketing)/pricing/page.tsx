@@ -12,10 +12,9 @@ export const metadata: Metadata = {
 };
 
 const FREE_FEATURES = [
-  "Unlimited recipes, collections, and favorites until the free plan ends",
-  "Meal planning with cooking streaks",
-  "Shopping list that builds itself from your plan",
-  "A monthly taste of AI: 3 photos, 10 suggestions, 10 Genie messages, 5 imports",
+  "Recipes, collections, and favorites",
+  "Meal planning and your grocery list",
+  "No monthly free AI allowance",
 ];
 
 const PRO_FEATURES = [
@@ -48,9 +47,10 @@ export default function PricingPage() {
           Start free. <span className="text-primary">Go Pro for the magic.</span>
         </h1>
         <p className="text-lg text-muted-foreground">
-          Existing free accounts stay free until Mar 31, 2027, then become
-          read-only. Pro is $6.99/mo or $49.99/yr plus applicable tax, with a
-          7-day card-required trial.
+          Existing accounts created before release keep a free AI taste until
+          Mar 31, 2027. After that they become read-only. New accounts keep
+          recipes and the grocery list free. AI starts with a 7-day trial,
+          then Pro at $6.99/mo or $49.99/yr plus applicable tax.
         </p>
       </div>
 
@@ -63,7 +63,7 @@ export default function PricingPage() {
               <span className="text-sm text-muted-foreground">forever</span>
             </p>
             <p className="text-sm text-muted-foreground">
-              The full kitchen toolkit, with a taste of the AI.
+              Recipes, meal planning, and your grocery list. AI needs a trial.
             </p>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col gap-6">

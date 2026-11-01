@@ -275,6 +275,15 @@ def require_within_usage_limit(
                 },
             )
 
+        if getattr(user, "usage_tier", None) == "none":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "trial_required",
+                    "message": "Start your 7-day trial",
+                },
+            )
+
         if user_limits or ip_limits:
             enforce_pre_quota_limits(request, user_limits, ip_limits)
 
