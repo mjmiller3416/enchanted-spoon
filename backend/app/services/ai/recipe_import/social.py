@@ -184,9 +184,8 @@ def parse_instagram_html(status_code: int, html: str) -> SocialPost:
     }
     if login_wall or generic:
         raise SocialExtractError(
-            "Instagram didn't share that caption. The post may be private. "
-            "A public post works once the server has INSTAGRAM_OEMBED_ACCESS_TOKEN "
-            "(Meta's free oEmbed), or when the page exposes a description."
+            "Instagram didn't share that caption. The post may be private, or Instagram "
+            "is asking for a login. Paste the caption or the recipe text to import it anyway."
         )
 
     caption = (description or title or "").strip()[:MAX_CAPTION_CHARS]
