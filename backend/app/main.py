@@ -31,7 +31,9 @@ async def lifespan(app: FastAPI):
     """Validate critical configuration before serving any requests."""
     validate_config()
     from app.core.offer_windows import log_legacy_cutoff_if_unset
+    from app.services.household.usage_meter import install_household_usage_hooks
 
+    install_household_usage_hooks()
     log_legacy_cutoff_if_unset()
     _apply_sunset_if_due()
     yield

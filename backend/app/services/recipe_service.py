@@ -37,6 +37,10 @@ class RecipeNotFoundError(RecipeSaveError):
     """Raised when the recipe doesn't exist or isn't owned by the user."""
 
 
+class RecipeInUseError(RecipeSaveError):
+    """Raised when a recipe is the main of someone else's meal and cannot be deleted."""
+
+
 class DuplicateRecipeError(Exception):
     pass
 
@@ -132,17 +136,22 @@ class RecipeService:
         )
         return self.ingredient_repo.get_or_create(dto)
 
-    def list_filtered(self, filter_dto: RecipeFilterDTO) -> list[Recipe]:
+    def list_filtered(
+        self, filter_dto: RecipeFilterDTO, *, include_shared: bool = False
+    ) -> list[Recipe]:
         """
         List recipes based on filter criteria for the current user.
 
         Args:
-            filter_dto (RecipeFilterDTO): Filter criteria for recipes.
+            filter_dto: Filter criteria for recipes.
+            include_shared: Also include recipes shared into the user's household.
 
         Returns:
-            list[Recipe]: List of recipes matching the filter (owned by current user).
+            list[Recipe]: Recipes matching the filter.
         """
-        return self.recipe_repo.filter_recipes(filter_dto, self.user_id)
+        return self.recipe_repo.filter_recipes(
+            filter_dto, self.user_id, include_shared=include_shared
+        )
 
     def toggle_favorite(self, recipe_id: int) -> Recipe | None:
         """
@@ -235,12 +244,27 @@ class RecipeService:
             if not recipe:
                 return False
 
+            from sqlalchemy import func, select
+
+            other_meals = self.session.scalar(
+                select(func.count())
+                .select_from(Meal)
+                .where(Meal.main_recipe_id == recipe_id, Meal.user_id != self.user_id)
+            )
+            if other_meals:
+                raise RecipeInUseError(
+                    "This recipe is used in a household meal plan. "
+                    "Remove it from the plan before deleting it."
+                )
+
             # Clean up side_recipe_ids in affected meals before deletion
             # (Meals with this as main will CASCADE delete automatically)
             self.meal_repo.remove_side_recipe_from_all_meals(recipe_id, self.user_id)
 
             self.recipe_repo.delete_recipe(recipe)
             self.session.commit()
+        except RecipeInUseError:
+            raise
         except Exception as e:
             self.session.rollback()
             logger.error(f"Failed to delete recipe {recipe_id}: {e}")
@@ -339,17 +363,20 @@ class RecipeService:
                 f"Unable to update recipe '{recipe_id}': {err}"
             ) from err
 
-    def get_recipe(self, recipe_id: int) -> Recipe | None:
+    def get_recipe(self, recipe_id: int, *, include_shared: bool = False) -> Recipe | None:
         """
         Retrieve a single recipe by ID for the current user.
 
         Args:
-            recipe_id (int): ID of the recipe to retrieve.
+            recipe_id: ID of the recipe to retrieve.
+            include_shared: Also allow a recipe shared into the user's household.
 
         Returns:
-            Optional[Recipe]: The Recipe if found and owned by user, else None.
+            The Recipe if visible, else None.
         """
-        return self.recipe_repo.get_by_id(recipe_id, self.user_id)
+        return self.recipe_repo.get_by_id(
+            recipe_id, self.user_id, include_shared=include_shared
+        )
 
     def get_last_cooked_date(self, recipe_id: int) -> datetime | None:
         """

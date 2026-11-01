@@ -7,6 +7,7 @@ import {
   ChefHat,
   ShoppingCart,
   CreditCard,
+  Users,
   Database,
   MessageSquare,
   Sparkles,
@@ -19,6 +20,7 @@ import { SectionNav } from "@/components/layout/SectionNav";
 
 export type SettingsCategory =
   | "profile"
+  | "household"
   | "billing"
   | "appearance"
   | "recipePreferences"
@@ -44,6 +46,12 @@ export const CATEGORIES: CategoryConfig[] = [
     label: "Account & Profile",
     icon: User,
     description: "Manage your personal information",
+  },
+  {
+    id: "household",
+    label: "Household",
+    icon: Users,
+    description: "Share recipes, the meal plan, and the shopping list",
   },
   {
     id: "billing",

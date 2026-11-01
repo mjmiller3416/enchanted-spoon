@@ -1,16 +1,18 @@
 """API router for dashboard stats."""
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database.db import get_session
 from app.dtos.dashboard_dtos import DashboardStatsDTO
+from app.models.household import shared_recipe_id_select
 from app.models.planner_entry import PlannerEntry
 from app.models.recipe import Recipe
 from app.models.shopping_item import ShoppingItem
 from app.models.user import User
+from app.services.household.scope import kitchen_user_id
 
 router = APIRouter()
 
@@ -27,11 +29,16 @@ def get_dashboard_stats(
     Much faster than fetching full objects.
     """
     user_id = current_user.id
+    kitchen_id = kitchen_user_id(session, current_user)
+    visible_recipes = or_(
+        Recipe.user_id == user_id,
+        Recipe.id.in_(shared_recipe_id_select(user_id)),
+    )
 
-    # Count all recipes for user
+    # Own recipes plus the household cookbook
     total_recipes = (
         session.query(func.count(Recipe.id))
-        .filter(Recipe.user_id == user_id)
+        .filter(visible_recipes)
         .scalar() or 0
     )
 
@@ -43,19 +50,18 @@ def get_dashboard_stats(
         .scalar() or 0
     )
 
-    # Count active planner entries for user (exclude cleared and completed)
+    # Household members share the owner's planner and shopping list
     meals_planned = (
         session.query(func.count(PlannerEntry.id))
-        .filter(PlannerEntry.user_id == user_id)
+        .filter(PlannerEntry.user_id == kitchen_id)
         .filter(PlannerEntry.is_cleared == False)
         .filter(PlannerEntry.is_completed == False)
         .scalar() or 0
     )
 
-    # Count shopping items for user
     shopping_items = (
         session.query(func.count(ShoppingItem.id))
-        .filter(ShoppingItem.user_id == user_id)
+        .filter(ShoppingItem.user_id == kitchen_id)
         .scalar() or 0
     )
 

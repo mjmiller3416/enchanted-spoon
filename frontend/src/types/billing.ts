@@ -18,6 +18,8 @@ export interface CurrentUserUsage {
   limits: UsageLimits;
   usage_tier: string;
   resets: "monthly" | "trial" | "none";
+  /** True when the numbers are the household owner's shared pool. */
+  shared_with_household?: boolean;
 }
 
 export interface FounderSpot {

@@ -23,6 +23,8 @@ from ...core.usage_limits import (
     usage_meter,
     usage_window_for,
 )
+from ...services.household.scope import effective_access
+from ...services.household.usage_meter import bind_household_meter
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -229,6 +231,7 @@ async def get_current_user_optional(
 
 def require_pro(
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> User:
     """
     Dependency that requires pro-level access.
@@ -250,7 +253,8 @@ def require_pro(
     Raises:
         HTTPException 403: User doesn't have pro access.
     """
-    if not user.has_pro_access:
+    has_pro, _reason = effective_access(session, user)
+    if not has_pro:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Pro subscription required for this feature",
@@ -270,6 +274,9 @@ def require_within_usage_limit(
     consume the monthly or trial allowance. Admins are uncapped but still
     counted. Trial usage is stored under one window for the whole trial.
     Read-only accounts are rejected before either bucket is touched.
+
+    A household of two or more reserves the unit on the owner's row. The
+    owner's Pro cap is multiplied by 1.5 through ``set_household_usage_hooks``.
     """
 
     def _reserve_usage(
@@ -304,7 +311,8 @@ def require_within_usage_limit(
         if user_limits or ip_limits:
             enforce_pre_quota_limits(request, user_limits, ip_limits)
 
-        subject, limit = usage_meter(user, field)
+        with bind_household_meter(session):
+            subject, limit = usage_meter(user, field)
         tier = subject.usage_tier
         usage_service = UsageService(session, subject.id, window=usage_window_for(subject))
         try:

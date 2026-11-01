@@ -39,7 +39,13 @@ class CurrentUserDTO(BaseModel):
     created_at: datetime
 
     @classmethod
-    def from_model(cls, user: User) -> CurrentUserDTO:
+    def from_model(
+        cls,
+        user: User,
+        *,
+        has_pro_access: Optional[bool] = None,
+        access_reason: Optional[str] = None,
+    ) -> CurrentUserDTO:
         from app.core.offer_windows import free_tier_sunset_at
 
         legacy_free = user.is_legacy_free_account() and not user.is_read_only
@@ -53,8 +59,8 @@ class CurrentUserDTO(BaseModel):
             subscription_status=user.subscription_status,
             subscription_ends_at=user.subscription_ends_at,
             cancel_at_period_end=user.cancel_at_period_end,
-            has_pro_access=user.has_pro_access,
-            access_reason=user.access_reason,
+            has_pro_access=user.has_pro_access if has_pro_access is None else has_pro_access,
+            access_reason=user.access_reason if access_reason is None else access_reason,
             usage_tier=user.usage_tier,
             is_read_only=user.is_read_only,
             show_sunset_banner=legacy_free or user.is_read_only,
@@ -152,7 +158,8 @@ class AdminUsageLimitsDTO(BaseModel):
 
         Admins are uncapped, so all their limits are ``None`` (mirrors the
         ``is_admin`` bypass in ``require_within_usage_limit``). Usage-exempt
-        Pro accounts show the pre-release allowances.
+        Pro accounts show the pre-release allowances. A household of two or
+        more scales the owner's Pro cap by 1.5 when the usage hook is bound.
         """
         if user.keeps_admin_access():
             return cls()
@@ -226,9 +233,18 @@ class CurrentUserUsageDTO(BaseModel):
     limits: AdminUsageLimitsDTO
     usage_tier: str
     resets: str
+    # True when the numbers are the household owner's shared pool.
+    shared_with_household: bool = False
 
     @classmethod
-    def from_models(cls, user: User, usage: UserUsage) -> CurrentUserUsageDTO:
+    def from_models(
+        cls,
+        user: User,
+        usage: UserUsage,
+        *,
+        limits: Optional[AdminUsageLimitsDTO] = None,
+        shared_with_household: bool = False,
+    ) -> CurrentUserUsageDTO:
         tier = user.usage_tier
         resets = "trial" if tier == "trial" else "none" if tier in {"expired", "none"} else "monthly"
         return cls(
@@ -237,9 +253,10 @@ class CurrentUserUsageDTO(BaseModel):
             ai_suggestions_requested=usage.ai_suggestions_requested or 0,
             ai_assistant_messages=usage.ai_assistant_messages or 0,
             recipes_imported=usage.recipes_imported or 0,
-            limits=AdminUsageLimitsDTO.for_user(user),
+            limits=limits if limits is not None else AdminUsageLimitsDTO.for_user(user),
             usage_tier=tier,
             resets=resets,
+            shared_with_household=shared_with_household,
         )
 
 

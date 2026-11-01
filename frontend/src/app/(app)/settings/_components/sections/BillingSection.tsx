@@ -65,6 +65,9 @@ function planDetail(user: CurrentUserDTO): string {
   if (user.access_reason === "read_only") {
     return "This account is read-only. You can view and export. Creating, planning, and AI need Pro.";
   }
+  if (user.access_reason === "household") {
+    return "Pro is included with your household. The owner pays, and AI usage draws from the owner's shared allowance.";
+  }
   if (user.access_reason === "subscription") {
     if (user.subscription_status === "past_due") {
       return "Payment past due — update your payment method to keep Pro access.";
@@ -246,13 +249,15 @@ export function BillingSection() {
                     : "AI usage this month"}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {usage?.usage_tier === "none"
-                  ? "Start a 7-day trial to use photos, chat, suggestions, and imports."
-                  : usage?.resets === "trial"
-                    ? "Trial allowances cover the whole trial and do not reset mid-trial."
-                    : usage?.resets === "none"
-                      ? "AI is unavailable on this plan."
-                      : "Counters reset at the start of each month."}
+                {usage?.shared_with_household
+                  ? "Shared household allowance on the owner's account. Everyone's AI use counts here, and it resets at the start of each month."
+                  : usage?.usage_tier === "none"
+                    ? "Start a 7-day trial to use photos, chat, suggestions, and imports."
+                    : usage?.resets === "trial"
+                      ? "Trial allowances cover the whole trial and do not reset mid-trial."
+                      : usage?.resets === "none"
+                        ? "AI is unavailable on this plan."
+                        : "Counters reset at the start of each month."}
               </p>
             </div>
 

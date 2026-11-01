@@ -78,6 +78,9 @@ export interface RecipeResponseDTO extends RecipeBaseDTO {
   ingredients: RecipeIngredientResponseDTO[];
   group_ids: number[]; // IDs of recipe groups this recipe belongs to
   nutrition_facts: NutritionFactsResponseDTO | null;
+  /** False when this is someone else's recipe shared into the household. */
+  can_edit?: boolean;
+  shared_with_household?: boolean;
 }
 
 export interface NutritionFactsResponseDTO {
@@ -119,6 +122,8 @@ export interface RecipeCardDTO {
   times_cooked?: number | null;
   last_cooked?: string | null; // ISO datetime string
   created_at?: string | null; // ISO datetime string - when recipe was added
+  can_edit?: boolean;
+  shared_with_household?: boolean;
 }
 
 // ============================================================================

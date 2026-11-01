@@ -13,6 +13,7 @@ from ..models.user import User
 from .billing_service import BillingService, StripeCustomerError, StripeNotConfiguredError
 from .clerk_service import ClerkApiError, delete_clerk_user
 from .data_management import DataManagementService
+from .household.service import HouseholdForbiddenError, HouseholdService
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,11 @@ class AccountService:
             raise AccountDeletionBlockedError(
                 "This account is connected to household apps and can't be deleted here."
             )
+
+        try:
+            HouseholdService(self.session).prepare_account_deletion(user)
+        except HouseholdForbiddenError as error:
+            raise AccountDeletionBlockedError(str(error)) from error
 
         try:
             BillingService(self.session).delete_customer(user)

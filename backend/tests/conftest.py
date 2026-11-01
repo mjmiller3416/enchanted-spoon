@@ -36,6 +36,16 @@ from app.models import (  # noqa: F401 – side-effect import registers models
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(autouse=True)
+def _install_household_usage_hooks():
+    """Keep #210's household hook pointed at the sharing meter between tests."""
+    from app.services.household.usage_meter import install_household_usage_hooks
+
+    install_household_usage_hooks()
+    yield
+    install_household_usage_hooks()
+
+
+@pytest.fixture(autouse=True)
 def _reset_ai_rate_limits():
     """Keep per-process AI rate buckets from leaking between tests."""
     from app.core.rate_limit import ip_limiter, limiter

@@ -19,6 +19,7 @@ _LOCKED_PREFIXES = (
     "/api/categories",
     "/api/unit-conversions",
     "/api/data-management",
+    "/api/household",
 )
 
 
