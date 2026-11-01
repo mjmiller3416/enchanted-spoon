@@ -16,6 +16,7 @@ export { imageGenerationApi, cookingTipApi, mealSuggestionsApi, nutritionEstimat
 export { dashboardApi } from "./dashboard";
 export { dataManagementApi } from "./data-management";
 export { feedbackApi } from "./feedback";
+export { householdApi } from "./household";
 export { unitConversionApi } from "./units";
 export { settingsApi } from "./settings";
 export { sampleDataApi } from "./sample-data";

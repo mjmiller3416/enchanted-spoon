@@ -17,6 +17,7 @@ from app.services.account_service import (
     AccountDeletionError,
     AccountService,
 )
+from app.services.household.scope import effective_access
 from app.services.usage_service import UsageService
 
 router = APIRouter()
@@ -24,10 +25,17 @@ router = APIRouter()
 
 @router.get("/me", response_model=CurrentUserDTO)
 def get_current_user_profile(
+    session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> CurrentUserDTO:
-    """Get the current user's profile including admin status."""
-    return CurrentUserDTO.from_model(current_user)
+    """Get the current user's profile including admin status.
+
+    ``has_pro_access`` is true when the household owner covers this member.
+    """
+    has_pro, reason = effective_access(session, current_user)
+    return CurrentUserDTO.from_model(
+        current_user, has_pro_access=has_pro, access_reason=reason
+    )
 
 
 @router.get("/me/usage", response_model=CurrentUserUsageDTO)
@@ -41,7 +49,10 @@ def get_current_user_usage(
     for uncapped fields (admins are uncapped on everything).
     """
     usage = UsageService(session, current_user.id).get_usage()
-    return CurrentUserUsageDTO.from_models(current_user, usage)
+    has_pro, _reason = effective_access(session, current_user)
+    return CurrentUserUsageDTO.from_models(
+        current_user, usage, has_pro_access=has_pro
+    )
 
 
 class AccountDeletionResultDTO(BaseModel):

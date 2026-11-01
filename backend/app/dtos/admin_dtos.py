@@ -34,7 +34,13 @@ class CurrentUserDTO(BaseModel):
     created_at: datetime
 
     @classmethod
-    def from_model(cls, user: User) -> CurrentUserDTO:
+    def from_model(
+        cls,
+        user: User,
+        *,
+        has_pro_access: Optional[bool] = None,
+        access_reason: Optional[str] = None,
+    ) -> CurrentUserDTO:
         return cls(
             id=user.id,
             email=user.email,
@@ -45,8 +51,8 @@ class CurrentUserDTO(BaseModel):
             subscription_status=user.subscription_status,
             subscription_ends_at=user.subscription_ends_at,
             cancel_at_period_end=user.cancel_at_period_end,
-            has_pro_access=user.has_pro_access,
-            access_reason=user.access_reason,
+            has_pro_access=user.has_pro_access if has_pro_access is None else has_pro_access,
+            access_reason=user.access_reason if access_reason is None else access_reason,
             created_at=user.created_at,
         )
 
@@ -126,15 +132,19 @@ class AdminUsageLimitsDTO(BaseModel):
     recipes_imported: Optional[int] = None
 
     @classmethod
-    def for_user(cls, user: User) -> AdminUsageLimitsDTO:
+    def for_user(cls, user: User, *, has_pro_access: Optional[bool] = None) -> AdminUsageLimitsDTO:
         """Resolve per-field caps from the user's effective tier.
 
         Admins are uncapped, so all their limits are ``None`` (mirrors the
         ``is_admin`` bypass in ``require_within_usage_limit``).
+        ``has_pro_access`` overrides the user's own flag when household
+        coverage applies. Admin listings omit it and stay on the person's
+        own subscription.
         """
         if user.is_admin:
             return cls()
-        tier = "pro" if user.has_pro_access else "free"
+        pro = user.has_pro_access if has_pro_access is None else has_pro_access
+        tier = "pro" if pro else "free"
         return cls(
             ai_images_generated=get_monthly_limit(tier, "ai_images_generated"),
             ai_suggestions_requested=get_monthly_limit(tier, "ai_suggestions_requested"),
@@ -205,14 +215,20 @@ class CurrentUserUsageDTO(BaseModel):
     limits: AdminUsageLimitsDTO
 
     @classmethod
-    def from_models(cls, user: User, usage: UserUsage) -> CurrentUserUsageDTO:
+    def from_models(
+        cls,
+        user: User,
+        usage: UserUsage,
+        *,
+        has_pro_access: Optional[bool] = None,
+    ) -> CurrentUserUsageDTO:
         return cls(
             month=usage.month,
             ai_images_generated=usage.ai_images_generated or 0,
             ai_suggestions_requested=usage.ai_suggestions_requested or 0,
             ai_assistant_messages=usage.ai_assistant_messages or 0,
             recipes_imported=usage.recipes_imported or 0,
-            limits=AdminUsageLimitsDTO.for_user(user),
+            limits=AdminUsageLimitsDTO.for_user(user, has_pro_access=has_pro_access),
         )
 
 

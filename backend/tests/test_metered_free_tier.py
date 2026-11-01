@@ -61,6 +61,9 @@ def _usage(**counts) -> UserUsage:
 def _session_returning(usage: UserUsage) -> MagicMock:
     session = MagicMock()
     session.query.return_value.filter.return_value.first.return_value = usage
+    # No household membership on this fake session.
+    session.scalars.return_value.first.return_value = None
+    session.get.return_value = None
     return session
 
 

@@ -18,6 +18,7 @@ from app.dtos.meal_dtos import (
     MealUpdateDTO,
 )
 from app.models.user import User
+from app.services.household.scope import kitchen_user_id
 from app.services.meal import (
     InvalidRecipeError,
     MealSaveError,
@@ -59,7 +60,7 @@ def list_meals(
         offset=offset,
     )
 
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     return service.filter_meals(filter_dto)
 
 
@@ -70,7 +71,7 @@ def get_meals_by_recipe(
     current_user: User = Depends(get_current_user),
 ):
     """Get all meals that contain a specific recipe (main or side)."""
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     return service.get_meals_by_recipe(recipe_id)
 
 
@@ -81,7 +82,7 @@ def get_meal(
     current_user: User = Depends(get_current_user),
 ):
     """Get a single meal by ID."""
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     meal = service.get_meal(meal_id)
     if not meal:
         raise HTTPException(status_code=404, detail="Meal not found")
@@ -102,7 +103,7 @@ def create_meal(
     - side_recipe_ids: Optional, max 3, maintains order
     - tags: Optional list of strings
     """
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     try:
         return service.create_meal(meal_data)
     except InvalidRecipeError as e:
@@ -119,7 +120,7 @@ def update_meal(
     current_user: User = Depends(get_current_user),
 ):
     """Update an existing meal."""
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     try:
         meal = service.update_meal(meal_id, update_data)
         if not meal:
@@ -142,7 +143,7 @@ def delete_meal(
 
     Note: This will CASCADE delete any planner entries referencing this meal.
     """
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     if not service.delete_meal(meal_id):
         raise HTTPException(status_code=404, detail="Meal not found")
     return {"message": "Meal deleted successfully"}
@@ -160,7 +161,7 @@ def toggle_save(
     Saved meals persist permanently.
     Unsaved (transient) meals are deleted when they leave the planner.
     """
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     meal = service.toggle_save(meal_id)
     if not meal:
         raise HTTPException(status_code=404, detail="Meal not found")
@@ -179,7 +180,7 @@ def add_side_recipe(
 
     Maximum of 3 side recipes allowed.
     """
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     try:
         meal = service.add_side_recipe(meal_id, recipe_id)
         if not meal:
@@ -199,7 +200,7 @@ def remove_side_recipe(
     current_user: User = Depends(get_current_user),
 ):
     """Remove a side recipe from a meal."""
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     try:
         meal = service.remove_side_recipe(meal_id, recipe_id)
         if not meal:
@@ -221,7 +222,7 @@ def reorder_side_recipes(
 
     The provided list must contain the same recipe IDs as the current sides.
     """
-    service = MealService(session, current_user.id)
+    service = MealService(session, kitchen_user_id(session, current_user))
     try:
         meal = service.reorder_side_recipes(meal_id, side_recipe_ids)
         if not meal:

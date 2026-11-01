@@ -19,8 +19,10 @@ from app.dtos.recipe_dtos import (
     RecipeResponseDTO,
     RecipeUpdateDTO,
 )
+from app.models.household import shared_recipe_id_select
 from app.services.recipe_service import (
     DuplicateRecipeError,
+    RecipeInUseError,
     RecipeNotFoundError,
     RecipeSaveError,
     RecipeService,
@@ -28,6 +30,19 @@ from app.services.recipe_service import (
 from app.api.errors import internal_error
 
 router = APIRouter()
+
+
+def _shared_ids(session: Session, user_id: int) -> set[int]:
+    return set(session.scalars(shared_recipe_id_select(user_id)).all())
+
+
+def _mark_visibility(dto, recipe, user_id: int, shared_ids: set[int]):
+    """Mark household cookbook cards the caller can see but not edit."""
+    if dto is None:
+        return None
+    dto.can_edit = recipe.user_id == user_id
+    dto.shared_with_household = recipe.id in shared_ids
+    return dto
 
 
 @router.get("", response_model=List[RecipeResponseDTO])
@@ -62,8 +77,12 @@ def list_recipes(
     )
 
     service = RecipeService(session, current_user.id)
-    recipes = service.list_filtered(filter_dto)
-    return [RecipeResponseDTO.from_recipe(r) for r in recipes]
+    recipes = service.list_filtered(filter_dto, include_shared=True)
+    shared_ids = _shared_ids(session, current_user.id)
+    return [
+        _mark_visibility(RecipeResponseDTO.from_recipe(r), r, current_user.id, shared_ids)
+        for r in recipes
+    ]
 
 
 @router.get("/cards", response_model=List[RecipeCardDTO])
@@ -86,8 +105,12 @@ def list_recipe_cards(
     )
 
     service = RecipeService(session, current_user.id)
-    recipes = service.list_filtered(filter_dto)
-    return [RecipeCardDTO.from_recipe(r) for r in recipes]
+    recipes = service.list_filtered(filter_dto, include_shared=True)
+    shared_ids = _shared_ids(session, current_user.id)
+    return [
+        _mark_visibility(RecipeCardDTO.from_recipe(r), r, current_user.id, shared_ids)
+        for r in recipes
+    ]
 
 
 @router.get("/categories", response_model=List[str])
@@ -97,7 +120,7 @@ def get_categories(
 ):
     """Get unique recipe categories."""
     service = RecipeService(session, current_user.id)
-    recipes = service.list_filtered(RecipeFilterDTO())
+    recipes = service.list_filtered(RecipeFilterDTO(), include_shared=True)
     categories = set(r.recipe_category for r in recipes if r.recipe_category)
     return sorted(categories)
 
@@ -109,7 +132,7 @@ def get_meal_types(
 ):
     """Get unique meal types."""
     service = RecipeService(session, current_user.id)
-    recipes = service.list_filtered(RecipeFilterDTO())
+    recipes = service.list_filtered(RecipeFilterDTO(), include_shared=True)
     meal_types = set(r.meal_type for r in recipes if r.meal_type)
     return sorted(meal_types)
 
@@ -157,10 +180,15 @@ def get_recipe(
 ):
     """Get a single recipe by ID."""
     service = RecipeService(session, current_user.id)
-    recipe = service.get_recipe(recipe_id)
+    recipe = service.get_recipe(recipe_id, include_shared=True)
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
-    return RecipeResponseDTO.from_recipe(recipe)
+    return _mark_visibility(
+        RecipeResponseDTO.from_recipe(recipe),
+        recipe,
+        current_user.id,
+        _shared_ids(session, current_user.id),
+    )
 
 
 @router.post("", response_model=RecipeResponseDTO, status_code=201)
@@ -206,7 +234,11 @@ def delete_recipe(
 ):
     """Delete a recipe."""
     service = RecipeService(session, current_user.id)
-    if not service.delete_recipe(recipe_id):
+    try:
+        deleted = service.delete_recipe(recipe_id)
+    except RecipeInUseError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    if not deleted:
         raise HTTPException(status_code=404, detail="Recipe not found")
     return {"message": "Recipe deleted successfully"}
 
@@ -219,9 +251,18 @@ def toggle_favorite(
 ):
     """Toggle the favorite status of a recipe."""
     service = RecipeService(session, current_user.id)
-    recipe = service.get_recipe(recipe_id)
+    recipe = service.get_recipe(recipe_id, include_shared=True)
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
+    if recipe.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the recipe owner can change it.")
 
     updated_recipe = service.toggle_favorite(recipe_id)
-    return RecipeResponseDTO.from_recipe(updated_recipe)
+    if updated_recipe is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return _mark_visibility(
+        RecipeResponseDTO.from_recipe(updated_recipe),
+        updated_recipe,
+        current_user.id,
+        _shared_ids(session, current_user.id),
+    )

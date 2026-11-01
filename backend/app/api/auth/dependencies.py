@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
 from ...core.usage_limits import get_monthly_limit
+from ...services.household.scope import effective_access
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -214,6 +215,7 @@ async def get_current_user_optional(
 
 def require_pro(
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ) -> User:
     """
     Dependency that requires pro-level access.
@@ -235,7 +237,8 @@ def require_pro(
     Raises:
         HTTPException 403: User doesn't have pro access.
     """
-    if not user.has_pro_access:
+    has_pro, _reason = effective_access(session, user)
+    if not has_pro:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Pro subscription required for this feature",
@@ -280,7 +283,8 @@ def require_within_usage_limit(field: str) -> Callable[..., Generator[User, None
         if user.is_admin:
             limit = None
         else:
-            tier = "pro" if user.has_pro_access else "free"
+            has_pro, _reason = effective_access(session, user)
+            tier = "pro" if has_pro else "free"
             limit = get_monthly_limit(tier, field)
 
         usage_service = UsageService(session, user.id)

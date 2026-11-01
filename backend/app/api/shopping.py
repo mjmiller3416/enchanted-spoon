@@ -27,6 +27,7 @@ from app.dtos.shopping_dtos import (
     ShoppingNotesUpdateDTO,
 )
 from app.models.user import User
+from app.services.household.scope import kitchen_user_id
 from app.services.shopping import ShoppingService
 
 router = APIRouter()
@@ -49,7 +50,7 @@ def get_shopping_list(
     Note: auto_generate parameter is deprecated. Shopping list is now automatically
     synced when planner changes occur. This parameter is accepted but ignored.
     """
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
 
     filters = ShoppingListFilterDTO(
         source=source,
@@ -69,7 +70,7 @@ def get_shopping_notes(
     current_user: User = Depends(get_current_user),
 ):
     """Get the free-text notes shown on the shopping list."""
-    return ShoppingService(session, current_user.id).get_notes()
+    return ShoppingService(session, kitchen_user_id(session, current_user)).get_notes()
 
 
 @router.put("/notes", response_model=ShoppingNotesResponseDTO)
@@ -79,7 +80,7 @@ def save_shopping_notes(
     current_user: User = Depends(get_current_user),
 ):
     """Replace the free-text notes shown on the shopping list."""
-    return ShoppingService(session, current_user.id).save_notes(notes.content)
+    return ShoppingService(session, kitchen_user_id(session, current_user)).save_notes(notes.content)
 
 
 @router.get("/items/{item_id}", response_model=ShoppingItemResponseDTO)
@@ -89,7 +90,7 @@ def get_shopping_item(
     current_user: User = Depends(get_current_user),
 ):
     """Get a single shopping item by ID."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     item = service.shopping_repo.get_shopping_item_by_id(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Shopping item not found")
@@ -103,7 +104,7 @@ def add_manual_item(
     current_user: User = Depends(get_current_user),
 ):
     """Add a manual item to the shopping list."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     item = service.add_manual_item(item_data)
     if not item:
         raise HTTPException(status_code=500, detail="Failed to add item")
@@ -144,7 +145,7 @@ def update_shopping_item(
     current_user: User = Depends(get_current_user),
 ):
     """Update a shopping item."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     item = service.update_item(item_id, update_data)
     if not item:
         raise HTTPException(status_code=404, detail="Shopping item not found")
@@ -158,7 +159,7 @@ def toggle_item_status(
     current_user: User = Depends(get_current_user),
 ):
     """Toggle the 'have' status of a shopping item."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     result = service.toggle_item_status(item_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Shopping item not found")
@@ -172,7 +173,7 @@ def toggle_item_flagged(
     current_user: User = Depends(get_current_user),
 ):
     """Toggle the 'flagged' status of a shopping item."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     result = service.toggle_item_flagged(item_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Shopping item not found")
@@ -186,7 +187,7 @@ def delete_shopping_item(
     current_user: User = Depends(get_current_user),
 ):
     """Delete a shopping item."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     if not service.delete_item(item_id):
         raise HTTPException(status_code=404, detail="Shopping item not found")
     return {"message": "Item deleted successfully"}
@@ -199,7 +200,7 @@ def generate_shopping_list(
     current_user: User = Depends(get_current_user),
 ):
     """Generate shopping list from recipe IDs."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     return service.generate_shopping_list(generation_data)
 
 
@@ -214,7 +215,7 @@ def generate_from_planner(
     when planner changes occur. This endpoint still works for backwards compatibility
     but is no longer necessary to call.
     """
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     return service.generate_from_active_planner()
 
 
@@ -224,7 +225,7 @@ def clear_shopping_list(
     current_user: User = Depends(get_current_user),
 ):
     """Clear the entire shopping list."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     return service.clear_shopping_list()
 
 
@@ -234,7 +235,7 @@ def clear_manual_items(
     current_user: User = Depends(get_current_user),
 ):
     """Clear only manual items from the shopping list."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     return service.clear_manual_items()
 
 
@@ -244,7 +245,7 @@ def clear_recipe_items(
     current_user: User = Depends(get_current_user),
 ):
     """Clear only recipe-generated items from the shopping list."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     return service.clear_recipe_items()
 
 
@@ -254,7 +255,7 @@ def clear_completed_items(
     current_user: User = Depends(get_current_user),
 ):
     """Clear all completed (have=True) items from the shopping list."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     count = service.clear_completed_items()
     return {"message": f"Cleared {count} completed items", "deleted_count": count}
 
@@ -266,7 +267,7 @@ def bulk_update_status(
     current_user: User = Depends(get_current_user),
 ):
     """Bulk update 'have' status for multiple items."""
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     return service.bulk_update_status(update_data)
 
 
@@ -282,7 +283,7 @@ def get_ingredient_breakdown(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid recipe IDs format")
 
-    service = ShoppingService(session, current_user.id)
+    service = ShoppingService(session, kitchen_user_id(session, current_user))
     breakdown = service.get_ingredient_breakdown(ids)
 
     # Convert to list of dicts for response

@@ -18,6 +18,7 @@ from app.services.ai.assistant.context import (
 )
 from app.services.ai.image_generation import get_image_generation_service
 from app.services.ai.user_context_builder import UserContextBuilder
+from app.services.household.scope import kitchen_user_id
 from app.services.planner import PlannerService
 from app.services.shopping import ShoppingService
 from app.models.user import User
@@ -44,8 +45,9 @@ async def chat_with_assistant(
 
     Uses Gemini function calling to intelligently route requests.
     """
-    shopping_service = ShoppingService(session, current_user.id)
-    planner_service = PlannerService(session, current_user.id)
+    kitchen_id = kitchen_user_id(session, current_user)
+    shopping_service = ShoppingService(session, kitchen_id)
+    planner_service = PlannerService(session, kitchen_id)
     try:
         # Convert history to dict format for keyword detection
         history_dicts = None
@@ -60,7 +62,9 @@ async def chat_with_assistant(
         include_shopping = should_include_shopping_list(request.message, history_dicts)
 
         # Build context data
-        context_builder = UserContextBuilder(session, current_user.id)
+        context_builder = UserContextBuilder(
+            session, current_user.id, kitchen_user_id=kitchen_id
+        )
         context_data = context_builder.build_context_data(
             include_ingredients=include_ingredients,
             include_shopping_list=include_shopping,
@@ -166,7 +170,11 @@ async def generate_recipe(
         include_shopping = should_include_shopping_list(request.message, history_dicts)
 
         # Build context
-        context_builder = UserContextBuilder(session, current_user.id)
+        context_builder = UserContextBuilder(
+            session,
+            current_user.id,
+            kitchen_user_id=kitchen_user_id(session, current_user),
+        )
         context_data = context_builder.build_context_data(
             include_ingredients=include_ingredients,
             include_shopping_list=include_shopping,

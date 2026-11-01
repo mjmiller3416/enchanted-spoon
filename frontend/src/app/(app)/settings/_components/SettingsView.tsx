@@ -18,6 +18,7 @@ import { appConfig } from "@/lib/config";
 import { CategoryNav, CATEGORIES, type SettingsCategory } from "./CategoryNav";
 import { ProfileSection } from "./sections/ProfileSection";
 import { BillingSection } from "./sections/BillingSection";
+import { HouseholdSection } from "./sections/HouseholdSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { FeedbackSection } from "./sections/FeedbackSection";
 import { AIFeaturesSection } from "./sections/AIFeaturesSection";
@@ -66,7 +67,8 @@ export function SettingsView() {
     if (
       activeCategory === "feedback" ||
       activeCategory === "dataManagement" ||
-      activeCategory === "billing"
+      activeCategory === "billing" ||
+      activeCategory === "household"
     ) {
       toast.info("This section has no saved settings to reset");
       return;
@@ -87,6 +89,9 @@ export function SettingsView() {
 
       case "billing":
         return <BillingSection />;
+
+      case "household":
+        return <HouseholdSection />;
 
       case "appearance":
         return <AppearanceSection theme={theme} onThemeChange={setTheme} />;

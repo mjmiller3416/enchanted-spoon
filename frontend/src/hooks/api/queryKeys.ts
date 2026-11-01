@@ -58,6 +58,11 @@ export const sampleDataQueryKeys = {
   status: () => [...sampleDataQueryKeys.all, "status"] as const,
 };
 
+export const householdQueryKeys = {
+  all: ["household"] as const,
+  state: () => [...householdQueryKeys.all, "state"] as const,
+};
+
 export const currentUserQueryKeys = {
   all: ["currentUser"] as const,
   usage: () => [...currentUserQueryKeys.all, "usage"] as const,

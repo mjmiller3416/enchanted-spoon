@@ -8,7 +8,7 @@ related to recipes, including related ingredients and history.
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..dtos.recipe_dtos import (
@@ -18,6 +18,7 @@ from ..dtos.recipe_dtos import (
     RecipeUpdateDTO)
 from ..models.nutrition_facts import NutritionFacts
 from ..models.recipe import Recipe
+from ..models.household import shared_recipe_id_select
 from ..models.recipe_history import RecipeHistory
 from ..models.recipe_ingredient import RecipeIngredient
 from ..repositories.ingredient_repo import IngredientRepo
@@ -155,7 +156,19 @@ class RecipeRepo:
 
         return recipe
 
-    def get_by_id(self, recipe_id: int, user_id: Optional[int] = None) -> Optional[Recipe]:
+    def _visible_to(self, user_id: int, include_shared: bool):
+        """Own recipes, plus the household cookbook when ``include_shared``."""
+        if not include_shared:
+            return Recipe.user_id == user_id
+        return or_(Recipe.user_id == user_id, Recipe.id.in_(shared_recipe_id_select(user_id)))
+
+    def get_by_id(
+        self,
+        recipe_id: int,
+        user_id: Optional[int] = None,
+        *,
+        include_shared: bool = False,
+    ) -> Optional[Recipe]:
         """
         Returns a single recipe by ID, with ingredients and history.
 
@@ -177,7 +190,7 @@ class RecipeRepo:
             .where(Recipe.id == recipe_id)
         )
         if user_id is not None:
-            stmt = stmt.where(Recipe.user_id == user_id)
+            stmt = stmt.where(self._visible_to(user_id, include_shared))
         return self.session.scalars(stmt).unique().first()
 
     def get_last_cooked_date(self, recipe_id: int, user_id: int) -> Optional[datetime]:
@@ -393,7 +406,13 @@ class RecipeRepo:
             is not None
         )
 
-    def filter_recipes(self, filter_dto: RecipeFilterDTO, user_id: int) -> list[Recipe]:
+    def filter_recipes(
+        self,
+        filter_dto: RecipeFilterDTO,
+        user_id: int,
+        *,
+        include_shared: bool = False,
+    ) -> list[Recipe]:
         """
         Filter and sort recipes based on various criteria.
 
@@ -413,8 +432,7 @@ class RecipeRepo:
             selectinload(Recipe.nutrition_facts),
         )
 
-        # Always filter by user - users only see their own recipes
-        stmt = stmt.where(Recipe.user_id == user_id)
+        stmt = stmt.where(self._visible_to(user_id, include_shared))
 
         # Apply filters based on the DTO
         if filter_dto.recipe_category and filter_dto.recipe_category not in ["All", "Filter"]:

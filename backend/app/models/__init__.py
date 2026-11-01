@@ -1,5 +1,11 @@
 # app/core/models/__init__.py
 
+from .household import (
+    Household,
+    HouseholdInvite,
+    HouseholdMember,
+    HouseholdRecipeShare,
+)
 from .ingredient import Ingredient
 from .meal import Meal
 from .nutrition_facts import NutritionFacts
@@ -20,6 +26,10 @@ from .user_settings import UserSettings
 from .user_usage import UserUsage
 
 __all__ = [
+    "Household",
+    "HouseholdInvite",
+    "HouseholdMember",
+    "HouseholdRecipeShare",
     "Recipe",
     "RecipeGroup",
     "RecipeIngredient",

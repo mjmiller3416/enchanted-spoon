@@ -53,6 +53,9 @@ function planDetail(user: CurrentUserDTO): string {
   if (user.is_admin) {
     return "Admin accounts have unlimited access to everything.";
   }
+  if (user.access_reason === "household") {
+    return "Pro is included with your household. The owner pays, and you keep your own monthly allowance at Pro limits.";
+  }
   if (user.access_reason === "subscription") {
     if (user.subscription_status === "past_due") {
       return "Payment past due — update your payment method to keep Pro access.";
