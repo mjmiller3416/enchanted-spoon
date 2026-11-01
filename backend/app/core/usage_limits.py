@@ -4,8 +4,10 @@ Usage caps for Gemini-backed AI features.
 
 Pro subscribers and granted testers use the launch Pro caps, including
 accounts persisted as ``usage_plan=legacy``. A usage-exempt account (the
-``usage_exempt`` flag, or an id in ``USAGE_EXEMPT_USER_IDS``) keeps the
-pre-release Pro allowances. Legacy free accounts still use the free caps.
+``usage_exempt`` flag, an id in ``USAGE_EXEMPT_USER_IDS``, or an email in
+``ADMIN_EXEMPT_EMAILS``) keeps the pre-release Pro allowances. Emails in
+``ADMIN_EXEMPT_EMAILS`` also stay admin, so their AI use is uncapped.
+Legacy free accounts still use the free caps.
 Trial caps cover the whole trial, not a calendar month. Expired and
 read-only accounts are capped at zero. Accounts created on or after
 ``LEGACY_FREE_CUTOFF`` use the ``none`` tier (also zero). Unknown tiers fall
@@ -151,13 +153,38 @@ def usage_exempt_user_ids() -> set[int]:
     return ids
 
 
-def is_usage_exempt(user: User) -> bool:
-    """True when an admin flagged the account, or its id is in the env allowlist.
+def admin_exempt_emails() -> set[str]:
+    """Emails in ``ADMIN_EXEMPT_EMAILS``. Commas split, spaces are trimmed, case is ignored."""
+    raw = os.getenv("ADMIN_EXEMPT_EMAILS", "")
+    return {part.strip().lower() for part in raw.split(",") if part.strip()}
 
-    A MagicMock flag is not an exemption. Only a real ``True`` or an integer
-    id that appears in ``USAGE_EXEMPT_USER_IDS`` counts.
+
+def is_admin_exempt_email(user: User) -> bool:
+    """True when the account email is on ``ADMIN_EXEMPT_EMAILS``.
+
+    Only a real string email matches. These accounts stay admin and are
+    exempt from the launch Pro caps. The addresses live in the environment,
+    not in source.
+    """
+    email = getattr(user, "email", None)
+    if not isinstance(email, str):
+        return False
+    normalized = email.strip().lower()
+    if not normalized:
+        return False
+    return normalized in admin_exempt_emails()
+
+
+def is_usage_exempt(user: User) -> bool:
+    """True for the admin override: flag, id allowlist, or exempt email.
+
+    A MagicMock flag is not an exemption. Only a real ``True``, an integer
+    id in ``USAGE_EXEMPT_USER_IDS``, or an email in ``ADMIN_EXEMPT_EMAILS``
+    counts. Exempt emails are also treated as admins, which uncaps them.
     """
     if getattr(user, "usage_exempt", False) is True:
+        return True
+    if is_admin_exempt_email(user):
         return True
     user_id = getattr(user, "id", None)
     if type(user_id) is not int:
@@ -187,12 +214,12 @@ def usage_window_for(user: User, now: datetime | None = None) -> str:
 def get_user_monthly_limit(user: User, field: str) -> Optional[int]:
     """Resolve the cap used for enforcement and the usage meter.
 
-    Admins are uncapped. Trial, expired, and none ignore exemptions and the
-    legacy cohort. Pro subscribers and granted testers use the launch Pro
-    caps. Usage-exempt Pro accounts keep LEGACY_USAGE_LIMITS["pro"]. Legacy
-    free accounts still use the free row.
+    Admins, including emails in ``ADMIN_EXEMPT_EMAILS``, are uncapped. Trial,
+    expired, and none ignore exemptions and the legacy cohort. Pro subscribers
+    and granted testers use the launch Pro caps. Usage-exempt Pro accounts
+    keep LEGACY_USAGE_LIMITS["pro"]. Legacy free accounts still use the free row.
     """
-    if user.is_admin:
+    if user.is_admin or is_admin_exempt_email(user):
         return None
     tier = user.usage_tier
     if tier in ("trial", "expired", "none"):
@@ -217,6 +244,6 @@ def usage_meter(user: User, field: str) -> tuple[User, Optional[int]]:
     user id, not the signed-in member's id.
     """
     subject = usage_subject(user)
-    if subject.is_admin:
+    if subject.is_admin or is_admin_exempt_email(subject):
         return subject, None
     return subject, get_user_monthly_limit(subject, field)

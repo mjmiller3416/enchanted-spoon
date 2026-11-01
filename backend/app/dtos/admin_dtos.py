@@ -154,7 +154,7 @@ class AdminUsageLimitsDTO(BaseModel):
         ``is_admin`` bypass in ``require_within_usage_limit``). Usage-exempt
         Pro accounts show the pre-release allowances.
         """
-        if user.is_admin:
+        if user.keeps_admin_access():
             return cls()
         return cls(
             ai_images_generated=get_user_monthly_limit(user, "ai_images_generated"),

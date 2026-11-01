@@ -186,7 +186,7 @@ class User(Base):
         Trialing stays inside this gate so Pro features stay visible during
         the 7-day trial. Usage caps use ``usage_tier``, which is stricter.
         """
-        if self.is_admin:
+        if self.keeps_admin_access():
             return True
 
         if self.subscription_tier == "pro" and self.subscription_status in ACTIVE_SUBSCRIPTION_STATUSES:
@@ -207,7 +207,7 @@ class User(Base):
         from ..core.offer_windows import created_before_legacy_free_cutoff
 
         return (
-            not self.is_admin
+            not self.keeps_admin_access()
             and created_before_legacy_free_cutoff(self.created_at)
             and self.subscription_tier == "free"
             and self.subscription_status == "active"
@@ -221,7 +221,7 @@ class User(Base):
     @property
     def is_read_only(self) -> bool:
         """View and export only. Create, plan, and AI are locked."""
-        if self.is_admin or self.has_pro_access:
+        if self.keeps_admin_access() or self.has_pro_access:
             return False
         if self.read_only_at is not None:
             return True
@@ -242,7 +242,7 @@ class User(Base):
         resolve to expired (zero AI).
         """
         now = datetime.now(timezone.utc)
-        if self.is_admin:
+        if self.keeps_admin_access():
             return "pro"
         if self.granted_pro_until and self._aware(self.granted_pro_until) > now:
             return "pro"
@@ -267,7 +267,7 @@ class User(Base):
     @property
     def access_reason(self) -> str:
         """Why does this user have their current access level? (for debugging/support)"""
-        if self.is_admin:
+        if self.keeps_admin_access():
             return "admin"
         if self.usage_tier == "trial":
             return "trial"
@@ -282,6 +282,18 @@ class User(Base):
         if self.usage_tier == "expired":
             return "expired"
         return "free"
+
+    def keeps_admin_access(self) -> bool:
+        """Database admin flag, or an email on ``ADMIN_EXEMPT_EMAILS``.
+
+        The allowlist is how two accounts stay admin without putting their
+        addresses in source. Everyone else keeps the stored flag.
+        """
+        if self.is_admin:
+            return True
+        from ..core.usage_limits import is_admin_exempt_email
+
+        return is_admin_exempt_email(self)
 
     # ── Helper Methods ──────────────────────────────────────────────────────
     def __repr__(self) -> str:

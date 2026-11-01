@@ -334,7 +334,7 @@ def require_admin(
     """
     Dependency that requires admin-level access.
 
-    Checks the user's is_admin flag for permanent admin access.
+    Checks the user's is_admin flag, or an email on ``ADMIN_EXEMPT_EMAILS``.
 
     Usage:
         @router.get("/admin/users")
@@ -348,7 +348,7 @@ def require_admin(
     Raises:
         HTTPException 403: User is not an admin.
     """
-    if not user.is_admin:
+    if not user.keeps_admin_access():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required for this feature",

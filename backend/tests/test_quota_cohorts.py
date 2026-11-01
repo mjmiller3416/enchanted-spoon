@@ -12,6 +12,7 @@ def test_legacy_pro_and_grants_use_launch_caps_unless_exempt(monkeypatch):
     from datetime import datetime, timedelta, timezone
     monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2026-06-01T00:00:00+00:00")
     monkeypatch.delenv("USAGE_EXEMPT_USER_IDS", raising=False)
+    monkeypatch.delenv("ADMIN_EXEMPT_EMAILS", raising=False)
     user = User(
         id=4,
         is_admin=False,
@@ -63,6 +64,88 @@ def test_legacy_pro_and_grants_use_launch_caps_unless_exempt(monkeypatch):
         subscription_status="trialing",
     )
     assert get_user_monthly_limit(trialing, "ai_images_generated") == 3
+
+
+def test_admin_exempt_emails_stay_admin_and_other_legacy_pro_uses_launch_caps(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from fastapi import HTTPException
+    from app.api.auth.dependencies import require_admin
+    from app.core.usage_limits import is_usage_exempt
+
+    monkeypatch.delenv("USAGE_EXEMPT_USER_IDS", raising=False)
+    monkeypatch.setenv(
+        "ADMIN_EXEMPT_EMAILS",
+        " Owner@Example.com , , partner@example.com ",
+    )
+    created = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    owner = User(
+        id=1,
+        email="owner@example.com",
+        is_admin=True,
+        usage_plan="legacy",
+        usage_exempt=False,
+        subscription_tier="pro",
+        subscription_status="active",
+        created_at=created,
+    )
+    partner = User(
+        id=2,
+        email="Partner@Example.com",
+        is_admin=False,
+        usage_plan="legacy",
+        usage_exempt=False,
+        subscription_tier="free",
+        subscription_status="active",
+        created_at=created,
+    )
+    other = User(
+        id=3,
+        email="subscriber@example.com",
+        is_admin=False,
+        usage_plan="legacy",
+        usage_exempt=False,
+        subscription_tier="pro",
+        subscription_status="active",
+        created_at=created,
+    )
+    granted = User(
+        id=5,
+        email="tester@example.com",
+        is_admin=False,
+        usage_plan="legacy",
+        usage_exempt=False,
+        subscription_tier="free",
+        subscription_status="active",
+        granted_pro_until=datetime.now(timezone.utc) + timedelta(days=14),
+        created_at=created,
+    )
+
+    assert owner.keeps_admin_access() is True
+    assert owner.access_reason == "admin"
+    assert is_usage_exempt(owner) is True
+    assert get_user_monthly_limit(owner, "ai_images_generated") is None
+    assert partner.keeps_admin_access() is True
+    assert partner.usage_tier == "pro"
+    assert partner.has_pro_access is True
+    assert is_usage_exempt(partner) is True
+    assert get_user_monthly_limit(partner, "ai_assistant_messages") is None
+    assert AdminUsageLimitsDTO.for_user(partner).recipes_imported is None
+    assert require_admin(partner) is partner
+
+    assert other.keeps_admin_access() is False
+    assert get_user_monthly_limit(other, "ai_images_generated") == 20
+    assert get_user_monthly_limit(other, "ai_assistant_messages") == 300
+    assert get_user_monthly_limit(other, "ai_suggestions_requested") == 200
+    assert get_user_monthly_limit(other, "recipes_imported") == 50
+    assert granted.usage_tier == "pro"
+    assert granted.keeps_admin_access() is False
+    assert get_user_monthly_limit(granted, "ai_images_generated") == 20
+    try:
+        require_admin(other)
+    except HTTPException as exc:
+        assert exc.status_code == 403
+    else:
+        raise AssertionError("legacy pro subscriber was treated as admin")
 
 
 def test_new_account_gets_launch_caps():
