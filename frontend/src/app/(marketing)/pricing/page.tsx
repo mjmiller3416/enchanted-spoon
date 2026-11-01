@@ -4,7 +4,9 @@ import { Check, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { WebFoundingOffer } from "@/components/billing/WebFoundingOffer";
 import { appConfig } from "@/lib/config";
+import { PRO_ANNUAL_PRICE_LABEL, PRO_MONTHLY_PRICE_LABEL, PRO_TRIAL_DAYS } from "@/lib/pro-plans";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -84,12 +86,19 @@ export default function PricingPage() {
                 Full AI
               </Badge>
             </div>
-            <p className="flex items-baseline gap-1">
-              <span className="text-4xl font-bold tracking-tight text-foreground">$4.99</span>
-              <span className="text-sm text-muted-foreground">/ month</span>
+            <p className="flex flex-col gap-1">
+              <span className="flex items-baseline gap-1">
+                <span className="text-4xl font-bold tracking-tight text-foreground">{PRO_MONTHLY_PRICE_LABEL}</span>
+                <span className="text-sm text-muted-foreground">/ month</span>
+              </span>
+              <span className="flex items-baseline gap-1">
+                <span className="text-2xl font-semibold tracking-tight text-foreground">{PRO_ANNUAL_PRICE_LABEL}</span>
+                <span className="text-sm text-muted-foreground">/ year</span>
+              </span>
             </p>
             <p className="text-sm text-muted-foreground">
-              For cooks who want the genie doing the heavy lifting.
+              {PRO_TRIAL_DAYS}-day free trial, then the plan you choose. For cooks who want
+              the genie doing the heavy lifting.
             </p>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col gap-6">
@@ -101,10 +110,13 @@ export default function PricingPage() {
         </Card>
       </div>
 
+      <WebFoundingOffer />
+
       <p className="text-sm text-muted-foreground">
         Already using {appConfig.appName}? Upgrade anytime from{" "}
         <span className="font-medium text-foreground">Settings → Plan &amp; Billing</span>.
-        Cancel whenever — your recipes stay yours.
+        Cancel whenever — your recipes stay yours. In the iOS and Android apps, Pro is
+        purchased through the App Store or Google Play at the same prices.
       </p>
     </section>
   );

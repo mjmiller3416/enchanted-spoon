@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Enchanted Spoon</string>
+    <string name="title_activity_main">Enchanted Spoon</string>
+    <string name="package_name">com.enchantedspoon.app</string>
+    <string name="custom_url_scheme">com.enchantedspoon.app</string>
+</resources>

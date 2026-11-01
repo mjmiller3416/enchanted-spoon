@@ -241,6 +241,35 @@ class TestHandleEventSubscriptionUpdated:
             cancel_at_period_end=False,
         )
 
+    def test_second_trial_does_not_grant_pro(self):
+        service, session = _service_with_mock_repo()
+        user = User(id=4, trial_provider="app_store")
+        service.repo.get_by_stripe_customer_id.return_value = user
+        service.repo.claim_trial.return_value = False
+
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "id": "sub_second",
+                    "customer": "cus_xyz",
+                    "status": "trialing",
+                    "current_period_end": 1700000000,
+                }
+            },
+        }
+        service.handle_event(event)
+
+        service.repo.claim_trial.assert_called_once_with(user, "stripe", "sub_second")
+        service.repo.update_subscription.assert_called_once_with(
+            user,
+            subscription_tier="free",
+            subscription_status="trialing",
+            subscription_ends_at=datetime.fromtimestamp(1700000000, tz=timezone.utc),
+            cancel_at_period_end=False,
+        )
+        session.commit.assert_called_once()
+
     def test_cancel_at_period_end_passes_through(self):
         # A portal cancel keeps status=active but sets cancel_at_period_end —
         # the flag is what lets the UI say "ends on X" instead of "renews on X".

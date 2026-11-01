@@ -31,9 +31,15 @@ export function useStartCheckout() {
   const { getToken } = useAuth();
 
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (interval: "month" | "year" = "month") => {
+      const { isNativeApp } = await import("@/lib/native/platform");
+      if (isNativeApp()) {
+        throw new Error(
+          "Subscriptions in the app are purchased through the App Store or Google Play.",
+        );
+      }
       const token = await getToken();
-      const { checkout_url } = await billingApi.createCheckoutSession(token);
+      const { checkout_url } = await billingApi.createCheckoutSession(interval, token);
       window.location.assign(checkout_url);
     },
   });

@@ -3,7 +3,9 @@
 Centralised route registration for the Enchanted Spoon API.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from app.api.auth.dependencies import reject_read_only_writes
 
 from app.api import (
     admin,
@@ -24,6 +26,7 @@ from app.api import (
     sample_data,
     settings,
     shopping,
+    revenuecat_webhooks,
     stripe_webhooks,
     upload,
     users,
@@ -38,7 +41,7 @@ from app.api.ai import (
     recipe_import_router,
 )
 
-api_router = APIRouter()
+api_router = APIRouter(dependencies=[Depends(reject_read_only_writes)])
 
 # ── Core domain routes ───────────────────────────────────────────────────
 api_router.include_router(recipes.router, prefix="/api/recipes", tags=["recipes"])
@@ -70,6 +73,11 @@ api_router.include_router(hearth.router, prefix="/api/hearth", tags=["hearth", "
 
 # ── Webhooks (unauthenticated, verified via provider signature) ─────────
 api_router.include_router(stripe_webhooks.router, prefix="/api/webhooks/stripe", tags=["webhooks"])
+api_router.include_router(
+    revenuecat_webhooks.router,
+    prefix="/api/webhooks/revenuecat",
+    tags=["webhooks"],
+)
 
 # ── AI-powered routes ────────────────────────────────────────────────────
 api_router.include_router(cooking_tips_router, prefix="/api/ai/cooking-tip", tags=["ai", "cooking-tips"])

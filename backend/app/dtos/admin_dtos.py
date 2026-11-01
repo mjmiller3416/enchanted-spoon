@@ -31,6 +31,15 @@ class CurrentUserDTO(BaseModel):
     cancel_at_period_end: bool = False
     has_pro_access: bool
     access_reason: str
+    access_mode: str
+    grandfathered_free_until: Optional[datetime] = None
+    trial_consumed: bool = False
+    billing_channel: Optional[str] = None
+    store_provider: Optional[str] = None
+    store_product_id: Optional[str] = None
+    store_status: Optional[str] = None
+    store_expires_at: Optional[datetime] = None
+    store_will_renew: bool = False
     created_at: datetime
 
     @classmethod
@@ -47,6 +56,15 @@ class CurrentUserDTO(BaseModel):
             cancel_at_period_end=user.cancel_at_period_end,
             has_pro_access=user.has_pro_access,
             access_reason=user.access_reason,
+            access_mode=user.access_mode,
+            grandfathered_free_until=user.grandfathered_free_until,
+            trial_consumed=user.trial_consumed_at is not None,
+            billing_channel=user.billing_channel,
+            store_provider=user.store_provider,
+            store_product_id=user.store_product_id,
+            store_status=user.store_status,
+            store_expires_at=user.store_expires_at,
+            store_will_renew=bool(user.store_will_renew),
             created_at=user.created_at,
         )
 

@@ -1,13 +1,14 @@
 // ⚠️ PLACEHOLDER LEGAL COPY — owner must review with counsel before public launch.
 import type { Metadata } from "next";
 import { appConfig } from "@/lib/config";
+import { PRO_ANNUAL_PRICE_LABEL, PRO_MONTHLY_PRICE_LABEL, PRO_TRIAL_DAYS } from "@/lib/pro-plans";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
   description: `The terms that govern your use of ${appConfig.appName}.`,
 };
 
-const LAST_UPDATED = "July 13, 2026";
+const LAST_UPDATED = "October 31, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -56,6 +57,21 @@ export default function TermsPage() {
           incomplete. Nutrition estimates are informational only and are not medical or dietary
           advice — always verify ingredients and allergens yourself. AI usage may be subject to
           reasonable limits.
+        </p>
+      </Section>
+
+      <Section title="Subscriptions">
+        <p className="leading-7 text-foreground-subtle">
+          Enchanted Spoon Pro is an auto-renewable subscription: {PRO_MONTHLY_PRICE_LABEL} per
+          month or {PRO_ANNUAL_PRICE_LABEL} per year in the United States, after a{" "}
+          {PRO_TRIAL_DAYS}-day free trial when the account has not already used one. On the
+          website, payment is processed by Stripe. In the iOS app, payment is charged to your
+          Apple ID. In the Android app, payment is charged by Google Play. A subscription renews
+          automatically unless you cancel at least 24 hours before the end of the current period.
+          Manage or cancel a store subscription in your App Store or Google Play account settings,
+          and a web subscription from Settings → Plan &amp; Billing. One account has one free
+          trial. The founding code FOUNDER30, when offered, is entered at web checkout only and
+          is not an App Store or Google Play offer code.
         </p>
       </Section>
 

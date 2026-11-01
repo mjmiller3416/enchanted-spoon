@@ -4,7 +4,7 @@ Repository layer for User model. Handles all direct database interactions
 related to users, including lookup, creation, and account relinking.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import func, select, update
@@ -224,6 +224,65 @@ class UserRepo:
             user.subscription_ends_at = subscription_ends_at
         if cancel_at_period_end is not None:
             user.cancel_at_period_end = cancel_at_period_end
+        self.session.flush()
+        return user
+
+    def claim_trial(
+        self,
+        user: User,
+        provider: str,
+        transaction_id: Optional[str] = None,
+    ) -> bool:
+        """Record the account's one free trial, or continue the same one.
+
+        Returns False when this would be a second trial: a different billing
+        provider, or the same provider with a different transaction id.
+        Webhook redelivery of the same trial returns True.
+
+        A missing transaction id does not count as a new trial. The store
+        REST snapshot often lacks the original transaction id the webhook has.
+
+        Args:
+            user: The account starting or continuing a trial.
+            provider: ``stripe``, ``app_store``, or ``play_store``.
+            transaction_id: Stripe subscription id or store original transaction id.
+
+        Returns:
+            True when this trial may grant Pro.
+        """
+        if user.trial_consumed_at is None or user.trial_provider is None:
+            user.trial_consumed_at = datetime.now(timezone.utc)
+            user.trial_provider = provider
+            user.trial_transaction_id = transaction_id
+            self.session.flush()
+            return True
+
+        if user.trial_provider != provider:
+            return False
+
+        if transaction_id and user.trial_transaction_id and transaction_id != user.trial_transaction_id:
+            return False
+
+        if transaction_id and not user.trial_transaction_id:
+            user.trial_transaction_id = transaction_id
+            self.session.flush()
+        return True
+
+    def apply_store_fields(self, user: User, updates: dict) -> User:
+        """Write store-entitlement columns. None values are skipped except expiry.
+
+        Args:
+            user: The account to update.
+            updates: Column names mapped to new values.
+
+        Returns:
+            The same user, flushed and not committed.
+        """
+        nullable_clear = {"store_expires_at"}
+        for key, value in updates.items():
+            if value is None and key not in nullable_clear:
+                continue
+            setattr(user, key, value)
         self.session.flush()
         return user
 

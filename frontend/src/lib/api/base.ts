@@ -1,5 +1,7 @@
 // Core API infrastructure: fetch wrapper, error handling, query string builder
 
+import { nativeClientHeaders } from "@/lib/native/platform";
+
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 // Default request timeout. AI endpoints (image/recipe generation, chat) can
@@ -71,6 +73,7 @@ export async function fetchApi<T>(
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...nativeClientHeaders(),
     ...(options?.headers as Record<string, string>),
   };
 

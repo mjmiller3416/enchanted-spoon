@@ -9,9 +9,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, DateTime, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from ..core.access_policy import (
+    ACCESS_READ_ONLY,
+    EXISTING_FREE_FULL_ACCESS_UNTIL,
+    as_utc,
+    is_existing_free_cohort,
+    resolve_access_mode,
+)
 from ..database.base import Base
 
 if TYPE_CHECKING:
@@ -68,6 +75,26 @@ class User(Base):
     # True when Stripe will stop the subscription at the current period end
     # (portal cancel) — subscription_ends_at is then an end date, not a renewal.
     cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # First free trial this account has used, on any billing provider.
+    # A later trial from Stripe or a store does not grant Pro.
+    trial_consumed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    trial_provider: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    trial_transaction_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # App Store / Play Billing entitlement (RevenueCat). Kept off the Stripe
+    # columns so a store receipt and a Stripe subscription cannot clobber
+    # each other.
+    store_provider: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    store_product_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    store_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    store_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    store_will_renew: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    store_original_transaction_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True, unique=True
+    )
+    store_environment: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    store_event_timestamp_ms: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
     # Granted access fields (for testers, promos)
     granted_pro_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -151,6 +178,15 @@ class User(Base):
     )
 
     # ── Properties ──────────────────────────────────────────────────────────
+    def _store_is_current(self, now: Optional[datetime] = None) -> bool:
+        """True when the store entitlement itself grants Pro right now."""
+        if self.store_status not in ACTIVE_SUBSCRIPTION_STATUSES:
+            return False
+        if self.store_expires_at is None:
+            return True
+        now = now or datetime.now(timezone.utc)
+        return as_utc(self.store_expires_at) > as_utc(now)
+
     @property
     def has_pro_access(self) -> bool:
         """Check if user has pro-level access through any path."""
@@ -158,16 +194,48 @@ class User(Base):
         if self.is_admin:
             return True
 
-        # Active paid subscription
+        # Active paid Stripe subscription
         if self.subscription_tier == "pro" and self.subscription_status in ACTIVE_SUBSCRIPTION_STATUSES:
+            return True
+
+        # Active App Store or Play Billing entitlement
+        if self._store_is_current():
             return True
 
         # Granted temporary access (testers, promos)
         if self.granted_pro_until:
-            if self.granted_pro_until > datetime.now(timezone.utc):
+            if as_utc(self.granted_pro_until) > datetime.now(timezone.utc):
                 return True
 
         return False
+
+    @property
+    def billing_channel(self) -> Optional[str]:
+        """Where the current paid plan is billed: store provider or ``stripe``."""
+        if self._store_is_current():
+            return self.store_provider
+        if self.subscription_tier == "pro" and self.subscription_status in ACTIVE_SUBSCRIPTION_STATUSES:
+            return "stripe"
+        return None
+
+    @property
+    def access_mode(self) -> str:
+        """``full`` or ``read_only``. Read-only accounts can view and export."""
+        return resolve_access_mode(
+            is_admin=self.is_admin,
+            has_pro_access=self.has_pro_access,
+            created_at=self.created_at,
+            now=datetime.now(timezone.utc),
+        )
+
+    @property
+    def grandfathered_free_until(self) -> Optional[datetime]:
+        """When an existing free account stops being a full free plan, if ever."""
+        if self.is_admin or self.has_pro_access:
+            return None
+        if not is_existing_free_cohort(self.created_at):
+            return None
+        return EXISTING_FREE_FULL_ACCESS_UNTIL
 
     @property
     def access_reason(self) -> str:
@@ -176,8 +244,14 @@ class User(Base):
             return "admin"
         if self.subscription_tier == "pro" and self.subscription_status in ACTIVE_SUBSCRIPTION_STATUSES:
             return "subscription"
-        if self.granted_pro_until and self.granted_pro_until > datetime.now(timezone.utc):
+        if self._store_is_current():
+            return "store_subscription"
+        if self.granted_pro_until and as_utc(self.granted_pro_until) > datetime.now(timezone.utc):
             return f"granted ({self.granted_by or 'manual'})"
+        if self.access_mode == ACCESS_READ_ONLY:
+            return "read_only"
+        if self.grandfathered_free_until is not None:
+            return "grandfathered_free"
         return "free"
 
     # ── Helper Methods ──────────────────────────────────────────────────────

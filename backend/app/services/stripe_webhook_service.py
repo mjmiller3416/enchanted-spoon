@@ -153,6 +153,20 @@ class StripeWebhookService:
             )
             return
 
+        # A subscription event may already have suppressed a second free trial.
+        # Don't let a later checkout.session.completed put Pro back.
+        if (
+            user.subscription_status == "trialing"
+            and user.subscription_tier == "free"
+            and user.trial_provider not in (None, "stripe")
+        ):
+            logger.info(
+                "checkout.session.completed for user %s left a suppressed trial in place",
+                user.id,
+            )
+            self.repo.update_subscription(user, stripe_customer_id=customer_id)
+            return
+
         # Delayed payment methods complete checkout before the payment settles.
         # Record the customer mapping but wait for invoice.paid to grant pro.
         if checkout_session.get("payment_status") == "unpaid":
@@ -194,6 +208,13 @@ class StripeWebhookService:
 
         status = subscription.get("status", "active")
         tier = "pro" if status in ACTIVE_SUBSCRIPTION_STATUSES else "free"
+        if status == "trialing":
+            # Same subscription redelivery continues the trial. A different
+            # subscription id, or a trial already used on a store, does not.
+            allowed = self.repo.claim_trial(user, "stripe", subscription.get("id"))
+            if allowed is False:
+                tier = "free"
+                logger.info("Stripe trial for user %s does not grant Pro", user.id)
 
         self.repo.update_subscription(
             user,

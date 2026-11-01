@@ -1,0 +1,6 @@
+node_modules
+.next
+ios
+android
+mobile
+*.tsbuildinfo
