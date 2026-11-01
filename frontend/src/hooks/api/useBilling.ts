@@ -31,7 +31,7 @@ export function useStartCheckout() {
   const { getToken } = useAuth();
 
   return useMutation({
-    mutationFn: async (interval: "month" | "year" = "month") => {
+    mutationFn: async () => {
       const { isNativeApp } = await import("@/lib/native/platform");
       if (isNativeApp()) {
         throw new Error(
@@ -39,7 +39,7 @@ export function useStartCheckout() {
         );
       }
       const token = await getToken();
-      const { checkout_url } = await billingApi.createCheckoutSession(interval, token);
+      const { checkout_url } = await billingApi.createCheckoutSession(token);
       window.location.assign(checkout_url);
     },
   });

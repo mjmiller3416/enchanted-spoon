@@ -4,18 +4,17 @@ import type {
   PortalSessionResponse,
   StoreSyncResponse,
 } from "@/types/billing";
-import type { ProInterval } from "@/lib/pro-plans";
 import { fetchApi } from "./base";
 
 export const billingApi = {
-  /** Create a Stripe Checkout session for the Pro plan; redirect to the returned URL. */
-  createCheckoutSession: (
-    interval: ProInterval = "month",
-    token?: string | null,
-  ): Promise<CheckoutSessionResponse> =>
+  /**
+   * Create a Stripe Checkout session and redirect to it.
+   * Price selection and trial length are not chosen here.
+   */
+  createCheckoutSession: (token?: string | null): Promise<CheckoutSessionResponse> =>
     fetchApi<CheckoutSessionResponse>(
       "/api/billing/checkout-session",
-      { method: "POST", body: JSON.stringify({ interval }) },
+      { method: "POST" },
       token,
     ),
 

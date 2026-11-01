@@ -21,9 +21,7 @@ class StripeSettings(BaseSettings):
     Attributes:
         stripe_secret_key: Stripe secret key for API calls (sk_xxx)
         stripe_webhook_secret: Signing secret for verifying webhook events (whsec_xxx)
-        stripe_price_id_pro: Price ID for the monthly Pro plan ($6.99/mo)
-        stripe_price_id_pro_annual: Price ID for the annual Pro plan ($49.99/yr).
-            Optional until the annual price exists in Stripe.
+        stripe_price_id_pro: Price ID for the Pro subscription plan
         frontend_url: Base URL of the frontend app, used to build Checkout
             success/cancel URLs and the billing-portal return URL
     """
@@ -37,7 +35,6 @@ class StripeSettings(BaseSettings):
     stripe_secret_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
     stripe_price_id_pro: Optional[str] = None
-    stripe_price_id_pro_annual: Optional[str] = None
     frontend_url: str = "http://localhost:3000"
 
     @property

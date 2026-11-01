@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { useCurrentUser, useStartCheckout } from "@/hooks/api";
 import { isNativeApp } from "@/lib/native/platform";
-import { PRO_ANNUAL_PRICE_LABEL, PRO_MONTHLY_PRICE_LABEL } from "@/lib/pro-plans";
 
 /**
  * Shown when the account API says access_mode is read-only. Writes are
@@ -29,8 +28,8 @@ export function ReadOnlyBanner() {
 
   const native = isNativeApp();
 
-  const start = (interval: "month" | "year") => {
-    startCheckout.mutate(interval, {
+  const start = () => {
+    startCheckout.mutate(undefined, {
       onError: (error) =>
         toast.error(error instanceof Error && error.message ? error.message : "Couldn't start checkout."),
     });
@@ -61,19 +60,15 @@ export function ReadOnlyBanner() {
               <DialogHeader>
                 <DialogTitle>Subscribe to Pro</DialogTitle>
                 <DialogDescription>
-                  {PRO_MONTHLY_PRICE_LABEL}/month or {PRO_ANNUAL_PRICE_LABEL}/year. A 7-day free
-                  trial applies if this account hasn&apos;t used one.
+                  Continue to web checkout to subscribe. Plan prices and the trial are handled there.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Button onClick={() => start("year")} disabled={startCheckout.isPending}>
+                <Button onClick={start} disabled={startCheckout.isPending}>
                   {startCheckout.isPending && (
                     <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
                   )}
-                  Annual — {PRO_ANNUAL_PRICE_LABEL}/yr
-                </Button>
-                <Button variant="outline" onClick={() => start("month")} disabled={startCheckout.isPending}>
-                  Monthly — {PRO_MONTHLY_PRICE_LABEL}/mo
+                  Continue to checkout
                 </Button>
                 <Button variant="outline" onClick={() => setOpen(false)}>
                   Close

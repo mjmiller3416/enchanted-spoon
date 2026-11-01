@@ -14,8 +14,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.access_policy import (
     ACCESS_READ_ONLY,
-    EXISTING_FREE_FULL_ACCESS_UNTIL,
     as_utc,
+    free_plan_sunset,
     is_existing_free_cohort,
     resolve_access_mode,
 )
@@ -235,7 +235,7 @@ class User(Base):
             return None
         if not is_existing_free_cohort(self.created_at):
             return None
-        return EXISTING_FREE_FULL_ACCESS_UNTIL
+        return free_plan_sunset()
 
     @property
     def access_reason(self) -> str:

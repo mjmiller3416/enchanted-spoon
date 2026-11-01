@@ -15,7 +15,6 @@ import logging
 import stripe
 from sqlalchemy.orm import Session
 
-from ..core.native_billing_config import PRO_TRIAL_DAYS
 from ..core.stripe_config import StripeSettings, get_stripe_settings
 from ..models.user import User
 from ..repositories.user_repo import UserRepo
@@ -113,22 +112,17 @@ class BillingService:
             logger.error(f"Stripe customer delete failed for user {user.id}: {e}")
             raise StripeCustomerError("Failed to cancel billing.") from e
 
-    def create_checkout_session(self, user: User, interval: str = "month") -> str:
+    def create_checkout_session(self, user: User) -> str:
         """
         Create a Stripe Checkout session for the Pro subscription.
 
         Creates the Stripe customer first if the user doesn't have one yet.
-        The first trial on the account lasts ``PRO_TRIAL_DAYS``. An account
-        that already consumed a trial (Stripe or a store) is not offered
-        another one. Do not also configure a trial on the Stripe Price;
-        Checkout is the only place the trial length is decided.
-
-        Promotion codes are enabled so the web-only FOUNDER30 code can be
-        entered here. The native apps do not call this method.
+        Which Stripe price is charged, and whether checkout includes a trial,
+        is owned by the cost/trial work (see docs/MOBILE.md). This method
+        keeps the existing single-price session.
 
         Args:
             user: The authenticated user.
-            interval: ``month`` ($6.99) or ``year`` ($49.99).
 
         Returns:
             The Checkout session redirect URL.
@@ -139,25 +133,17 @@ class BillingService:
             CheckoutSessionError: Checkout session creation failed.
         """
         self._require_configured()
-        price_id = self._price_id_for_interval(interval)
         customer_id = self.get_or_create_customer(user)
 
-        create_kwargs: dict = {
-            "customer": customer_id,
-            "mode": "subscription",
-            "line_items": [{"price": price_id, "quantity": 1}],
-            "success_url": f"{self.settings.frontend_url}/settings?checkout=success",
-            "cancel_url": f"{self.settings.frontend_url}/settings?checkout=cancelled",
-            "client_reference_id": str(user.id),
-            "allow_promotion_codes": True,
-        }
-        # Trial length lives here, not on the Stripe Price, so a second trial
-        # can be omitted. A trial configured on the Price would still apply.
-        if user.trial_consumed_at is None:
-            create_kwargs["subscription_data"] = {"trial_period_days": PRO_TRIAL_DAYS}
-
         try:
-            checkout_session = stripe.checkout.Session.create(**create_kwargs)
+            checkout_session = stripe.checkout.Session.create(
+                customer=customer_id,
+                mode="subscription",
+                line_items=[{"price": self.settings.stripe_price_id_pro, "quantity": 1}],
+                success_url=f"{self.settings.frontend_url}/settings?checkout=success",
+                cancel_url=f"{self.settings.frontend_url}/settings?checkout=cancelled",
+                client_reference_id=str(user.id),
+            )
         except stripe.error.StripeError as e:
             logger.error(f"Stripe checkout session creation failed for user {user.id}: {e}")
             raise CheckoutSessionError("Failed to create checkout session.") from e
@@ -198,20 +184,3 @@ class BillingService:
             raise PortalSessionError("Failed to create billing portal session.") from e
 
         return portal_session.url
-
-    def _price_id_for_interval(self, interval: str) -> str:
-        """Resolve the Stripe price id for a Pro interval."""
-        if interval == "year":
-            if not self.settings.stripe_price_id_pro_annual:
-                raise StripeNotConfiguredError(
-                    "Annual billing isn't configured. Set STRIPE_PRICE_ID_PRO_ANNUAL "
-                    "to the $49.99/yr price."
-                )
-            return self.settings.stripe_price_id_pro_annual
-        if interval != "month":
-            raise StripeNotConfiguredError("Plan interval must be month or year.")
-        if not self.settings.stripe_price_id_pro:
-            raise StripeNotConfiguredError(
-                "Stripe is not configured. Set STRIPE_SECRET_KEY and STRIPE_PRICE_ID_PRO."
-            )
-        return self.settings.stripe_price_id_pro

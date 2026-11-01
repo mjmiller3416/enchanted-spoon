@@ -6,15 +6,7 @@ and the native store entitlement sync.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import BaseModel, Field
-
-
-class CheckoutSessionRequestDTO(BaseModel):
-    """Body for POST /api/billing/checkout-session."""
-
-    interval: Literal["month", "year"] = "month"
 
 
 class CheckoutSessionResponseDTO(BaseModel):
@@ -36,7 +28,6 @@ class StoreSyncResponseDTO(BaseModel):
 
 
 __all__ = [
-    "CheckoutSessionRequestDTO",
     "CheckoutSessionResponseDTO",
     "PortalSessionResponseDTO",
     "StoreSyncResponseDTO",

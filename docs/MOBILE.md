@@ -74,8 +74,8 @@ Server:
 - `REVENUECAT_WEBHOOK_AUTHORIZATION` is the full `Authorization` value from the RevenueCat dashboard.
 - `REVENUECAT_SECRET_API_KEY` is the secret key used by `POST /api/billing/store/sync`. The app cannot grant itself Pro; the server reads RevenueCat.
 - Stripe columns and store columns are separate. `has_pro_access` is true when either is current.
-- The first free trial on the account (Stripe, App Store, or Play) is recorded on the user. A later trial does not grant Pro (`store_status = trial_suppressed`, or a Stripe trial left at tier `free`). Do not also put a trial on the Stripe Price. Checkout adds `trial_period_days` only when the account has not consumed a trial. Set `STRIPE_PRICE_ID_PRO` to the $6.99/mo price and `STRIPE_PRICE_ID_PRO_ANNUAL` to the $49.99/yr price.
-- Web checkout allows promotion codes so **FOUNDER30** can be entered there. There is no store offer code.
+- The first free trial on the account (Stripe, App Store, or Play) is recorded on the user. A later store trial does not grant Pro (`store_status = trial_suppressed`). A later Stripe trial is left at tier `free` when the webhook reports `trialing`.
+- Web checkout, trial length, trial usage caps, and which Stripe price is charged are **not** implemented here. That work is the cost/trial change (`bc-ced52f02`). Production already has `STRIPE_PRICE_PRO_MONTHLY_V2` ($6.99/mo) and `STRIPE_PRICE_PRO_ANNUAL_V2` ($49.99/yr). This shell does not read those variables and does not add a second checkout implementation.
 
 The paywall (native shell) shows the annual plan selected, the trial timeline, the price and the date the first charge happens, a Close button, Restore purchases, and links to `/privacy` and `/terms`.
 
@@ -83,13 +83,15 @@ The paywall (native shell) shows the annual plan selected, the trial timeline, t
 
 Web only. The native UI mentions it only where the store currently allows a link to a web purchase:
 
-- **Website:** the pricing page shows the code.
+- **Website:** the pricing page shows the code until the shared sunset below.
 - **iOS, United States storefront:** [Guideline 3.1.1(a)](https://developer.apple.com/app-store/review/guidelines/#in-app-purchase) allows buttons and external links to other purchase methods on the United States storefront without a StoreKit External Purchase Link entitlement. The link is shown only after RevenueCat reports storefront `US` or `USA`, and it opens in the system browser. Other storefronts do not see it. This build does not request the non-US entitlement.
 - **Android:** [External Content Links](https://developer.android.com/google/play/billing/externalcontentlinks) requires Play Console enrollment, a registered destination, and the Play Billing link API (information screen, then `launchExternalLink`) before any link. This app is not enrolled, so the founding price is not mentioned on Android.
 
 ### Read-only accounts
 
-Accounts created on or before 2026-10-31 keep the full free plan through 2027-03-31 23:59:59 UTC. After that they are `access_mode: "read_only"`: they can view and export, delete the account, and subscribe, and other writes return 403 `account_read_only`. The app shows a banner and the paywall. Pro, admin, and granted access stay full. Accounts created after the cutoff stay on the current metered free plan; they are not flipped to read-only on that date.
+Accounts created on or before 2026-10-31 keep the full free plan through **March 31, 2027 at 11:59 PM America/New_York** (`FREE_PLAN_SUNSET_AT=2027-03-31T23:59:00`, `FREE_PLAN_SUNSET_TIMEZONE=America/New_York`). That is 2027-04-01 03:59 UTC, not 23:59 UTC. After that instant they are `access_mode: "read_only"`: they can view and export, delete the account, and subscribe, and other writes return 403 `account_read_only`. The app shows a banner and the paywall. Pro, admin, and granted access stay full. Accounts created after the cutoff stay on the current metered free plan; they are not flipped to read-only on that date.
+
+FOUNDER30 ends at the same configured instant. The website reads the matching `NEXT_PUBLIC_FREE_PLAN_SUNSET_AT` and `NEXT_PUBLIC_FREE_PLAN_SUNSET_TIMEZONE` (same defaults). Changing one without the other makes the banner and the founding offer disagree.
 
 ## Release builds
 
@@ -131,7 +133,7 @@ Do not create the store records or submit as part of development. When you do:
 
 - [ ] Subscription group with `com.enchantedspoon.app.pro.monthly` ($6.99) and `com.enchantedspoon.app.pro.annual` ($49.99), 7-day free trial intro, same entitlement `pro` in RevenueCat.
 - [ ] RevenueCat project, iOS and Android public SDK keys, secret API key, webhook `https://<api>/api/webhooks/revenuecat` with the authorization header. Then set `NATIVE_IAP_ENABLED=true` and the `NEXT_PUBLIC_REVENUECAT_*` keys and redeploy the web app **before** sending sandbox purchases.
-- [ ] Stripe prices updated to $6.99/mo and $49.99/yr (`STRIPE_PRICE_ID_PRO`, `STRIPE_PRICE_ID_PRO_ANNUAL`). No trial configured on the Price. FOUNDER30 coupon created in Stripe only.
+- [ ] Stripe monthly and annual prices stay on `STRIPE_PRICE_PRO_MONTHLY_V2` and `STRIPE_PRICE_PRO_ANNUAL_V2` (already set in Railway production). Checkout, the 7-day web trial, and trial caps are wired by the cost/trial change (`bc-ced52f02`), not by this shell. FOUNDER30 is a web coupon only and ends with `FREE_PLAN_SUNSET_AT`.
 - [ ] Privacy policy URL `https://enchantedspoon.app/privacy` and Terms of Use URL `https://enchantedspoon.app/terms` (the terms include the subscription disclosure).
 - [ ] Support URL and `info@enchantedspoon.app`.
 - [ ] Screenshots, description, age rating, and a review account Clerk can sign into. The reviewer must be able to reach the paywall from Settings → Plan & Billing and from a Pro-gated action, close it, and tap Restore purchases.

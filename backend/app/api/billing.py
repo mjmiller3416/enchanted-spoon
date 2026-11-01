@@ -14,7 +14,6 @@ from app.api.auth import get_current_user
 from app.core.native_billing_config import is_native_billing_client
 from app.database.db import get_session
 from app.dtos.billing_dtos import (
-    CheckoutSessionRequestDTO,
     CheckoutSessionResponseDTO,
     PortalSessionResponseDTO,
     StoreSyncResponseDTO,
@@ -43,7 +42,6 @@ _NATIVE_BILLING_DETAIL = (
 
 @router.post("/checkout-session", response_model=CheckoutSessionResponseDTO)
 def create_checkout_session(
-    body: CheckoutSessionRequestDTO | None = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
     client: str | None = Header(default=None, alias="X-Enchanted-Spoon-Client"),
@@ -61,9 +59,8 @@ def create_checkout_session(
         raise HTTPException(status_code=403, detail=_NATIVE_BILLING_DETAIL)
 
     service = BillingService(session)
-    interval = body.interval if body else "month"
     try:
-        checkout_url = service.create_checkout_session(current_user, interval)
+        checkout_url = service.create_checkout_session(current_user)
     except StripeNotConfiguredError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except (StripeCustomerError, CheckoutSessionError) as e:

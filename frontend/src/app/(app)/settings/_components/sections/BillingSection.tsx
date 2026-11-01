@@ -26,7 +26,6 @@ import {
 import type { CurrentUserDTO } from "@/types/admin";
 import type { CurrentUserUsage } from "@/types/billing";
 import { isNativeApp } from "@/lib/native/platform";
-import { PRO_ANNUAL_PRICE_LABEL, PRO_MONTHLY_PRICE_LABEL } from "@/lib/pro-plans";
 
 const USAGE_ROWS: {
   field: keyof Pick<
@@ -142,12 +141,12 @@ export function BillingSection() {
     setClientReady(true);
   }, []);
 
-  const handleUpgrade = (interval: "month" | "year") => {
+  const handleUpgrade = () => {
     if (native) {
       setPaywallOpen(true);
       return;
     }
-    startCheckout.mutate(interval, {
+    startCheckout.mutate(undefined, {
       onError: (error) =>
         toast.error(error.message || "Couldn't start checkout. Please try again."),
     });
@@ -193,23 +192,14 @@ export function BillingSection() {
               <div className="flex flex-col gap-3 pt-1">
                 {clientReady && showUpgrade && (
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button onClick={() => handleUpgrade("year")} disabled={startCheckout.isPending} className="gap-2">
+                    <Button onClick={handleUpgrade} disabled={startCheckout.isPending} className="gap-2">
                       {startCheckout.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
                       ) : (
                         <Sparkles className="h-4 w-4" strokeWidth={1.5} />
                       )}
-                      {native ? "View Pro plans" : `Annual — ${PRO_ANNUAL_PRICE_LABEL}/yr`}
+                      {native ? "View Pro plans" : "Upgrade to Pro"}
                     </Button>
-                    {!native && (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleUpgrade("month")}
-                        disabled={startCheckout.isPending}
-                      >
-                        Monthly — {PRO_MONTHLY_PRICE_LABEL}/mo
-                      </Button>
-                    )}
                   </div>
                 )}
                 {clientReady && showUpgrade && <WebFoundingOffer />}

@@ -14,7 +14,6 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Keep in sync with frontend/src/lib/pro-plans.ts
-PRO_TRIAL_DAYS = 7
 PRO_MONTHLY_PRODUCT_ID = "com.enchantedspoon.app.pro.monthly"
 PRO_ANNUAL_PRODUCT_ID = "com.enchantedspoon.app.pro.annual"
 PRO_ENTITLEMENT_ID = "pro"

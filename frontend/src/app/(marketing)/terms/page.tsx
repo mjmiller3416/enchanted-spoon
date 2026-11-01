@@ -70,8 +70,9 @@ export default function TermsPage() {
           automatically unless you cancel at least 24 hours before the end of the current period.
           Manage or cancel a store subscription in your App Store or Google Play account settings,
           and a web subscription from Settings → Plan &amp; Billing. One account has one free
-          trial. The founding code FOUNDER30, when offered, is entered at web checkout only and
-          is not an App Store or Google Play offer code.
+          trial. The founding code FOUNDER30, when offered, is entered at web checkout only,
+          is not an App Store or Google Play offer code, and ends at 11:59 PM Eastern Time
+          on March 31, 2027 — the same moment grandfathered free accounts become view-only.
         </p>
       </Section>
 
