@@ -593,7 +593,7 @@ export function useRecipeWizard({
           prompt: aiPrompt.trim(),
           preferences: Object.keys(aiPreferences).length > 0 ? aiPreferences : undefined,
           estimate_nutrition: true,
-          generate_image: true,
+          generate_image: false,
         },
         token
       );

@@ -7,25 +7,29 @@ public release roadmap) can add/adjust tier caps here without touching the
 enforcement logic in `UsageService.reserve` or the routes gated by it.
 """
 
-from typing import Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 # Monthly caps per UserUsage field, per subscription tier.
 # A tier/field combination with no entry is uncapped.
 #
-# Tier philosophy (#161/#164): pro caps exist only to prevent abuse — a regular
-# user should never feel them. Free caps are a taste-test: enough to see each
-# AI feature work, not enough to rely on it. `ai_suggestions_requested` is
-# shared by four features (meal suggestions, nutrition estimation, recipe
-# generation, cooking tips), so its free cap is a bit above single digits.
+# Launch allowances bound optional AI use at the $4.99 price.
+# One photo unit is one action (up to a reference/banner pair).
+# Suggestions share a bucket across generation, nutrition, meal ideas and tips.
+# Core saved-recipe, Menu and shopping use is uncapped.
 TIER_USAGE_LIMITS: dict[str, dict[str, int]] = {
     "pro": {
-        "ai_images_generated": 150,
-        "ai_suggestions_requested": 300,
-        "ai_assistant_messages": 500,
+        "ai_images_generated": 10,
+        "ai_suggestions_requested": 50,
+        "ai_assistant_messages": 50,
         "recipes_imported": 100,
     },
     "free": {
-        "ai_images_generated": 3,
+        "ai_images_generated": 1,
         "ai_suggestions_requested": 10,
         "ai_assistant_messages": 10,
         "recipes_imported": 5,
@@ -46,3 +50,27 @@ def get_monthly_limit(tier: str, field: str) -> Optional[int]:
         tiers fall back to the "free" tier's caps as the safest default.
     """
     return TIER_USAGE_LIMITS.get(tier, TIER_USAGE_LIMITS["free"]).get(field)
+
+
+LEGACY_USAGE_LIMITS = {
+    "pro": {"ai_images_generated": 150, "ai_suggestions_requested": 300,
+            "ai_assistant_messages": 500, "recipes_imported": 100},
+    "free": {"ai_images_generated": 3, "ai_suggestions_requested": 10,
+             "ai_assistant_messages": 10, "recipes_imported": 5},
+}
+
+
+def get_user_monthly_limit(user: User, field: str) -> Optional[int]:
+    """Resolve the persisted cohort consistently for enforcement and display.
+
+    Existing accounts keep legacy limits even if they upgrade later. Unknown
+    persisted plans conservatively retain legacy entitlements. None is only for
+    transient, not-yet-inserted ORM instances and uses the new-account default.
+    """
+    if user.is_admin:
+        return None
+    tier = "pro" if user.has_pro_access else "free"
+    plan = getattr(user, "usage_plan", None)
+    if plan is not None and plan != "launch":
+        return LEGACY_USAGE_LIMITS[tier].get(field)
+    return get_monthly_limit(tier, field)

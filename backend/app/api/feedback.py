@@ -42,5 +42,5 @@ def submit_feedback(
     except GitHubIssueError:
         raise HTTPException(
             status_code=502,
-            detail="Failed to submit feedback. Please try again.",
+            detail="Feedback was not sent. Please email info@enchantedspoon.app for support.",
         )

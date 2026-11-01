@@ -8,15 +8,15 @@ import { appConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `${appConfig.appName} is free for recipes, meal planning, and shopping lists. Go Pro for full AI power — recipe import, generation, food photography, and the assistant.`,
+  description: `${appConfig.appName} is free for recipes, meal planning, and shopping lists. Go Pro for larger AI allowances — recipe import, generation, food photography, and the assistant.`,
 };
 
 const FREE_FEATURES = [
   "Unlimited recipes, collections, and favorites",
   "Meal planning with cooking streaks",
   "Shopping list that builds itself from your plan",
-  "Recipe nutrition facts and unit conversions",
-  "A monthly taste of every AI feature",
+  "Optional AI nutrition estimates and unit conversions",
+  "Monthly: 1 photo set, 10 AI requests, 10 Genie messages, 5 imports",
 ];
 
 const PRO_FEATURES = [
@@ -25,7 +25,7 @@ const PRO_FEATURES = [
   "Generate complete recipes from a prompt",
   "AI food photography for your recipes",
   "Genie assistant — chat, ideas, and tips",
-  "Generous monthly limits you'll rarely feel",
+  "Monthly: 10 photo sets, 50 AI requests, 50 Genie messages, 100 imports",
 ];
 
 function FeatureList({ features }: { features: string[] }) {
@@ -50,8 +50,8 @@ export default function PricingPage() {
         </h1>
         <p className="text-lg text-muted-foreground">
           Recipes, meal planning, and shopping lists are free forever. Pro
-          unlocks the full genie — AI import, generation, photography, and the
-          assistant.
+          adds larger monthly allowances for optional AI import, generation,
+          photography, and the assistant.
         </p>
       </div>
 
@@ -81,7 +81,7 @@ export default function PricingPage() {
               <h2 className="text-lg font-semibold text-foreground">Pro</h2>
               <Badge>
                 <Sparkles className="mr-1 h-3 w-3" strokeWidth={1.5} />
-                Full AI
+                More AI
               </Badge>
             </div>
             <p className="flex items-baseline gap-1">
@@ -104,7 +104,10 @@ export default function PricingPage() {
       <p className="text-sm text-muted-foreground">
         Already using {appConfig.appName}? Upgrade anytime from{" "}
         <span className="font-medium text-foreground">Settings → Plan &amp; Billing</span>.
-        Cancel whenever — your recipes stay yours.
+        Cancel whenever. Your recipes stay yours. AI requests share one allowance
+        for recipe generation, suggestions, nutrition estimates, and tips. A photo
+        set includes up to a reference and banner image. Allowances reset each
+        calendar month and do not roll over.
       </p>
     </section>
   );

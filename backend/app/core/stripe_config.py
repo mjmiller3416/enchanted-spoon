@@ -9,9 +9,13 @@ import logging
 from functools import lru_cache
 from typing import Optional
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
+
+# SDK 16.0.0 and snapshot webhook fixtures are tested against this version.
+STRIPE_API_VERSION = "2026-09-30.endive"
 
 
 class StripeSettings(BaseSettings):
@@ -32,8 +36,10 @@ class StripeSettings(BaseSettings):
         extra="ignore",
     )
 
-    stripe_secret_key: Optional[str] = None
-    stripe_webhook_secret: Optional[str] = None
+    # Explicit release gate; portal access and webhook processing remain available.
+    stripe_checkout_enabled: bool = False
+    stripe_secret_key: Optional[str] = Field(default=None, repr=False)
+    stripe_webhook_secret: Optional[str] = Field(default=None, repr=False)
     stripe_price_id_pro: Optional[str] = None
     frontend_url: str = "http://localhost:3000"
 

@@ -16,7 +16,7 @@ from app.services.ai.assistant.context import (
     should_include_ingredients,
     should_include_shopping_list,
 )
-from app.services.ai.image_generation import get_image_generation_service
+from app.services.ai.optional_images import generate_optional_recipe_images
 from app.services.ai.user_context_builder import UserContextBuilder
 from app.services.planner import PlannerService
 from app.services.shopping import ShoppingService
@@ -85,17 +85,7 @@ async def chat_with_assistant(
         reference_image_data = None
         banner_image_data = None
 
-        if recipe:
-            try:
-                image_service = get_image_generation_service()
-                image_result = await image_service.generate_dual_recipe_images(
-                    recipe.recipe_name
-                )
-                if image_result.get("success"):
-                    reference_image_data = image_result.get("reference_image_data")
-                    banner_image_data = image_result.get("banner_image_data")
-            except Exception as e:
-                print(f"Image generation failed: {e}")
+        # Chat creates recipe text only. Photos are an explicit recipe action.
 
         # Track usage (silent fail - don't break AI feature for tracking issues)
         try:
@@ -104,9 +94,6 @@ async def chat_with_assistant(
             # Track recipe creation if a recipe was generated
             if recipe:
                 usage_service.increment("recipes_created")
-            # Track image generation if images were generated
-            if reference_image_data or banner_image_data:
-                usage_service.increment("ai_images_generated")
         except Exception:
             pass
 
@@ -206,18 +193,9 @@ async def generate_recipe(
         banner_image_data = None
 
         if request.generate_image and recipe:
-            try:
-                image_service = get_image_generation_service()
-                image_result = await image_service.generate_dual_recipe_images(
-                    recipe.recipe_name
-                )
-                if image_result.get("success"):
-                    reference_image_data = image_result.get("reference_image_data")
-                    banner_image_data = image_result.get("banner_image_data")
-                if image_result.get("errors"):
-                    print(f"Image generation errors: {image_result['errors']}")
-            except Exception as e:
-                print(f"Image generation exception: {e}")
+            reference_image_data, banner_image_data = await generate_optional_recipe_images(
+                session, current_user, recipe.recipe_name
+            )
 
         # Track usage (silent fail - don't break AI feature for tracking issues)
         try:
@@ -226,9 +204,6 @@ async def generate_recipe(
             # Track recipe creation if a recipe was generated
             if recipe:
                 usage_service.increment("recipes_created")
-            # Track image generation if images were generated
-            if reference_image_data or banner_image_data:
-                usage_service.increment("ai_images_generated")
         except Exception:
             pass
 

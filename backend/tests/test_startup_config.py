@@ -31,7 +31,7 @@ def test_railway_staging_is_not_production(monkeypatch):
     assert is_production() is False
 
 
-def test_explicit_environment_wins(monkeypatch):
+def test_development_override_cannot_disable_railway_production(monkeypatch):
     monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
     monkeypatch.setenv("ENVIRONMENT", "development")
-    assert is_production() is False
+    assert is_production() is True

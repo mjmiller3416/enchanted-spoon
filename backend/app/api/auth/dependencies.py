@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
-from ...core.usage_limits import get_monthly_limit
+from ...core.usage_limits import get_user_monthly_limit
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -280,8 +280,7 @@ def require_within_usage_limit(field: str) -> Callable[..., Generator[User, None
         if user.is_admin:
             limit = None
         else:
-            tier = "pro" if user.has_pro_access else "free"
-            limit = get_monthly_limit(tier, field)
+            limit = get_user_monthly_limit(user, field)
 
         usage_service = UsageService(session, user.id)
         try:

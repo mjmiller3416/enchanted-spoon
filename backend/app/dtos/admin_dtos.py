@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.core.usage_limits import get_monthly_limit
+from app.core.usage_limits import get_user_monthly_limit
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -134,12 +134,11 @@ class AdminUsageLimitsDTO(BaseModel):
         """
         if user.is_admin:
             return cls()
-        tier = "pro" if user.has_pro_access else "free"
         return cls(
-            ai_images_generated=get_monthly_limit(tier, "ai_images_generated"),
-            ai_suggestions_requested=get_monthly_limit(tier, "ai_suggestions_requested"),
-            ai_assistant_messages=get_monthly_limit(tier, "ai_assistant_messages"),
-            recipes_imported=get_monthly_limit(tier, "recipes_imported"),
+            ai_images_generated=get_user_monthly_limit(user, "ai_images_generated"),
+            ai_suggestions_requested=get_user_monthly_limit(user, "ai_suggestions_requested"),
+            ai_assistant_messages=get_user_monthly_limit(user, "ai_assistant_messages"),
+            recipes_imported=get_user_monthly_limit(user, "recipes_imported"),
         )
 
 

@@ -40,7 +40,7 @@ async def handle_stripe_webhook(
     `subscription_tier`/`subscription_status`/`subscription_ends_at` in sync.
     """
     payload = await request.body()
-    service = StripeWebhookService(session)
+    service = StripeWebhookService(session, settings=settings)
 
     try:
         event = service.verify_and_parse_event(payload, stripe_signature, settings)
