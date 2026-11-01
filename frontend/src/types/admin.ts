@@ -30,6 +30,7 @@ export interface AdminUserDTO {
   subscription_ends_at: string | null;
   cancel_at_period_end: boolean;
   is_admin: boolean;
+  usage_exempt: boolean;
   has_pro_access: boolean;
   access_reason: string;
   granted_pro_until: string | null;
@@ -50,6 +51,10 @@ export interface AdminGrantProRequest {
 
 export interface AdminToggleAdminRequest {
   is_admin: boolean;
+}
+
+export interface AdminSetUsageExemptRequest {
+  usage_exempt: boolean;
 }
 
 // Usage-by-user types

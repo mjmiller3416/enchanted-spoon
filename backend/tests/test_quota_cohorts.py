@@ -8,23 +8,61 @@ from app.dtos.admin_dtos import AdminUsageLimitsDTO
 from app.models.user import User
 
 
-def test_existing_accounts_keep_legacy_caps_and_usage_display(monkeypatch):
-    from datetime import datetime, timezone
+def test_legacy_pro_and_grants_use_launch_caps_unless_exempt(monkeypatch):
+    from datetime import datetime, timedelta, timezone
     monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2026-06-01T00:00:00+00:00")
+    monkeypatch.delenv("USAGE_EXEMPT_USER_IDS", raising=False)
     user = User(
+        id=4,
         is_admin=False,
         usage_plan="legacy",
+        usage_exempt=False,
         subscription_tier="pro",
         subscription_status="active",
         has_used_trial=False,
         created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
     )
-    assert get_user_monthly_limit(user, "ai_images_generated") == 150
-    assert AdminUsageLimitsDTO.for_user(user).ai_assistant_messages == 500
+    assert get_user_monthly_limit(user, "ai_images_generated") == 20
+    assert get_user_monthly_limit(user, "ai_assistant_messages") == 300
+    assert get_user_monthly_limit(user, "ai_suggestions_requested") == 200
+    assert get_user_monthly_limit(user, "recipes_imported") == 50
+    assert AdminUsageLimitsDTO.for_user(user).ai_images_generated == 20
     user.subscription_tier = "free"
+    assert user.usage_tier == "free"
     assert get_user_monthly_limit(user, "ai_images_generated") == 3
     user.subscription_tier = "pro"
+    user.usage_exempt = True
+    assert get_user_monthly_limit(user, "ai_images_generated") == 150
+    assert get_user_monthly_limit(user, "ai_assistant_messages") == 500
     assert get_user_monthly_limit(user, "ai_suggestions_requested") == 300
+    assert get_user_monthly_limit(user, "recipes_imported") == 100
+
+    granted = User(
+        id=9,
+        is_admin=False,
+        usage_plan="legacy",
+        usage_exempt=False,
+        subscription_tier="free",
+        subscription_status="active",
+        granted_pro_until=datetime.now(timezone.utc) + timedelta(days=30),
+        created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+    )
+    assert granted.usage_tier == "pro"
+    assert get_user_monthly_limit(granted, "ai_images_generated") == 20
+    monkeypatch.setenv("USAGE_EXEMPT_USER_IDS", "9, no, 42")
+    assert get_user_monthly_limit(granted, "ai_images_generated") == 150
+    user.usage_exempt = False
+    assert get_user_monthly_limit(user, "ai_images_generated") == 20
+
+    trialing = User(
+        id=9,
+        is_admin=False,
+        usage_plan="legacy",
+        usage_exempt=True,
+        subscription_tier="pro",
+        subscription_status="trialing",
+    )
+    assert get_user_monthly_limit(trialing, "ai_images_generated") == 3
 
 
 def test_new_account_gets_launch_caps():

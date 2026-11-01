@@ -10,6 +10,7 @@ import {
   UserMinus,
   ShieldCheck,
   ShieldOff,
+  Infinity,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ import {
   useAdminUsers,
   useGrantPro,
   useRevokePro,
+  useSetUsageExempt,
   useToggleAdmin,
   useDeleteUser,
 } from "@/hooks/api";
@@ -87,12 +89,14 @@ export function AdminUsersSection() {
 
   const grantPro = useGrantPro();
   const revokePro = useRevokePro();
+  const setUsageExempt = useSetUsageExempt();
   const toggleAdmin = useToggleAdmin();
   const deleteUser = useDeleteUser();
 
   // Dialog state
   const [grantProTarget, setGrantProTarget] = useState<AdminUserDTO | null>(null);
   const [revokeProTarget, setRevokeProTarget] = useState<AdminUserDTO | null>(null);
+  const [usageExemptTarget, setUsageExemptTarget] = useState<AdminUserDTO | null>(null);
   const [toggleAdminTarget, setToggleAdminTarget] = useState<AdminUserDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminUserDTO | null>(null);
 
@@ -119,6 +123,25 @@ export function AdminUsersSection() {
       },
       onError: (error) => toast.error(error.message),
     });
+  };
+
+  const handleSetUsageExempt = () => {
+    if (!usageExemptTarget) return;
+    const next = !usageExemptTarget.usage_exempt;
+    setUsageExempt.mutate(
+      { userId: usageExemptTarget.id, data: { usage_exempt: next } },
+      {
+        onSuccess: () => {
+          toast.success(
+            next
+              ? `${usageExemptTarget.name || usageExemptTarget.email} keeps the previous Pro allowances`
+              : `${usageExemptTarget.name || usageExemptTarget.email} uses the launch Pro caps`,
+          );
+          setUsageExemptTarget(null);
+        },
+        onError: (error) => toast.error(error.message),
+      },
+    );
   };
 
   const handleToggleAdmin = () => {
@@ -226,6 +249,7 @@ export function AdminUsersSection() {
 
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {getAccessBadge(user)}
+                    {user.usage_exempt && <Badge variant="outline">Cap exempt</Badge>}
 
                     {user.granted_pro_until ? (
                       <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -260,6 +284,15 @@ export function AdminUsersSection() {
                         <UserMinus className="h-4 w-4" strokeWidth={1.5} />
                       </Button>
                     ) : null}
+
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={user.usage_exempt ? "Apply launch Pro caps" : "Keep previous Pro allowances"}
+                      onClick={() => setUsageExemptTarget(user)}
+                    >
+                      <Infinity className="h-4 w-4" strokeWidth={1.5} />
+                    </Button>
 
                     <Button
                       size="icon"
@@ -344,6 +377,20 @@ export function AdminUsersSection() {
         confirmLabel="Revoke"
         onConfirm={handleRevokePro}
         isLoading={revokePro.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!usageExemptTarget}
+        onOpenChange={(open) => !open && setUsageExemptTarget(null)}
+        title={usageExemptTarget?.usage_exempt ? "Apply launch Pro caps" : "Keep previous Pro allowances"}
+        description={
+          usageExemptTarget?.usage_exempt
+            ? `Move ${usageExemptTarget?.name || usageExemptTarget?.email || "this user"} to the launch Pro caps (20 photos, 300 chats, 200 suggestions, 50 imports)?`
+            : `Keep ${usageExemptTarget?.name || usageExemptTarget?.email || "this user"} on the previous Pro allowances (150 photos, 500 chats, 300 suggestions, 100 imports)? This does not grant Pro.`
+        }
+        confirmLabel={usageExemptTarget?.usage_exempt ? "Apply launch caps" : "Keep previous caps"}
+        onConfirm={handleSetUsageExempt}
+        isLoading={setUsageExempt.isPending}
       />
 
       <ConfirmDialog

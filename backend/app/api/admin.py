@@ -16,6 +16,7 @@ from app.dtos.admin_dtos import (
     AdminGrantProDTO,
     AdminQueryRequestDTO,
     AdminQueryResponseDTO,
+    AdminSetUsageExemptDTO,
     AdminToggleAdminDTO,
     AdminUsageResponseDTO,
     AdminUserListDTO,
@@ -110,6 +111,23 @@ def revoke_pro(
         raise HTTPException(status_code=404, detail="User not found")
     except AdminSaveError:
         raise HTTPException(status_code=500, detail="Failed to revoke pro access")
+
+
+@router.patch("/users/{user_id}/usage-exempt", response_model=AdminUserListDTO)
+def set_usage_exempt(
+    user_id: int,
+    dto: AdminSetUsageExemptDTO,
+    session: Session = Depends(get_session),
+    current_admin: User = Depends(require_admin),
+) -> AdminUserListDTO:
+    """Keep one account on the pre-release Pro allowances, or clear that override."""
+    service = AdminService(session, current_admin.id)
+    try:
+        return service.set_usage_exempt(user_id, dto.usage_exempt)
+    except AdminUserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
+    except AdminSaveError:
+        raise HTTPException(status_code=500, detail="Failed to update usage exemption")
 
 
 @router.patch("/users/{user_id}/admin", response_model=AdminUserListDTO)

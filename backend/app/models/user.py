@@ -63,6 +63,9 @@ class User(Base):
     # Existing rows retain legacy allowances; only newly created ORM accounts
     # receive the launch plan. Never accept this field from a client payload.
     usage_plan: Mapped[str] = mapped_column(String(20), default="launch", server_default="legacy", nullable=False)
+    # Admin override. Pro-tier accounts with this flag keep the pre-release
+    # allowances instead of the launch caps. Does not grant Pro or admin.
+    usage_exempt: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sql_false(), nullable=False)
 
     # Trial window. Null until Stripe reports a trialing subscription.
     trial_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

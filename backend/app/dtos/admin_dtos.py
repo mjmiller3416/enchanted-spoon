@@ -79,6 +79,7 @@ class AdminUserListDTO(BaseModel):
     subscription_ends_at: Optional[datetime] = None
     cancel_at_period_end: bool = False
     is_admin: bool
+    usage_exempt: bool = False
     has_pro_access: bool
     access_reason: str
     granted_pro_until: Optional[datetime] = None
@@ -98,6 +99,7 @@ class AdminUserListDTO(BaseModel):
             subscription_ends_at=user.subscription_ends_at,
             cancel_at_period_end=user.cancel_at_period_end,
             is_admin=user.is_admin,
+            usage_exempt=bool(user.usage_exempt),
             has_pro_access=user.has_pro_access,
             access_reason=user.access_reason,
             granted_pro_until=user.granted_pro_until,
@@ -127,6 +129,12 @@ class AdminToggleAdminDTO(BaseModel):
     is_admin: bool
 
 
+class AdminSetUsageExemptDTO(BaseModel):
+    """Request DTO for keeping one account on the pre-release Pro allowances."""
+
+    usage_exempt: bool
+
+
 # ── Usage-by-User DTOs ──────────────────────────────────────────────────────
 
 
@@ -143,7 +151,8 @@ class AdminUsageLimitsDTO(BaseModel):
         """Resolve per-field caps from the user's effective tier.
 
         Admins are uncapped, so all their limits are ``None`` (mirrors the
-        ``is_admin`` bypass in ``require_within_usage_limit``).
+        ``is_admin`` bypass in ``require_within_usage_limit``). Usage-exempt
+        Pro accounts show the pre-release allowances.
         """
         if user.is_admin:
             return cls()

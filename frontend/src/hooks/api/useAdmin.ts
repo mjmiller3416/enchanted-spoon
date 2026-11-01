@@ -7,6 +7,7 @@ import { adminQueryKeys, currentUserQueryKeys } from "./queryKeys";
 import type {
   AdminGrantProRequest,
   AdminToggleAdminRequest,
+  AdminSetUsageExemptRequest,
   AdminQueryResponse,
 } from "@/types/admin";
 
@@ -130,6 +131,31 @@ export function useRevokePro() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.users() });
+    },
+  });
+}
+
+/**
+ * Keep one account on the pre-release Pro allowances, or clear that override.
+ */
+export function useSetUsageExempt() {
+  const { getToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      data,
+    }: {
+      userId: number;
+      data: AdminSetUsageExemptRequest;
+    }) => {
+      const token = await getToken();
+      return adminApi.setUsageExempt(userId, data, token);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.users() });
+      queryClient.invalidateQueries({ queryKey: [...adminQueryKeys.all, "usage"] });
     },
   });
 }

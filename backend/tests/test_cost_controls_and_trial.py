@@ -98,8 +98,9 @@ def test_launch_trial_and_expired_caps():
 
     admin = _user(is_admin=True)
     assert get_user_monthly_limit(admin, "ai_images_generated") is None
-    granted = _user(granted_pro_until=datetime.now(timezone.utc) + timedelta(days=1))
+    granted = _user(usage_plan="legacy", granted_pro_until=datetime.now(timezone.utc) + timedelta(days=1))
     assert granted.usage_tier == "pro"
+    assert get_user_monthly_limit(granted, "ai_images_generated") == 20
 
 
 def test_trial_usage_does_not_reset_on_a_new_calendar_month(file_db):
@@ -349,7 +350,7 @@ def test_unset_legacy_cutoff_grandfathers_nobody(monkeypatch):
 
 def test_household_hook_scales_pro_caps_and_can_meter_the_owner():
     from app.core import usage_limits as limits
-    owner = _user(id=7, subscription_tier="pro", subscription_status="active")
+    owner = _user(id=7, usage_plan="legacy", subscription_tier="pro", subscription_status="active")
     member = _user(id=8, subscription_tier="free", subscription_status="active")
     try:
         limits.set_household_usage_hooks(
@@ -361,6 +362,11 @@ def test_household_hook_scales_pro_caps_and_can_meter_the_owner():
         assert images == 30
         _, chats = limits.usage_meter(member, "ai_assistant_messages")
         assert chats == 450
+        owner.usage_exempt = True
+        _, exempt_images = limits.usage_meter(member, "ai_images_generated")
+        _, exempt_chats = limits.usage_meter(member, "ai_assistant_messages")
+        assert exempt_images == 225
+        assert exempt_chats == 750
         trial = _user(subscription_tier="pro", subscription_status="trialing")
         assert limits.get_user_monthly_limit(trial, "ai_images_generated") == 3
     finally:

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.api.admin import router as admin_router
 from app.api.auth import require_admin
-from app.core.usage_limits import TIER_USAGE_LIMITS
+from app.core.usage_limits import TIER_USAGE_LIMITS, get_user_monthly_limit
 from app.database.db import get_session
 from app.dtos.admin_dtos import AdminUsageResponseDTO
 from app.models.user import User
@@ -323,3 +323,55 @@ class TestUsageEndpoint:
         response = client.get("/api/admin/usage", params={"month": bad_month})
 
         assert response.status_code == 422
+
+
+def test_admin_route_keeps_one_account_on_pre_release_caps(file_db, monkeypatch):
+    monkeypatch.delenv("USAGE_EXEMPT_USER_IDS", raising=False)
+    with file_db() as session:
+        admin = session.get(User, 1)
+        admin.is_admin = True
+        target = User(
+            clerk_id="legacy-pro",
+            email="legacy-pro@example.test",
+            is_admin=False,
+            usage_plan="legacy",
+            subscription_tier="pro",
+            subscription_status="active",
+        )
+        session.add(target)
+        session.commit()
+        target_id = target.id
+
+    app = FastAPI()
+    app.include_router(admin_router, prefix="/api/admin")
+
+    def session_dependency():
+        with file_db() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = session_dependency
+    app.dependency_overrides[require_admin] = lambda: admin
+    client = TestClient(app)
+
+    response = client.patch(
+        f"/api/admin/users/{target_id}/usage-exempt",
+        json={"usage_exempt": True},
+    )
+    assert response.status_code == 200
+    assert response.json()["usage_exempt"] is True
+
+    with file_db() as session:
+        stored = session.get(User, target_id)
+        assert stored.usage_exempt is True
+        assert get_user_monthly_limit(stored, "ai_images_generated") == 150
+        assert get_user_monthly_limit(stored, "ai_assistant_messages") == 500
+
+    cleared = client.patch(
+        f"/api/admin/users/{target_id}/usage-exempt",
+        json={"usage_exempt": False},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["usage_exempt"] is False
+    with file_db() as session:
+        stored = session.get(User, target_id)
+        assert get_user_monthly_limit(stored, "ai_images_generated") == 20

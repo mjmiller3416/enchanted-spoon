@@ -2,10 +2,12 @@
 
 Usage caps for Gemini-backed AI features.
 
-Launch accounts use the approved cost-control caps. Accounts persisted as
-`usage_plan=legacy` (see the soft-launch migration) keep their previous
-allowances. Trial caps cover the whole trial, not a calendar month. Expired
-and read-only accounts are capped at zero. Accounts created on or after
+Pro subscribers and granted testers use the launch Pro caps, including
+accounts persisted as ``usage_plan=legacy``. A usage-exempt account (the
+``usage_exempt`` flag, or an id in ``USAGE_EXEMPT_USER_IDS``) keeps the
+pre-release Pro allowances. Legacy free accounts still use the free caps.
+Trial caps cover the whole trial, not a calendar month. Expired and
+read-only accounts are capped at zero. Accounts created on or after
 ``LEGACY_FREE_CUTOFF`` use the ``none`` tier (also zero). Unknown tiers fall
 back to free.
 """
@@ -13,6 +15,7 @@ back to free.
 from __future__ import annotations
 
 import math
+import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Callable, Optional
 
@@ -56,7 +59,8 @@ TIER_USAGE_LIMITS: dict[str, dict[str, int]] = {
     },
 }
 
-# Pre-launch allowances. Existing rows keep these; new accounts do not.
+# Pre-release Pro allowances. Applied only when an account is usage-exempt.
+# The free row is still the legacy free plan until the sunset date.
 LEGACY_USAGE_LIMITS = {
     "pro": {
         "ai_images_generated": 150,
@@ -108,7 +112,9 @@ def set_household_usage_hooks(
     ``multiplier`` should return ``HOUSEHOLD_PRO_CAP_MULTIPLIER`` (1.5) for
     that owner when the household has 2 or more people, and 1.0 otherwise.
     The reserve path in ``require_within_usage_limit`` calls ``usage_meter``,
-    which applies both hooks. Caps for trial, free, expired, and none are not scaled.
+    which applies both hooks. The multiplier scales the resolved Pro cap,
+    including the pre-release allowances on a usage-exempt account. Caps for
+    trial, free, expired, and none are not scaled.
     """
     global _usage_subject_resolver, _household_multiplier
     if subject is not None:
@@ -134,6 +140,31 @@ def scale_cap(limit: Optional[int], multiplier: float) -> Optional[int]:
     return math.ceil(limit * multiplier)
 
 
+def usage_exempt_user_ids() -> set[int]:
+    """User ids in ``USAGE_EXEMPT_USER_IDS`` (comma-separated). Invalid tokens are ignored."""
+    raw = os.getenv("USAGE_EXEMPT_USER_IDS", "")
+    ids: set[int] = set()
+    for part in raw.split(","):
+        token = part.strip()
+        if token.isdigit():
+            ids.add(int(token))
+    return ids
+
+
+def is_usage_exempt(user: User) -> bool:
+    """True when an admin flagged the account, or its id is in the env allowlist.
+
+    A MagicMock flag is not an exemption. Only a real ``True`` or an integer
+    id that appears in ``USAGE_EXEMPT_USER_IDS`` counts.
+    """
+    if getattr(user, "usage_exempt", False) is True:
+        return True
+    user_id = getattr(user, "id", None)
+    if type(user_id) is not int:
+        return False
+    return user_id in usage_exempt_user_ids()
+
+
 def get_monthly_limit(tier: str, field: str) -> Optional[int]:
     """
     Get the cap for a usage field under a subscription tier.
@@ -156,22 +187,26 @@ def usage_window_for(user: User, now: datetime | None = None) -> str:
 def get_user_monthly_limit(user: User, field: str) -> Optional[int]:
     """Resolve the cap used for enforcement and the usage meter.
 
-    Admins are uncapped. Trial, expired, and none ignore the legacy cohort.
-    Pro and free legacy accounts keep LEGACY_USAGE_LIMITS even if they later upgrade.
+    Admins are uncapped. Trial, expired, and none ignore exemptions and the
+    legacy cohort. Pro subscribers and granted testers use the launch Pro
+    caps. Usage-exempt Pro accounts keep LEGACY_USAGE_LIMITS["pro"]. Legacy
+    free accounts still use the free row.
     """
     if user.is_admin:
         return None
     tier = user.usage_tier
     if tier in ("trial", "expired", "none"):
         return get_monthly_limit(tier, field)
+    if tier == "pro":
+        if is_usage_exempt(user):
+            limit = LEGACY_USAGE_LIMITS["pro"].get(field)
+        else:
+            limit = get_monthly_limit("pro", field)
+        return scale_cap(limit, household_cap_multiplier(user))
     plan = getattr(user, "usage_plan", None)
     if plan is not None and plan != "launch":
-        limit = LEGACY_USAGE_LIMITS.get(tier, LEGACY_USAGE_LIMITS["free"]).get(field)
-    else:
-        limit = get_monthly_limit(tier, field)
-    if tier == "pro":
-        return scale_cap(limit, household_cap_multiplier(user))
-    return limit
+        return LEGACY_USAGE_LIMITS.get(tier, LEGACY_USAGE_LIMITS["free"]).get(field)
+    return get_monthly_limit(tier, field)
 
 
 def usage_meter(user: User, field: str) -> tuple[User, Optional[int]]:
