@@ -14,6 +14,7 @@ from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.parse_utils import parse_nutrition_dict, parse_recipe_dict
 from app.services.ai.response_utils import extract_text_from_response
+from app.services.ai.usage_logging import log_usage_metadata
 
 from .config import (
     API_KEY_ENV_VAR,
@@ -22,7 +23,6 @@ from .config import (
     MODEL_NAME,
     NUTRITION_SCHEMA,
     PROMPT_TEMPLATE,
-    TEMPERATURE,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,12 +94,12 @@ class RecipeGenerationService:
                 model=MODEL_NAME,
                 contents=[{"role": "user", "parts": [{"text": prompt}]}],
                 config={
-                    "temperature": TEMPERATURE,
                     "max_output_tokens": MAX_OUTPUT_TOKENS,
                     "response_mime_type": "application/json",
-                    "thinking_config": {"thinking_budget": 0},
+                    "thinking_config": {"thinking_level": "minimal"},
                 },
             )
+            log_usage_metadata("recipe_generation", MODEL_NAME, response)
 
             raw_text = extract_text_from_response(response)
             if not raw_text:

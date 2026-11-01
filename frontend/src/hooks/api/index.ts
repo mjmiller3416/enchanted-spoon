@@ -204,6 +204,7 @@ export {
   useAdminUsers,
   useGrantPro,
   useRevokePro,
+  useSetUsageExempt,
   useToggleAdmin,
   useDeleteUser,
   // Database Query

@@ -1,9 +1,16 @@
 """API router for AI assistant (conversational chat + recipe generation)."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.api.auth import require_within_usage_limit
+from app.core.rate_limit import (
+    ASSISTANT_IP_LIMITS,
+    ASSISTANT_USER_LIMITS,
+    ip_limiter,
+    limiter,
+)
+from app.core.usage_limits import usage_window_for
 from app.database.db import get_session
 from app.dtos.assistant_dtos import (
     AssistantRequestDTO,
@@ -16,7 +23,6 @@ from app.services.ai.assistant.context import (
     should_include_ingredients,
     should_include_shopping_list,
 )
-from app.services.ai.optional_images import generate_optional_recipe_images
 from app.services.ai.user_context_builder import UserContextBuilder
 from app.services.household.scope import kitchen_user_id
 from app.services.planner import PlannerService
@@ -27,12 +33,22 @@ from app.api.errors import internal_error
 
 router = APIRouter()
 
+_assistant_limit = require_within_usage_limit(
+    "ai_assistant_messages",
+    user_limits=ASSISTANT_USER_LIMITS,
+    ip_limits=ASSISTANT_IP_LIMITS,
+)
+
 
 @router.post("/chat", response_model=AssistantResponseDTO)
+@limiter.limit("10/minute")
+@limiter.limit("60/hour")
+@ip_limiter.limit("30/minute")
 async def chat_with_assistant(
-    request: AssistantRequestDTO,
+    request: Request,
+    body: AssistantRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_within_usage_limit("ai_assistant_messages")),
+    current_user: User = Depends(_assistant_limit),
 ) -> AssistantResponseDTO:
     """Unified chat endpoint for the AI assistant.
 
@@ -51,15 +67,15 @@ async def chat_with_assistant(
     try:
         # Convert history to dict format for keyword detection
         history_dicts = None
-        if request.conversation_history:
+        if body.conversation_history:
             history_dicts = [
                 {"role": m.role, "content": m.content}
-                for m in request.conversation_history
+                for m in body.conversation_history
             ]
 
         # Determine what context to load based on message content
-        include_ingredients = should_include_ingredients(request.message, history_dicts)
-        include_shopping = should_include_shopping_list(request.message, history_dicts)
+        include_ingredients = should_include_ingredients(body.message, history_dicts)
+        include_shopping = should_include_shopping_list(body.message, history_dicts)
 
         # Build context data
         context_builder = UserContextBuilder(
@@ -73,8 +89,8 @@ async def chat_with_assistant(
         # Call the service
         service = get_assistant_service()
         result = await service.chat(
-            message=request.message,
-            conversation_history=request.conversation_history,
+            message=body.message,
+            conversation_history=body.conversation_history,
             user_context_data=context_data,
             add_shopping_items=shopping_service.add_manual_items,
             load_recipe_catalog=context_builder.build_recipe_catalog,
@@ -119,24 +135,32 @@ async def chat_with_assistant(
 
 # Keep /ask as backwards-compatible alias that routes to /chat
 @router.post("/ask", response_model=AssistantResponseDTO)
+@limiter.limit("10/minute")
+@limiter.limit("60/hour")
+@ip_limiter.limit("30/minute")
 async def ask_assistant(
-    request: AssistantRequestDTO,
+    request: Request,
+    body: AssistantRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_within_usage_limit("ai_assistant_messages")),
+    current_user: User = Depends(_assistant_limit),
 ) -> AssistantResponseDTO:
     """Send a message to the AI assistant and get a response.
 
     This endpoint is an alias for /chat for backwards compatibility.
     The AI may decide to generate a recipe if the user asks for one.
     """
-    return await chat_with_assistant(request, session, current_user)
+    return await chat_with_assistant(request, body, session, current_user)
 
 
 @router.post("/generate-recipe", response_model=AssistantRecipeResponseDTO)
+@limiter.limit("10/minute")
+@limiter.limit("60/hour")
+@ip_limiter.limit("30/minute")
 async def generate_recipe(
-    request: AssistantRecipeRequestDTO,
+    request: Request,
+    body: AssistantRecipeRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_within_usage_limit("ai_assistant_messages")),
+    current_user: User = Depends(_assistant_limit),
 ) -> AssistantRecipeResponseDTO:
     """Generate a complete recipe with optional AI image.
 
@@ -146,15 +170,15 @@ async def generate_recipe(
     try:
         # Convert history to dict format for keyword detection
         history_dicts = None
-        if request.conversation_history:
+        if body.conversation_history:
             history_dicts = [
                 {"role": m.role, "content": m.content}
-                for m in request.conversation_history
+                for m in body.conversation_history
             ]
 
         # Determine what context to load
-        include_ingredients = should_include_ingredients(request.message, history_dicts)
-        include_shopping = should_include_shopping_list(request.message, history_dicts)
+        include_ingredients = should_include_ingredients(body.message, history_dicts)
+        include_shopping = should_include_shopping_list(body.message, history_dicts)
 
         # Build context
         context_builder = UserContextBuilder(
@@ -170,15 +194,15 @@ async def generate_recipe(
         # Call service
         service = get_assistant_service()
         result = await service.chat(
-            message=request.message,
-            conversation_history=request.conversation_history,
+            message=body.message,
+            conversation_history=body.conversation_history,
             user_context_data=context_data,
         )
 
         if result.get("type") == "error":
             # Failure reported in the body rather than raised: refund by hand
             try:
-                UsageService(session, current_user.id).release("ai_assistant_messages")
+                UsageService(session, current_user.id, window=usage_window_for(current_user)).release("ai_assistant_messages")
             except Exception:
                 pass
             return AssistantRecipeResponseDTO(
@@ -196,14 +220,9 @@ async def generate_recipe(
                 needs_more_info=True,
             )
 
-        # We have a recipe - generate images if requested
+        # Photos are on demand via POST /ai/image-generation ("Generate photo").
         reference_image_data = None
         banner_image_data = None
-
-        if request.generate_image and recipe:
-            reference_image_data, banner_image_data = await generate_optional_recipe_images(
-                session, current_user, recipe.recipe_name
-            )
 
         # Track usage (silent fail - don't break AI feature for tracking issues)
         try:

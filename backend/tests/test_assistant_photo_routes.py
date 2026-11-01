@@ -17,6 +17,9 @@ def test_recipe_succeeds_without_unbudgeted_photos(file_db, path, generate_image
     app.include_router(router)
     with file_db() as session:
         user = session.get(User, 1)
+        user.is_admin = False
+        user.subscription_tier = "pro"
+        user.subscription_status = "active"
         session.add(UserUsage(user_id=1, month=UserUsage.get_current_month(), ai_images_generated=photo_count))
         session.commit()
     def session_dependency():

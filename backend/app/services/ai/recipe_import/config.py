@@ -1,11 +1,10 @@
 """Configuration for the Recipe Import AI service."""
 
-from app.services.ai.config import GEMINI_MODEL
+from app.services.ai.config import GEMINI_LITE_MODEL
 from app.services.ai.recipe_generation.config import DEFAULT_CATEGORIES
 
-# Model settings — low temperature: this is faithful normalization, not creation
-MODEL_NAME = GEMINI_MODEL
-TEMPERATURE = 0.2
+# Model settings. Gemini 3.x is called at its default temperature.
+MODEL_NAME = GEMINI_LITE_MODEL
 MAX_OUTPUT_TOKENS = 8192
 
 # Environment variable for API key (reuses the recipe generation key)

@@ -1,10 +1,9 @@
 """Configuration for the Recipe Generation AI service."""
 
-from app.services.ai.config import GEMINI_MODEL
+from app.services.ai.config import GEMINI_RECIPE_MODEL
 
 # Model settings
-MODEL_NAME = GEMINI_MODEL
-TEMPERATURE = 0.7  # Balanced creativity + consistency
+MODEL_NAME = GEMINI_RECIPE_MODEL
 MAX_OUTPUT_TOKENS = 8192  # Extra headroom for thinking tokens + full recipe JSON
 
 # Environment variable for API key (reuses the assistant key)

@@ -1,9 +1,10 @@
 """API router for importing recipes from website URLs."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.api.auth import require_within_usage_limit
+from app.core.rate_limit import GENERATION_IP_LIMITS, GENERATION_USER_LIMITS, ip_limiter, limiter
 from app.database.db import get_session
 from app.dtos.recipe_import_dtos import (
     RecipeImportRequestDTO,
@@ -23,11 +24,21 @@ from app.api.errors import internal_error
 router = APIRouter()
 
 
+_import_limit = require_within_usage_limit(
+    "recipes_imported",
+    user_limits=GENERATION_USER_LIMITS,
+    ip_limits=GENERATION_IP_LIMITS,
+)
+
+
 @router.post("", response_model=RecipeImportResponseDTO)
+@limiter.limit("5/minute")
+@ip_limiter.limit("15/minute")
 async def import_recipe(
-    request: RecipeImportRequestDTO,
+    request: Request,
+    body: RecipeImportRequestDTO,
     session: Session = Depends(get_session),
-    current_user: User = Depends(require_within_usage_limit("recipes_imported")),
+    current_user: User = Depends(_import_limit),
 ) -> RecipeImportResponseDTO:
     """Import a recipe from a website URL.
 
@@ -42,15 +53,16 @@ async def import_recipe(
     Returns:
         Imported recipe with site nutrition (when published) and source photo.
     """
+    del request
     try:
         # Inject user's enabled categories if not already provided
-        if not request.allowed_categories:
+        if not body.allowed_categories:
             category_service = UserCategoryService(session, current_user.id)
             user_categories = category_service.get_all_categories(include_disabled=False)
-            request.allowed_categories = [cat.value for cat in user_categories]
+            body.allowed_categories = [cat.value for cat in user_categories]
 
         service = get_recipe_import_service()
-        result = await service.import_from_url(request)
+        result = await service.import_from_url(body)
 
         return result
 

@@ -12,6 +12,11 @@ export interface CurrentUserDTO {
   cancel_at_period_end: boolean;
   has_pro_access: boolean;
   access_reason: string;
+  usage_tier: string;
+  is_read_only: boolean;
+  show_sunset_banner: boolean;
+  show_sunset_popup: boolean;
+  free_tier_sunset_at: string | null;
   created_at: string;
 }
 
@@ -25,6 +30,7 @@ export interface AdminUserDTO {
   subscription_ends_at: string | null;
   cancel_at_period_end: boolean;
   is_admin: boolean;
+  usage_exempt: boolean;
   has_pro_access: boolean;
   access_reason: string;
   granted_pro_until: string | null;
@@ -45,6 +51,10 @@ export interface AdminGrantProRequest {
 
 export interface AdminToggleAdminRequest {
   is_admin: boolean;
+}
+
+export interface AdminSetUsageExemptRequest {
+  usage_exempt: boolean;
 }
 
 // Usage-by-user types

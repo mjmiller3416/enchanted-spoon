@@ -15,9 +15,10 @@ import logging
 import stripe
 from sqlalchemy.orm import Session
 
-from ..core.stripe_config import STRIPE_API_VERSION, StripeSettings, get_stripe_settings
+from ..core.stripe_config import STRIPE_API_VERSION, STRIPE_TRIAL_DAYS, StripeSettings, get_stripe_settings
 from ..models.user import User
 from ..repositories.user_repo import UserRepo
+from .founder_codes import PromotionCodeRejected, lookup_founder_promotion, normalize_founder_code
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,7 @@ class BillingService:
             StripeNotConfiguredError: Stripe secret key is not set.
             StripeCustomerError: Stripe API call failed.
         """
-        if user.stripe_customer_id:
+        if user.stripe_customer_id and not self._customer_has_invoice(user.stripe_customer_id):
             return user.stripe_customer_id
 
         self._require_configured()
@@ -86,6 +87,20 @@ class BillingService:
         self.repo.set_stripe_customer_id(user, customer.id)
         self.session.commit()
         return customer.id
+
+    def _customer_has_invoice(self, customer_id: str) -> bool:
+        """True when this Stripe customer already has any invoice.
+
+        Those customers are not reused. A later checkout gets a new customer
+        so a first-time-customer promotion is not evaluated against old invoices.
+        """
+        try:
+            listed = stripe.Invoice.list(customer=customer_id, limit=1)
+        except stripe.error.StripeError as e:
+            logger.error("Stripe invoice lookup failed for customer %s", customer_id)
+            raise StripeCustomerError("Failed to look up billing history.") from e
+        data = listed.data if hasattr(listed, "data") else listed.get("data", [])
+        return bool(data)
 
     def delete_customer(self, user: User) -> None:
         """
@@ -113,23 +128,23 @@ class BillingService:
             logger.error(f"Stripe customer delete failed for user {user.id}: {e}")
             raise StripeCustomerError("Failed to cancel billing.") from e
 
-    def create_checkout_session(self, user: User) -> str:
+    def create_checkout_session(
+        self,
+        user: User,
+        plan: str = "monthly",
+        promotion_code: str | None = None,
+    ) -> str:
         """
-        Create a Stripe Checkout session for the Pro subscription.
+        Create a Stripe Checkout session for monthly or annual Pro.
 
-        Creates the Stripe customer first if the user doesn't have one yet.
-
-        Args:
-            user: The authenticated user.
-
-        Returns:
-            The Checkout session redirect URL.
-
-        Raises:
-            StripeNotConfiguredError: Stripe secret key or price ID is not set.
-            StripeCustomerError: Customer creation failed.
-            CheckoutSessionError: Checkout session creation failed.
+        Card is required (Checkout's default collection). A first subscription
+        includes a 7-day trial. The founding code, when present, is attached
+        as ``discounts=[{promotion_code}]`` and is not typed into Stripe's
+        own promotion-code box. Tax is calculated by Stripe Tax; prices stay
+        tax-exclusive.
         """
+        if plan not in ("monthly", "annual"):
+            raise CheckoutSessionError("Choose the monthly or annual plan.")
         if not self.settings.stripe_checkout_enabled:
             raise StripeNotConfiguredError("New subscriptions are not available yet. Please try again later.")
         self._require_configured()
@@ -141,24 +156,101 @@ class BillingService:
             or not self.settings.frontend_url.startswith("https://")
         ):
             raise StripeNotConfiguredError("Paid checkout is not ready. Please contact support.")
+
+        if plan == "annual":
+            price_id = self.settings.annual_price_id
+            if not price_id:
+                raise StripeNotConfiguredError(
+                    "Annual billing is not configured. Set STRIPE_PRICE_PRO_ANNUAL_V2."
+                )
+        else:
+            price_id = self.settings.monthly_price_id
+            if not price_id:
+                raise StripeNotConfiguredError(
+                    "Monthly billing is not configured. Set STRIPE_PRICE_PRO_MONTHLY_V2 or STRIPE_PRICE_ID_PRO."
+                )
+
+        code = normalize_founder_code(promotion_code)
+        if code and user.has_used_trial:
+            raise PromotionCodeRejected("Founding codes are for first-time customers.")
+        promotion_id = lookup_founder_promotion(code, plan) if code else None
+
         customer_id = self.get_or_create_customer(user)
+        claimed = self._claim_trial(user)
+        params: dict = {
+            "customer": customer_id,
+            "mode": "subscription",
+            "line_items": [{"price": price_id, "quantity": 1}],
+            "success_url": f"{self.settings.frontend_url}/settings?checkout=success",
+            "cancel_url": f"{self.settings.frontend_url}/settings?checkout=cancelled",
+            "client_reference_id": str(user.id),
+            "automatic_tax": {"enabled": True},
+            "billing_address_collection": "required",
+            "customer_update": {"address": "auto"},
+        }
+        if claimed:
+            params["subscription_data"] = {
+                "trial_period_days": STRIPE_TRIAL_DAYS,
+                "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}},
+            }
+        if promotion_id:
+            params["discounts"] = [{"promotion_code": promotion_id}]
+            params.setdefault("subscription_data", {})["metadata"] = {"founder_code": code}
 
         try:
-            checkout_session = stripe.checkout.Session.create(
-                customer=customer_id,
-                mode="subscription",
-                line_items=[{"price": self.settings.stripe_price_id_pro, "quantity": 1}],
-                success_url=f"{self.settings.frontend_url}/settings?checkout=success",
-                cancel_url=f"{self.settings.frontend_url}/settings?checkout=cancelled",
-                client_reference_id=str(user.id),
-            )
+            checkout_session = stripe.checkout.Session.create(**params)
         except stripe.error.StripeError as e:
+            if claimed:
+                self._release_unused_trial_claim(user)
             logger.error(f"Stripe checkout session creation failed for user {user.id}: {e}")
             raise CheckoutSessionError("Failed to create checkout session.") from e
 
         if not checkout_session.url:
+            if claimed:
+                self._release_unused_trial_claim(user)
             raise CheckoutSessionError("Stripe did not return a checkout URL.")
+        if claimed:
+            self._remember_trial_checkout(user, checkout_session.id)
         return checkout_session.url
+
+    def _claim_trial(self, user: User) -> bool:
+        """Atomically take the one trial before Stripe Checkout is created.
+
+        Two overlapping checkouts cannot both receive ``trial_period_days``.
+        The loser creates a session with no trial. A failed Stripe call releases
+        the claim. An unused session is released by ``checkout.session.expired``.
+        """
+        from sqlalchemy import update
+
+        if user.has_used_trial:
+            return False
+        result = self.session.execute(
+            update(User)
+            .where(User.id == user.id, User.has_used_trial.is_(False))
+            .values(has_used_trial=True)
+        )
+        self.session.commit()
+        if getattr(result, "rowcount", 0) != 1:
+            return False
+        user.has_used_trial = True
+        return True
+
+    def _remember_trial_checkout(self, user: User, checkout_id: str | None) -> None:
+        if not checkout_id:
+            return
+        user.pending_trial_checkout_id = checkout_id
+        self.session.commit()
+
+    def _release_unused_trial_claim(self, user: User, checkout_id: str | None = None) -> bool:
+        """Give the trial back when Checkout never started a subscription."""
+        if user.trial_started_at is not None:
+            return False
+        if checkout_id is not None and user.pending_trial_checkout_id not in (None, checkout_id):
+            return False
+        user.has_used_trial = False
+        user.pending_trial_checkout_id = None
+        self.session.commit()
+        return True
 
     def create_portal_session(self, user: User) -> str:
         """

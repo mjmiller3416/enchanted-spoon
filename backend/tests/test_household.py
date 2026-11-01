@@ -22,7 +22,12 @@ from app.services.household.service import (
     MAX_HOUSEHOLD_MEMBERS,
 )
 from app.core.usage_limits import get_monthly_limit
-from app.services.household.usage_meter import resolve_usage_meter, shared_household_limit
+from app.core import usage_limits
+from app.services.household.usage_meter import (
+    bind_household_meter,
+    resolve_usage_meter,
+    shared_household_limit,
+)
 from app.services.recipe_service import RecipeInUseError, RecipeService
 from app.services.usage_service import UsageService
 
@@ -270,18 +275,23 @@ class TestSharedUsageMeter:
             service.create(owner, "Metered kitchen")
             service.join(guest, service.create_invite(owner, None).code)
 
+            owner.subscription_tier = "pro"
+            owner.subscription_status = "active"
+            session.commit()
+
             meter = resolve_usage_meter(session, guest)
             assert meter.shared is True
             assert meter.user_id == owner.id
-            assert meter.limit_for("recipes_imported") == shared_household_limit(
-                "recipes_imported"
-            )
             assert shared_household_limit("recipes_imported") == math.ceil(
                 get_monthly_limit("pro", "recipes_imported") * 1.5
             )
+            with bind_household_meter(session):
+                subject, limit = usage_limits.usage_meter(guest, "recipes_imported")
+            assert subject.id == owner.id
+            assert limit == shared_household_limit("recipes_imported")
 
-            UsageService(session, meter.user_id).reserve(
-                "recipes_imported", meter.limit_for("recipes_imported")
+            UsageService(session, subject.id).reserve(
+                "recipes_imported", limit
             )
             assert UsageService(session, owner.id).get_usage().recipes_imported == 1
             assert UsageService(session, guest.id).get_usage().recipes_imported == 0
@@ -290,4 +300,9 @@ class TestSharedUsageMeter:
             session.commit()
             admin_meter = resolve_usage_meter(session, guest)
             assert admin_meter.shared is True
-            assert admin_meter.limit_for("ai_images_generated") is None
+            with bind_household_meter(session):
+                admin_subject, admin_limit = usage_limits.usage_meter(
+                    guest, "ai_images_generated"
+                )
+            assert admin_subject.id == owner.id
+            assert admin_limit is None

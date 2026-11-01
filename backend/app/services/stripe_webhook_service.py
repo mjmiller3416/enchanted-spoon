@@ -37,8 +37,11 @@ RECONCILE_EVENT_TYPES = {
     "checkout.session.async_payment_failed", "invoice.paid", "invoice.payment_failed",
     "customer.subscription.created", "customer.subscription.updated",
     "customer.subscription.deleted",
+    "customer.subscription.trial_will_end",
+    "customer.subscription.paused",
 }
-HANDLED_EVENT_TYPES = REVIEW_EVENT_TYPES | RECONCILE_EVENT_TYPES
+TRIAL_RELEASE_EVENT_TYPES = {"checkout.session.expired"}
+HANDLED_EVENT_TYPES = REVIEW_EVENT_TYPES | RECONCILE_EVENT_TYPES | TRIAL_RELEASE_EVENT_TYPES
 
 
 def _plain(value: Any) -> dict:
@@ -85,13 +88,16 @@ class StripeWebhookService:
                 return
             if kind in REVIEW_EVENT_TYPES:
                 outcome = "review_required"
+                user = None
+            elif kind in TRIAL_RELEASE_EVENT_TYPES:
+                data = _plain(event.get("data", {}).get("object", {}))
+                outcome, user = self._release_expired_checkout(data)
             else:
                 data = _plain(event.get("data", {}).get("object", {}))
                 if kind.startswith("checkout.") and data.get("mode") != "subscription":
                     outcome = "ignored_checkout_mode"
+                    user = None
                 else:
-                    # The app creates/persists this mapping before checkout. Never
-                    # attach an event using its externally supplied client_reference_id.
                     customer = data.get("customer")
                     user = self.session.scalar(select(User).where(
                         User.stripe_customer_id == customer
@@ -99,11 +105,11 @@ class StripeWebhookService:
                     if user is None:
                         outcome = "review_unknown_customer"
                     else:
-                        # PostgreSQL row lock serializes refresh + write for one user.
-                        # Recheck after acquiring it, in case another request committed.
                         if self.session.get(BillingEvent, event_id) is not None:
                             return
                         outcome = self._reconcile(user, customer)
+                        if kind == "customer.subscription.trial_will_end" and outcome == "reconciled":
+                            self._log_trial_ending(user)
             self.session.add(BillingEvent(event_id=event_id, event_type=kind, outcome=outcome))
             self.session.commit()
             if outcome.startswith("review_"):
@@ -140,7 +146,7 @@ class StripeWebhookService:
                     or not isinstance(item_list.get("data"), list)):
                 raise StripeWebhookProcessingError("Incomplete subscription item state")
             items = item_list["data"]
-            if any((item.get("price") or {}).get("id") == self.settings.stripe_price_id_pro for item in items):
+            if any((item.get("price") or {}).get("id") in self.settings.pro_price_ids() for item in items):
                 matches.append(subscription)
         if not matches:
             # Legacy/manual entitlements or a retired Price need review, not revocation.
@@ -154,12 +160,16 @@ class StripeWebhookService:
             s.get("status") == "active" and paid(s)
         )]
         grace = [s for s in matches if s.get("status") == "past_due"]
+        paused = [s for s in matches if s.get("status") == "paused"]
         if entitled:
             selected = max(entitled, key=lambda s: self._period_end(s) or 0)
             user.subscription_tier = "pro"
         elif grace and user.subscription_tier == "pro":
             selected = max(grace, key=lambda s: self._period_end(s) or 0)
             # Keep existing access during retries; do not grant an unpaid first invoice.
+        elif paused:
+            selected = max(paused, key=lambda s: self._period_end(s) or 0)
+            user.subscription_tier = "free"
         elif any(s.get("status") not in {"canceled", "unpaid", "incomplete_expired", "incomplete"} for s in matches):
             return "review_unsettled_subscription"
         elif any(s.get("status") == "incomplete" for s in matches):
@@ -174,7 +184,46 @@ class StripeWebhookService:
         if selected.get("status") == "canceled":
             end = selected.get("ended_at") or end
         user.subscription_ends_at = datetime.fromtimestamp(end, timezone.utc) if end else None
+        self._record_trial(user, selected)
         return "reconciled"
+
+    def _record_trial(self, user: User, subscription: dict) -> None:
+        """Persist the trial window when Stripe is or was trialing. Never clears it."""
+        status = subscription.get("status")
+        start = subscription.get("trial_start")
+        end = subscription.get("trial_end")
+        if isinstance(start, int):
+            user.trial_started_at = datetime.fromtimestamp(start, timezone.utc)
+        if isinstance(end, int):
+            user.trial_ends_at = datetime.fromtimestamp(end, timezone.utc)
+        if status == "trialing" or isinstance(end, int):
+            user.has_used_trial = True
+            user.pending_trial_checkout_id = None
+
+    def _release_expired_checkout(self, checkout_session: dict) -> tuple[str, User | None]:
+        """Return an unused trial claim when its Checkout session expires."""
+        if checkout_session.get("mode") not in (None, "subscription"):
+            return "ignored_checkout_mode", None
+        customer = checkout_session.get("customer")
+        user = self.session.scalar(select(User).where(
+            User.stripe_customer_id == customer
+        ).with_for_update()) if isinstance(customer, str) and customer else None
+        if user is None:
+            return "review_unknown_customer", None
+        session_id = checkout_session.get("id")
+        if user.pending_trial_checkout_id != session_id or user.trial_started_at is not None:
+            return "ignored_expired_checkout", user
+        user.has_used_trial = False
+        user.pending_trial_checkout_id = None
+        return "trial_claim_released", user
+
+    def _log_trial_ending(self, user: User) -> None:
+        portal = f"{self.settings.frontend_url.rstrip('/')}/settings"
+        logger.info(
+            "Trial ending soon user_id=%s manage_billing=%s",
+            user.id,
+            portal,
+        )
 
     @staticmethod
     def _period_end(subscription: dict) -> int | None:

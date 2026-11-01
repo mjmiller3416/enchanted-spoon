@@ -1,18 +1,35 @@
 import type {
   CheckoutSessionResponse,
   CurrentUserUsage,
+  FounderOffer,
   PortalSessionResponse,
 } from "@/types/billing";
 import { fetchApi } from "./base";
 
 export const billingApi = {
-  /** Create a Stripe Checkout session for the Pro plan; redirect to the returned URL. */
-  createCheckoutSession: (token?: string | null): Promise<CheckoutSessionResponse> =>
+  /** Create a Stripe Checkout session. plan selects the monthly or annual price. */
+  createCheckoutSession: (
+    plan: "monthly" | "annual" = "monthly",
+    promotionCode?: string,
+    token?: string | null,
+  ): Promise<CheckoutSessionResponse> =>
     fetchApi<CheckoutSessionResponse>(
       "/api/billing/checkout-session",
-      { method: "POST" },
+      {
+        method: "POST",
+        body: JSON.stringify({
+          plan,
+          ...(promotionCode ? { promotion_code: promotionCode } : {}),
+        }),
+      },
       token,
     ),
+
+  founderOffer: (token?: string | null): Promise<FounderOffer> =>
+    fetchApi<FounderOffer>("/api/billing/founder-offer", undefined, token),
+
+  dismissSunsetNotice: (token?: string | null) =>
+    fetchApi("/api/users/me/sunset-notice", { method: "POST" }, token),
 
   /** Create a Stripe billing-portal session; redirect to the returned URL. */
   createPortalSession: (token?: string | null): Promise<PortalSessionResponse> =>

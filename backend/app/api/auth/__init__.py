@@ -8,6 +8,7 @@ from .dependencies import (
     get_current_user,
     get_current_user_optional,
     require_admin,
+    require_admin_mutator,
     require_pro,
     require_within_usage_limit,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "get_current_user_optional",
     "get_integration_user",
     "require_admin",
+    "require_admin_mutator",
     "require_pro",
     "require_within_usage_limit",
     "get_clerk_jwks",

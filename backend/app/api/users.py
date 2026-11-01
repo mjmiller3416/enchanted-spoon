@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.database.db import get_session
+from app.core.usage_limits import usage_meter, usage_window_for
 from app.dtos.admin_dtos import AdminUsageLimitsDTO, CurrentUserDTO, CurrentUserUsageDTO
 from app.api.errors import internal_error
 from app.models.user import User
@@ -18,7 +19,7 @@ from app.services.account_service import (
     AccountService,
 )
 from app.services.household.scope import effective_access
-from app.services.household.usage_meter import resolve_usage_meter
+from app.services.household.usage_meter import bind_household_meter, resolve_usage_meter
 from app.services.usage_service import UsageService
 
 router = APIRouter()
@@ -50,23 +51,37 @@ def get_current_user_usage(
     shared pool (Pro caps × 1.5). Otherwise they are this user's own tier.
     """
     meter = resolve_usage_meter(session, current_user)
-    usage = UsageService(session, meter.user_id).get_usage()
-    has_pro, _reason = effective_access(session, current_user)
-    limits = None
-    if meter.shared:
-        limits = AdminUsageLimitsDTO(
-            ai_images_generated=meter.limit_for("ai_images_generated"),
-            ai_suggestions_requested=meter.limit_for("ai_suggestions_requested"),
-            ai_assistant_messages=meter.limit_for("ai_assistant_messages"),
-            recipes_imported=meter.limit_for("recipes_imported"),
-        )
+    with bind_household_meter(session):
+        subject, images = usage_meter(current_user, "ai_images_generated")
+        _, suggestions = usage_meter(current_user, "ai_suggestions_requested")
+        _, chats = usage_meter(current_user, "ai_assistant_messages")
+        _, imports = usage_meter(current_user, "recipes_imported")
+    usage = UsageService(session, subject.id, window=usage_window_for(subject)).get_usage()
+    limits = AdminUsageLimitsDTO(
+        ai_images_generated=images,
+        ai_suggestions_requested=suggestions,
+        ai_assistant_messages=chats,
+        recipes_imported=imports,
+    )
     return CurrentUserUsageDTO.from_models(
-        current_user,
+        subject,
         usage,
-        has_pro_access=has_pro,
         limits=limits,
         shared_with_household=meter.shared,
     )
+
+
+@router.post("/me/sunset-notice", response_model=CurrentUserDTO)
+def dismiss_sunset_notice(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> CurrentUserDTO:
+    """Record that the one-time free-plan pop-up was seen."""
+    from datetime import datetime, timezone
+
+    current_user.sunset_notice_seen_at = datetime.now(timezone.utc)
+    session.commit()
+    return CurrentUserDTO.from_model(current_user)
 
 
 class AccountDeletionResultDTO(BaseModel):

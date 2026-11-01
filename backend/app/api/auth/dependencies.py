@@ -5,18 +5,26 @@ Provides get_current_user and related dependencies for protecting routes.
 """
 
 import logging
-from typing import Callable, Generator, Optional
+from typing import Generator, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
-from ...core.usage_limits import get_user_monthly_limit
+from ...core.rate_limit import enforce_pre_quota_limits
+from ...core.usage_limits import (
+    admin_exempt_emails,
+    can_mutate_admin,
+    can_view_admin,
+    remember_verified_primary_email,
+    usage_meter,
+    usage_window_for,
+)
 from ...services.household.scope import effective_access
-from ...services.household.usage_meter import resolve_usage_meter
+from ...services.household.usage_meter import bind_household_meter
 from ...database.db import get_session
 from ...models.user import User
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -175,6 +183,13 @@ async def get_current_user(
             ),
         )
 
+    if admin_exempt_emails():
+        from ...services.clerk_service import cached_verified_primary_email
+
+        # Match only Clerk's verified primary address, cached for a few
+        # minutes. The JWT email claim and users.email are not proof.
+        remember_verified_primary_email(user, cached_verified_primary_email(clerk_id))
+
     user_service.touch_last_active(user)
     set_error_reporting_user(user.id)
     return user
@@ -247,45 +262,74 @@ def require_pro(
     return user
 
 
-def require_within_usage_limit(field: str) -> Callable[..., Generator[User, None, None]]:
+def require_within_usage_limit(
+    field: str,
+    user_limits: tuple[str, ...] = (),
+    ip_limits: tuple[str, ...] = (),
+):
     """
-    Dependency factory that enforces a monthly usage cap for a Gemini-backed
-    AI feature, resolved from the user's subscription tier.
+    Dependency factory that enforces a usage cap for a Gemini-backed AI feature.
 
-    Reserves one unit of `field` before the route runs (one atomic conditional
-    UPDATE, so parallel requests can't overshoot the cap), and refunds it if
-    the route raises. Routes therefore must not increment `field` themselves.
-    The cap comes from the caller's tier, except in a household of two or
-    more: then the unit is reserved on the owner's row and the cap is the
-    Pro cap times 1.5 (see ``household.usage_meter``, kept out of
-    ``usage_limits.py``). Admins are uncapped but still counted. Free users
-    are metered, not blocked outright.
+    Rate limits run before the cap is reserved, so a 429 from slowapi does not
+    consume the monthly or trial allowance. Admins are uncapped but still
+    counted. Trial usage is stored under one window for the whole trial.
+    Read-only accounts are rejected before either bucket is touched.
 
-    Usage:
-        @router.post("/ai/generate-image")
-        def generate_image(
-            current_user: User = Depends(require_within_usage_limit("ai_images_generated")),
-        ):
-            # Any authenticated user under their tier's monthly cap
-            ...
-
-    Returns:
-        A dependency callable resolving to the authenticated User.
-
-    Raises:
-        HTTPException 429: User has reached their tier's monthly cap for `field`.
+    A household of two or more reserves the unit on the owner's row. The
+    owner's Pro cap is multiplied by 1.5 through ``set_household_usage_hooks``.
     """
 
     def _reserve_usage(
+        request: Request,
         user: User = Depends(get_current_user),
         session: Session = Depends(get_session),
     ) -> Generator[User, None, None]:
-        meter = resolve_usage_meter(session, user)
-        limit = meter.limit_for(field)
-        usage_service = UsageService(session, meter.user_id)
+        if user.is_read_only is True:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "read_only",
+                    "message": (
+                        "This account is read-only. You can view and export your "
+                        "recipes. Creating, planning, and AI need Pro."
+                    ),
+                },
+            )
+
+        if getattr(user, "usage_tier", None) == "none":
+            # Clients, including the web paywall and the #209 native paywall,
+            # must branch on detail.error == "trial_required". HTTP 403 is also
+            # used for read-only and for "Pro subscription required".
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "trial_required",
+                    "message": "Start your 7-day trial",
+                },
+            )
+
+        if user_limits or ip_limits:
+            enforce_pre_quota_limits(request, user_limits, ip_limits)
+
+        with bind_household_meter(session):
+            subject, limit = usage_meter(user, field)
+        tier = subject.usage_tier
+        usage_service = UsageService(session, subject.id, window=usage_window_for(subject))
         try:
             usage_service.reserve(field, limit)
         except UsageLimitExceededError as e:
+            if tier == "trial":
+                message = (
+                    f"Trial limit reached for this feature ({e.current}/{e.limit}). "
+                    "It does not reset during the trial."
+                )
+            elif tier == "expired":
+                message = "AI features are not available on this plan."
+            else:
+                message = (
+                    f"Monthly limit reached for this feature "
+                    f"({e.current}/{e.limit}). Resets at the start of next month."
+                )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail={
@@ -293,17 +337,13 @@ def require_within_usage_limit(field: str) -> Callable[..., Generator[User, None
                     "field": e.field,
                     "current": e.current,
                     "limit": e.limit,
-                    "message": (
-                        f"Monthly limit reached for this feature "
-                        f"({e.current}/{e.limit}). Resets at the start of next month."
-                    ),
+                    "message": message,
                 },
             )
 
         try:
             yield user
         except Exception:
-            # The feature failed — don't charge the user for it
             try:
                 usage_service.release(field)
             except Exception:
@@ -317,23 +357,37 @@ def require_admin(
     user: User = Depends(get_current_user),
 ) -> User:
     """
-    Dependency that requires admin-level access.
+    Admin views.
 
-    Checks the user's is_admin flag for permanent admin access.
-
-    Usage:
-        @router.get("/admin/users")
-        def list_users(current_admin: User = Depends(require_admin)):
-            # Only admins can access this
-            ...
-
-    Returns:
-        User: The authenticated admin user.
+    Allows the database admin flag or ``USAGE_EXEMPT_USER_IDS``.
+    ``ADMIN_EXEMPT_EMAILS`` does not open these routes. Mutations use
+    ``require_admin_mutator`` and the same two checks.
 
     Raises:
-        HTTPException 403: User is not an admin.
+        HTTPException 403: User cannot view admin data.
     """
-    if not user.is_admin:
+    if not can_view_admin(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required for this feature",
+        )
+    return user
+
+
+def require_admin_mutator(
+    user: User = Depends(get_current_user),
+) -> User:
+    """
+    Admin mutations (grant, exempt, delete, SQL).
+
+    Requires ``users.is_admin`` or an id in ``USAGE_EXEMPT_USER_IDS``.
+    ``ADMIN_EXEMPT_EMAILS`` is never enough, including for
+    PATCH /admin/users/{id}/usage-exempt.
+
+    Raises:
+        HTTPException 403: User cannot change admin data.
+    """
+    if not can_mutate_admin(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required for this feature",

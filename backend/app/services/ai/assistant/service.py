@@ -12,8 +12,10 @@ from app.dtos.planner_dtos import PlannerEntryResponseDTO
 from app.dtos.shopping_dtos import ManualItemCreateDTO, ManualItemsAddResultDTO
 from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.provider_errors import safe_ai_error
+from app.services.ai.usage_logging import log_usage_metadata
+from app.services.ai.config import ASSISTANT_MAX_OUTPUT_TOKENS, MINIMAL_THINKING, PLANNING_MAX_OUTPUT_TOKENS
 
-from .prompts import MODEL_NAME, API_KEY_ENV_VAR, get_full_system_prompt
+from .prompts import BASE_SYSTEM_PROMPT, MODEL_NAME, API_KEY_ENV_VAR
 from .tools import TOOL_DEFINITIONS
 from .context import (
     build_user_context_prompt,
@@ -80,21 +82,23 @@ class AssistantServiceCore:
             user_context = self._build_context(
                 message, conversation_history, user_context_data
             )
-            system_prompt = get_full_system_prompt(user_context)
+            contents = self._build_contents(user_context, conversation_history, message)
 
-            # Build conversation contents
-            contents = self._build_contents(system_prompt, conversation_history, message)
-
-            # Call Gemini with function calling
             response = client.models.generate_content(
                 model=MODEL_NAME,
                 contents=contents,
                 config={
+                    # Static prompt is the first content, not mixed with the
+                    # user's library, so the prefix can be cached. Tool
+                    # declarations stay in this config (the API's tool channel)
+                    # and are identical on every turn.
                     "tools": [{"function_declarations": TOOL_DEFINITIONS}],
                     "tool_config": {"function_calling_config": {"mode": "AUTO"}},
-                    "temperature": 0.8,
+                    "max_output_tokens": ASSISTANT_MAX_OUTPUT_TOKENS,
+                    "thinking_config": MINIMAL_THINKING,
                 },
             )
+            log_usage_metadata("assistant", MODEL_NAME, response)
 
             # Process the response
             return await self._process_response(
@@ -150,33 +154,39 @@ class AssistantServiceCore:
 
     def _build_contents(
         self,
-        system_prompt: str,
+        user_context: str,
         history: Optional[List[AssistantMessageDTO]],
         message: str,
     ) -> list:
-        """Build the conversation contents for Gemini."""
-        contents = []
+        """Build conversation contents with a stable cacheable prefix.
 
-        # System prompt as initial user message + model acknowledgment
-        contents.append({"role": "user", "parts": [{"text": system_prompt}]})
-        contents.append(
+        The static system prompt is the first turn. Per-user context comes
+        after it so implicit caching can reuse the shared prefix.
+        """
+        contents = [
+            {"role": "user", "parts": [{"text": BASE_SYSTEM_PROMPT}]},
             {
                 "role": "model",
                 "parts": [
                     {"text": "Got it! I'm Genie, ready to help. What sounds good tonight? 🍳"}
                 ],
-            }
-        )
+            },
+        ]
+        if user_context:
+            contents.append({"role": "user", "parts": [{"text": user_context}]})
+            contents.append(
+                {
+                    "role": "model",
+                    "parts": [{"text": "I'll keep that kitchen context in mind."}],
+                }
+            )
 
-        # Add conversation history
         if history:
             for msg in history:
                 role = "user" if msg.role == "user" else "model"
                 contents.append({"role": role, "parts": [{"text": msg.content}]})
 
-        # Add the current message
         contents.append({"role": "user", "parts": [{"text": message}]})
-
         return contents
 
     async def _process_response(
