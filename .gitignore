@@ -117,3 +117,10 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 frontend/.ds-tailwind.css
+
+# Android upload signing material. Generate it outside the repo.
+*.jks
+*.keystore
+*.jks.base64
+*.keystore.base64
+keystore.properties

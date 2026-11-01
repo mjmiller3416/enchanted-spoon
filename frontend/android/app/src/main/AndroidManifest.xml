@@ -41,6 +41,8 @@
     </application>
 
     <!-- Permissions -->
+    <!-- com.android.vending.BILLING is merged from com.android.billingclient:billing
+         via @revenuecat/purchases-capacitor. Play requires it for subscriptions. -->
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
