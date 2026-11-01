@@ -1,17 +1,18 @@
 """Configuration for the Image Generation AI service."""
 
-from app.services.ai.config import GEMINI_IMAGE_MODEL
+from app.services.ai.config import FALLBACK_GEMINI_IMAGE_MODEL, GEMINI_IMAGE_MODEL
 
 # Model settings
 MODEL_NAME = GEMINI_IMAGE_MODEL
+FALLBACK_MODEL_NAME = FALLBACK_GEMINI_IMAGE_MODEL
 
 # Aspect ratios
 ASPECT_RATIO = "1:1"  # Square format for reference/thumbnail images
 BANNER_ASPECT_RATIO = "21:9"  # Ultrawide format for banner images (Gemini's widest)
 
 # Output resolution (valid: "512", "1K", "2K", "4K")
-REFERENCE_IMAGE_SIZE = "2K"
-BANNER_IMAGE_SIZE = "2K"
+REFERENCE_IMAGE_SIZE = "1K"
+BANNER_IMAGE_SIZE = "1K"
 
 # Environment variable for API key
 API_KEY_ENV_VAR = "GEMINI_IMAGE_API_KEY"

@@ -203,6 +203,12 @@ class AdminRepo:
         self.session.flush()
         return user
 
+    def update_user_usage_exempt(self, user: User, usage_exempt: bool) -> User:
+        """Keep or clear the pre-release Pro allowance override. Flushes only."""
+        user.usage_exempt = usage_exempt
+        self.session.flush()
+        return user
+
     def delete_user(self, user: User) -> None:
         """Delete a user (cascade handles related data). Flushes only."""
         self.session.delete(user)

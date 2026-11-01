@@ -7,6 +7,8 @@ deleting the Clerk identity when a user deletes their account.
 """
 
 import logging
+import threading
+import time
 from typing import Optional
 
 import httpx
@@ -17,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 CLERK_API_BASE = "https://api.clerk.com/v1"
 CLERK_API_TIMEOUT = 8.0
+VERIFIED_EMAIL_TTL_SECONDS = 300
+
+_verified_email_cache: dict[str, tuple[float, Optional[str]]] = {}
+_verified_email_lock = threading.Lock()
 
 
 class ClerkApiError(Exception):
@@ -31,18 +37,16 @@ def _headers(secret: str) -> dict:
     return {"Authorization": f"Bearer {secret}"}
 
 
-def clerk_user_has_verified_email(clerk_id: str, email: str) -> bool:
-    """
-    Whether ``email`` is a *verified* address on the Clerk user ``clerk_id``.
+def fetch_clerk_user(clerk_id: str) -> Optional[dict]:
+    """Clerk Backend API user, or None when the lookup cannot be trusted.
 
-    Fails closed: any configuration or network problem returns False, so an
-    account is never relinked on an unconfirmed email.
+    Fails closed: a missing key, a network error, or a non-200 response
+    returns None so an allowlist cannot match an unverified claim.
     """
     secret = _secret_key()
-    if not secret:
-        logger.warning("CLERK_SECRET_KEY not set; cannot verify email for account relink")
-        return False
-
+    if not secret or not clerk_id:
+        logger.warning("CLERK_SECRET_KEY not set; cannot confirm a verified primary email")
+        return None
     try:
         resp = httpx.get(
             f"{CLERK_API_BASE}/users/{clerk_id}",
@@ -53,6 +57,76 @@ def clerk_user_has_verified_email(clerk_id: str, email: str) -> bool:
         data = resp.json()
     except (httpx.HTTPError, ValueError):
         logger.exception("Clerk user lookup failed for %s", clerk_id)
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def verified_primary_email(clerk_user: Optional[dict]) -> Optional[str]:
+    """The primary email only when Clerk marks that address verified.
+
+    Secondary addresses never match, even when they are verified. An
+    unverified primary does not match. The comparison value is trimmed
+    and lowercased.
+    """
+    if not isinstance(clerk_user, dict):
+        return None
+    primary_id = clerk_user.get("primary_email_address_id")
+    if not isinstance(primary_id, str) or not primary_id:
+        return None
+    for address in clerk_user.get("email_addresses") or []:
+        if not isinstance(address, dict) or address.get("id") != primary_id:
+            continue
+        verification = address.get("verification") or {}
+        if not isinstance(verification, dict) or verification.get("status") != "verified":
+            return None
+        email = address.get("email_address")
+        if isinstance(email, str) and email.strip():
+            return email.strip().lower()
+        return None
+    return None
+
+
+def clear_verified_email_cache() -> None:
+    """Drop the in-process Clerk email cache. Tests use this."""
+    with _verified_email_lock:
+        _verified_email_cache.clear()
+
+
+def cached_verified_primary_email(clerk_id: str, now: float | None = None) -> Optional[str]:
+    """Verified primary email for ``clerk_id``, reused for about five minutes.
+
+    A miss, an unverified primary, and a failed lookup are cached too, so
+    ``ADMIN_EXEMPT_EMAILS`` does not call Clerk on every request. ``now`` is
+    a monotonic timestamp for tests.
+    """
+    moment = time.monotonic() if now is None else now
+    with _verified_email_lock:
+        cached = _verified_email_cache.get(clerk_id)
+        if cached is not None and moment - cached[0] < VERIFIED_EMAIL_TTL_SECONDS:
+            return cached[1]
+    email = verified_primary_email(fetch_clerk_user(clerk_id))
+    with _verified_email_lock:
+        _verified_email_cache[clerk_id] = (moment, email)
+        expired = [
+            key
+            for key, (stored_at, _email) in _verified_email_cache.items()
+            if moment - stored_at >= VERIFIED_EMAIL_TTL_SECONDS
+        ]
+        for key in expired:
+            _verified_email_cache.pop(key, None)
+        _verified_email_cache[clerk_id] = (moment, email)
+    return email
+
+
+def clerk_user_has_verified_email(clerk_id: str, email: str) -> bool:
+    """
+    Whether ``email`` is a *verified* address on the Clerk user ``clerk_id``.
+
+    Fails closed: any configuration or network problem returns False, so an
+    account is never relinked on an unconfirmed email.
+    """
+    data = fetch_clerk_user(clerk_id)
+    if not data:
         return False
 
     wanted = email.strip().lower()

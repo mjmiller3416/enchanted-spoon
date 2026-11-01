@@ -16,6 +16,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SectionHeader } from "../SectionHeader";
 import {
   useCurrentUser,
@@ -23,6 +25,7 @@ import {
   useOpenBillingPortal,
   useStartCheckout,
 } from "@/hooks/api";
+import { ANNUAL_PRICE_LABEL, MONTHLY_PRICE_LABEL, type CheckoutPlan } from "@/lib/pricing";
 import type { CurrentUserDTO } from "@/types/admin";
 import type { CurrentUserUsage } from "@/types/billing";
 import { useIsClient } from "@/hooks/useIsClient";
@@ -40,7 +43,7 @@ const USAGE_ROWS: {
 }[] = [
   { field: "recipes_imported", label: "Recipe imports" },
   { field: "ai_suggestions_requested", label: "AI suggestions" },
-  { field: "ai_images_generated", label: "AI images" },
+  { field: "ai_images_generated", label: "AI photo sets" },
   { field: "ai_assistant_messages", label: "Assistant messages" },
 ];
 
@@ -54,6 +57,8 @@ function formatDate(dateStr: string): string {
 
 function planBadge(user: CurrentUserDTO) {
   if (user.is_admin) return <Badge variant="default">Admin</Badge>;
+  if (user.access_reason === "trial") return <Badge variant="secondary">Trial</Badge>;
+  if (user.is_read_only) return <Badge variant="outline">Read-only</Badge>;
   if (user.has_pro_access) return <Badge variant="secondary">Pro</Badge>;
   return <Badge variant="outline">Free</Badge>;
 }
@@ -61,6 +66,15 @@ function planBadge(user: CurrentUserDTO) {
 function planDetail(user: CurrentUserDTO): string {
   if (user.is_admin) {
     return "Admin accounts have unlimited access to everything.";
+  }
+  if (user.access_reason === "trial") {
+    return "You're in a 7-day Pro trial. Your card is charged when the trial ends unless you cancel.";
+  }
+  if (user.access_reason === "read_only") {
+    return "This account is read-only. You can view and export. Creating, planning, and AI need Pro.";
+  }
+  if (user.access_reason === "household") {
+    return "Pro is included with your household. The owner pays, and AI usage draws from the owner's shared allowance.";
   }
   if (user.access_reason === "subscription") {
     if (user.subscription_status === "past_due") {
@@ -89,7 +103,10 @@ function planDetail(user: CurrentUserDTO): string {
   if (user.has_pro_access) {
     return "You have complimentary Pro access.";
   }
-  return "The free plan includes all core features and a monthly taste of every AI feature.";
+  if (user.access_reason === "trial_required") {
+    return "Recipes, browsing, and your grocery list are free. Start a 7-day trial to use AI.";
+  }
+  return "Recipes, browsing, and your grocery list are included.";
 }
 
 function UsageRow({
@@ -109,7 +126,7 @@ function UsageRow({
           <span className="text-muted-foreground">Unlimited</span>
         ) : (
           <span className="text-muted-foreground">
-            {used} / {limit}
+            {Math.max(limit - used, 0)} left ({used} / {limit})
           </span>
         )}
       </div>
@@ -135,16 +152,21 @@ export function BillingSection() {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const native = useIsNativeApp();
   const clientReady = useIsClient();
+  const [plan, setPlan] = useState<CheckoutPlan>("annual");
+  const [promotionCode, setPromotionCode] = useState("");
 
   const handleUpgrade = () => {
     if (native) {
       setPaywallOpen(true);
       return;
     }
-    startCheckout.mutate(undefined, {
-      onError: (error) =>
-        toast.error(error.message || "Couldn't start checkout. Please try again."),
-    });
+    startCheckout.mutate(
+      { plan, promotionCode: promotionCode.trim() || undefined },
+      {
+        onError: (error) =>
+          toast.error(error.message || "Couldn't start checkout. Please try again."),
+      },
+    );
   };
 
   const handleManageBilling = () => {
@@ -186,16 +208,52 @@ export function BillingSection() {
 
               <div className="flex flex-col gap-3 pt-1">
                 {clientReady && showUpgrade && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button onClick={handleUpgrade} disabled={startCheckout.isPending} className="gap-2">
+                  native ? (
+                    <Button onClick={handleUpgrade} className="w-fit gap-2">
+                      <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                      View Pro plans
+                    </Button>
+                  ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant={plan === "annual" ? "default" : "outline"}
+                        onClick={() => setPlan("annual")}
+                      >
+                        Annual — {ANNUAL_PRICE_LABEL}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={plan === "monthly" ? "default" : "outline"}
+                        onClick={() => setPlan("monthly")}
+                      >
+                        Monthly — {MONTHLY_PRICE_LABEL}
+                      </Button>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="promotion-code">Founding code</Label>
+                      <Input
+                        id="promotion-code"
+                        value={promotionCode}
+                        onChange={(event) => setPromotionCode(event.target.value)}
+                        placeholder="FOUNDER30 or FOUNDER30Y"
+                        autoComplete="off"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        FOUNDER30 is monthly only. FOUNDER30Y is annual only. The 7-day trial still requires a card.
+                      </p>
+                    </div>
+                    <Button onClick={handleUpgrade} disabled={startCheckout.isPending} className="w-fit gap-2">
                       {startCheckout.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
                       ) : (
                         <Sparkles className="h-4 w-4" strokeWidth={1.5} />
                       )}
-                      {native ? "View Pro plans" : "Upgrade to Pro"}
+                      Start 7-day trial
                     </Button>
-                  </div>
+                  </>
+                  )
                 )}
                 {clientReady && showUpgrade && <WebFoundingOffer />}
                 {clientReady && showStripeManage && (
@@ -243,9 +301,23 @@ export function BillingSection() {
           {/* Usage meter */}
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-medium text-foreground">AI usage this month</h3>
+              <h3 className="text-sm font-medium text-foreground">
+                {usage?.resets === "trial"
+                  ? "AI usage this trial"
+                  : usage?.resets === "none"
+                    ? "AI usage"
+                    : "AI usage this month"}
+              </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Counters reset at the start of each month.
+                {usage?.shared_with_household
+                  ? "Shared household allowance on the owner's account. Everyone's AI use counts here, and it resets at the start of each month."
+                  : usage?.usage_tier === "none"
+                    ? "Start a 7-day trial to use photos, chat, suggestions, and imports."
+                    : usage?.resets === "trial"
+                      ? "Trial allowances cover the whole trial and do not reset mid-trial."
+                      : usage?.resets === "none"
+                        ? "AI is unavailable on this plan."
+                        : "Counters reset at the start of each month."}
               </p>
             </div>
 

@@ -179,6 +179,20 @@ export {
   useOpenBillingPortal,
 } from "./useBilling";
 
+export {
+  useHousehold,
+  useCreateHousehold,
+  useRenameHousehold,
+  useDissolveHousehold,
+  useCreateHouseholdInvite,
+  useRevokeHouseholdInvite,
+  useJoinHousehold,
+  useLeaveHousehold,
+  useRemoveHouseholdMember,
+  useTransferHousehold,
+  useSetHouseholdRecipeShare,
+} from "./useHousehold";
+
 // Admin Hooks
 export {
   // Current User
@@ -190,6 +204,7 @@ export {
   useAdminUsers,
   useGrantPro,
   useRevokePro,
+  useSetUsageExempt,
   useToggleAdmin,
   useDeleteUser,
   // Database Query

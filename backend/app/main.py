@@ -3,6 +3,7 @@
 Main FastAPI application for Enchanted Spoon.
 """
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -15,7 +16,11 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.core.observability import init_sentry
 from app.core.rate_limit import limiter
 from app.core.startup import validate_config
+from app.database.db import SessionLocal
+from app.services.free_tier_sunset import apply_free_tier_sunset
 from app.router import api_router
+
+logger = logging.getLogger(__name__)
 
 # Before the app is built so Sentry's FastAPI integration can hook it
 init_sentry()
@@ -25,7 +30,30 @@ init_sentry()
 async def lifespan(app: FastAPI):
     """Validate critical configuration before serving any requests."""
     validate_config()
+    from app.core.offer_windows import log_legacy_cutoff_if_unset
+    from app.services.household.usage_meter import install_household_usage_hooks
+
+    install_household_usage_hooks()
+    log_legacy_cutoff_if_unset()
+    _apply_sunset_if_due()
     yield
+
+
+def _apply_sunset_if_due() -> None:
+    """Persist read-only once the configured free-plan date has passed."""
+    from app.core.offer_windows import sunset_is_due
+
+    if not sunset_is_due():
+        return
+    session = SessionLocal()
+    try:
+        apply_free_tier_sunset(session)
+        session.commit()
+    except Exception:
+        session.rollback()
+        logger.exception("Free-tier sunset migration failed")
+    finally:
+        session.close()
 
 
 # Create FastAPI app
@@ -80,8 +108,17 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}
+    """Liveness plus the free-tier cutoff fail-safe.
+
+    ``status`` stays ``healthy`` so a missing cutoff does not fail the
+    process check. ``legacy_free_cutoff_configured`` is false, and
+    ``legacy_free_cutoff_error`` is set, until the variable is present.
+    """
+    from app.core.offer_windows import legacy_cutoff_status
+
+    body = {"status": "healthy"}
+    body.update(legacy_cutoff_status())
+    return body
 
 
 # Optional: Serve static files for images if needed

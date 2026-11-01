@@ -6,8 +6,8 @@ Fails fast when a production deployment is missing critical configuration,
 rather than silently falling back to insecure development defaults (an open
 auth bypass, or a throwaway SQLite file that discards every write on redeploy).
 
-"Production" is signalled by the ``ENVIRONMENT`` env var or, when that is
-unset, by Railway's own ``RAILWAY_ENVIRONMENT_NAME`` (injected into every
+"Production" is signalled by either the ``ENVIRONMENT`` env var or
+Railway's own ``RAILWAY_ENVIRONMENT_NAME`` (injected into every
 deployment, so the guard can't be skipped by forgetting to set a variable).
 Anything else is treated as a dev/test environment, where the same problems
 are logged as informational notices instead of aborting startup.
@@ -28,10 +28,11 @@ class ConfigError(RuntimeError):
 
 def is_production() -> bool:
     """Return True when running in a production-looking environment."""
-    environment = os.environ.get("ENVIRONMENT") or os.environ.get(
-        "RAILWAY_ENVIRONMENT_NAME", "development"
+    # A stale development override must never disable Railway production guards.
+    return any(
+        os.environ.get(name, "").strip().lower() == "production"
+        for name in ("ENVIRONMENT", "RAILWAY_ENVIRONMENT", "RAILWAY_ENVIRONMENT_NAME")
     )
-    return environment.strip().lower() == "production"
 
 
 def _uses_sqlite() -> bool:
@@ -48,6 +49,10 @@ def validate_config() -> None:
     auth = get_auth_settings()
     production = is_production()
 
+    from app.core.offer_windows import legacy_cutoff_issue
+
+    cutoff_issue = legacy_cutoff_issue()
+
     if not production:
         # Dev/test: surface the state without blocking startup.
         if auth.auth_disabled:
@@ -57,9 +62,15 @@ def validate_config() -> None:
             )
         if _uses_sqlite():
             logger.info("Using SQLite database for local development.")
+        if cutoff_issue:
+            logger.warning(cutoff_issue)
         return
 
     problems: list[str] = []
+    if cutoff_issue:
+        problems.append(
+            cutoff_issue + " Refusing to start so the previous deploy stays up."
+        )
 
     if auth.auth_disabled:
         problems.append(

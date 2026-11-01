@@ -13,14 +13,11 @@ export interface CurrentUserDTO {
   has_pro_access: boolean;
   access_reason: string;
   trial_consumed: boolean;
-  /**
-   * From the billing/access API (#210). Absent on older responses.
-   * `free` is only the legacy cohort; accounts created at or after
-   * LEGACY_FREE_CUTOFF have no free AI allowance.
-   */
-  usage_tier?: string;
-  is_read_only?: boolean;
-  free_tier_sunset_at?: string | null;
+  usage_tier: string;
+  is_read_only: boolean;
+  show_sunset_banner: boolean;
+  show_sunset_popup: boolean;
+  free_tier_sunset_at: string | null;
   billing_channel: "stripe" | "app_store" | "play_store" | null;
   store_provider: string | null;
   store_product_id: string | null;
@@ -40,6 +37,7 @@ export interface AdminUserDTO {
   subscription_ends_at: string | null;
   cancel_at_period_end: boolean;
   is_admin: boolean;
+  usage_exempt: boolean;
   has_pro_access: boolean;
   access_reason: string;
   granted_pro_until: string | null;
@@ -60,6 +58,10 @@ export interface AdminGrantProRequest {
 
 export interface AdminToggleAdminRequest {
   is_admin: boolean;
+}
+
+export interface AdminSetUsageExemptRequest {
+  usage_exempt: boolean;
 }
 
 // Usage-by-user types

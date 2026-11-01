@@ -20,6 +20,8 @@ from app.services.ai.recipe_generation.service import (
     RecipeParseError,
 )
 from app.services.ai.response_utils import extract_text_from_response
+from app.services.ai.usage_logging import log_usage_metadata
+from app.services.ai.config import ASSISTANT_MAX_OUTPUT_TOKENS, MINIMAL_THINKING
 
 from .prompts import MODEL_NAME, API_KEY_ENV_VAR
 from .service import PlannerMealAdder, RecipeCatalogLoader, ShoppingItemAdder
@@ -169,9 +171,11 @@ class GeneratorsMixin:
             config={
                 "tools": [{"function_declarations": TOOL_DEFINITIONS}],
                 "tool_config": {"function_calling_config": {"mode": "NONE"}},
-                "temperature": 0.8,
+                "max_output_tokens": ASSISTANT_MAX_OUTPUT_TOKENS,
+                "thinking_config": MINIMAL_THINKING,
             },
         )
+        log_usage_metadata("assistant_followup", MODEL_NAME, gen_response)
 
         return extract_text_from_response(gen_response) or fallback
 

@@ -207,6 +207,20 @@ class AdminService:
             self.session.rollback()
             raise AdminSaveError(f"Failed to revoke pro access: {e}") from e
 
+    def set_usage_exempt(self, user_id: int, usage_exempt: bool) -> AdminUserListDTO:
+        """Flag an account to keep the pre-release Pro allowances."""
+        user = self.repo.get_user_by_id(user_id)
+        if not user:
+            raise AdminUserNotFoundError(f"User {user_id} not found")
+
+        try:
+            user = self.repo.update_user_usage_exempt(user, usage_exempt=usage_exempt)
+            self.session.commit()
+            return AdminUserListDTO.from_model(user)
+        except SQLAlchemyError as e:
+            self.session.rollback()
+            raise AdminSaveError(f"Failed to update usage exemption: {e}") from e
+
     def toggle_admin(self, user_id: int, is_admin: bool) -> AdminUserListDTO:
         """Toggle admin flag on a user."""
         if user_id == self.current_user_id and not is_admin:

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..models.meal import Meal
 from ..models.recipe import Recipe
+from ..models.household import owner_shared_recipe_id_select
 
 # Safety backstop for list queries that omit an explicit limit.
 MAX_LIST_ROWS = 1000
@@ -369,8 +370,13 @@ class MealRepo:
 
         stmt = (
             select(Recipe.id)
-            .where(Recipe.user_id == user_id)
             .where(Recipe.id.in_(recipe_ids))
+            .where(
+                or_(
+                    Recipe.user_id == user_id,
+                    Recipe.id.in_(owner_shared_recipe_id_select(user_id)),
+                )
+            )
         )
         result = self.session.execute(stmt)
         return list(result.scalars().all())

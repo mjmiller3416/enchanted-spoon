@@ -3,7 +3,9 @@
 Centralised route registration for the Enchanted Spoon API.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from app.api.read_only import reject_read_only_writes
 
 from app.api import (
     admin,
@@ -15,6 +17,7 @@ from app.api import (
     devices,
     feedback,
     hearth,
+    household,
     ingredient_categories,
     ingredient_units,
     ingredients,
@@ -42,21 +45,22 @@ from app.api.ai import (
 )
 
 api_router = APIRouter()
+_writes = [Depends(reject_read_only_writes)]
 
 # ── Core domain routes ───────────────────────────────────────────────────
-api_router.include_router(recipes.router, prefix="/api/recipes", tags=["recipes"])
-api_router.include_router(recipe_groups.router, prefix="/api/recipe-groups", tags=["recipe-groups"])
-api_router.include_router(categories.router, prefix="/api/categories", tags=["categories"])
-api_router.include_router(meals.router, prefix="/api/meals", tags=["meals"])
-api_router.include_router(planner.router, prefix="/api/planner", tags=["planner"])
-api_router.include_router(shopping.router, prefix="/api/shopping", tags=["shopping"])
-api_router.include_router(ingredients.router, prefix="/api/ingredients", tags=["ingredients"])
-api_router.include_router(ingredient_categories.router, prefix="/api/ingredient-categories", tags=["ingredient-categories"])
-api_router.include_router(ingredient_units.router, prefix="/api/ingredient-units", tags=["ingredient-units"])
+api_router.include_router(recipes.router, prefix="/api/recipes", tags=["recipes"], dependencies=_writes)
+api_router.include_router(recipe_groups.router, prefix="/api/recipe-groups", tags=["recipe-groups"], dependencies=_writes)
+api_router.include_router(categories.router, prefix="/api/categories", tags=["categories"], dependencies=_writes)
+api_router.include_router(meals.router, prefix="/api/meals", tags=["meals"], dependencies=_writes)
+api_router.include_router(planner.router, prefix="/api/planner", tags=["planner"], dependencies=_writes)
+api_router.include_router(shopping.router, prefix="/api/shopping", tags=["shopping"], dependencies=_writes)
+api_router.include_router(ingredients.router, prefix="/api/ingredients", tags=["ingredients"], dependencies=_writes)
+api_router.include_router(ingredient_categories.router, prefix="/api/ingredient-categories", tags=["ingredient-categories"], dependencies=_writes)
+api_router.include_router(ingredient_units.router, prefix="/api/ingredient-units", tags=["ingredient-units"], dependencies=_writes)
 
 # ── Supporting routes ────────────────────────────────────────────────────
-api_router.include_router(data_management.router, prefix="/api/data-management", tags=["data-management"])
-api_router.include_router(upload.router, prefix="/api/upload", tags=["upload"])
+api_router.include_router(data_management.router, prefix="/api/data-management", tags=["data-management"], dependencies=_writes)
+api_router.include_router(upload.router, prefix="/api/upload", tags=["upload"], dependencies=_writes)
 api_router.include_router(feedback.router, prefix="/api/feedback", tags=["feedback"])
 api_router.include_router(conversion_rules.router, prefix="/api/unit-conversions", tags=["unit-conversions"])
 api_router.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
@@ -64,7 +68,10 @@ api_router.include_router(settings.router, prefix="/api/settings", tags=["settin
 api_router.include_router(users.router, prefix="/api/users", tags=["users"])
 api_router.include_router(devices.router, prefix="/api/devices", tags=["devices"])
 api_router.include_router(push_dispatch.router, prefix="/api/internal/push", tags=["push"])
-api_router.include_router(sample_data.router, prefix="/api/sample-data", tags=["sample-data"])
+api_router.include_router(
+    household.router, prefix="/api/household", tags=["household"], dependencies=_writes
+)
+api_router.include_router(sample_data.router, prefix="/api/sample-data", tags=["sample-data"], dependencies=_writes)
 api_router.include_router(billing.router, prefix="/api/billing", tags=["billing"])
 
 # ── Admin routes ─────────────────────────────────────────────────────────
@@ -82,13 +89,13 @@ api_router.include_router(
 )
 
 # ── AI-powered routes ────────────────────────────────────────────────────
-api_router.include_router(cooking_tips_router, prefix="/api/ai/cooking-tip", tags=["ai", "cooking-tips"])
-api_router.include_router(assistant_router, prefix="/api/ai/assistant", tags=["ai", "assistant"])
+api_router.include_router(cooking_tips_router, prefix="/api/ai/cooking-tip", tags=["ai", "cooking-tips"], dependencies=_writes)
+api_router.include_router(assistant_router, prefix="/api/ai/assistant", tags=["ai", "assistant"], dependencies=_writes)
 # Legacy pre-rename prefix, aliased for one release so in-flight clients don't 404 — then remove
-api_router.include_router(assistant_router, prefix="/api/ai/meal-genie", tags=["ai", "assistant"], include_in_schema=False)
-api_router.include_router(image_generation_router, prefix="/api/ai/image-generation", tags=["ai", "image-generation"])
-api_router.include_router(meal_suggestions_router, prefix="/api/ai/meal-suggestions", tags=["ai", "meal-suggestions"])
-api_router.include_router(nutrition_estimation_router, prefix="/api/ai/nutrition-estimation", tags=["ai", "nutrition-estimation"])
+api_router.include_router(assistant_router, prefix="/api/ai/meal-genie", tags=["ai", "assistant"], include_in_schema=False, dependencies=_writes)
+api_router.include_router(image_generation_router, prefix="/api/ai/image-generation", tags=["ai", "image-generation"], dependencies=_writes)
+api_router.include_router(meal_suggestions_router, prefix="/api/ai/meal-suggestions", tags=["ai", "meal-suggestions"], dependencies=_writes)
+api_router.include_router(nutrition_estimation_router, prefix="/api/ai/nutrition-estimation", tags=["ai", "nutrition-estimation"], dependencies=_writes)
 # TODO: rename URL prefix to /api/ai/recipe-generation (requires frontend changes)
-api_router.include_router(recipe_generation_router, prefix="/api/ai/wizard-generation", tags=["ai", "recipe-generation"])
-api_router.include_router(recipe_import_router, prefix="/api/ai/recipe-import", tags=["ai", "recipe-import"])
+api_router.include_router(recipe_generation_router, prefix="/api/ai/wizard-generation", tags=["ai", "recipe-generation"], dependencies=_writes)
+api_router.include_router(recipe_import_router, prefix="/api/ai/recipe-import", tags=["ai", "recipe-import"], dependencies=_writes)

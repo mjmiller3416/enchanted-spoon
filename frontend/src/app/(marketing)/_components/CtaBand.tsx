@@ -15,7 +15,7 @@ export function CtaBand() {
             id="cta-heading"
             className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl"
           >
-            This week&apos;s meals, planned in minutes.
+            Your recipes, your Menu, your shopping list.
           </h2>
           <p className="max-w-xl text-muted-foreground">
             Free to start — save your first recipe and plan your first week

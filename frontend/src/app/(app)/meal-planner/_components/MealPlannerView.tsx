@@ -228,7 +228,7 @@ export function MealPlannerView() {
     id: entry.id,
     name: entry.meal_name ?? "Untitled Meal",
     imageUrl: entry.main_recipe?.reference_image_path ?? null,
-    bannerImageUrl: entry.main_recipe?.banner_image_path ?? null,
+    bannerImageUrl: entry.main_recipe?.banner_image_path ?? entry.main_recipe?.reference_image_path ?? null,
     servings: entry.main_recipe?.servings ?? null,
     totalTime: entry.main_recipe?.total_time ?? null,
     isSaved: entry.meal_is_saved ?? false,

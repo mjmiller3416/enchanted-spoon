@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.core.usage_limits import get_monthly_limit
+from app.core.usage_limits import get_user_monthly_limit
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -32,6 +32,11 @@ class CurrentUserDTO(BaseModel):
     has_pro_access: bool
     access_reason: str
     trial_consumed: bool = False
+    usage_tier: str
+    is_read_only: bool
+    show_sunset_banner: bool = False
+    show_sunset_popup: bool = False
+    free_tier_sunset_at: Optional[datetime] = None
     billing_channel: Optional[str] = None
     store_provider: Optional[str] = None
     store_product_id: Optional[str] = None
@@ -41,7 +46,16 @@ class CurrentUserDTO(BaseModel):
     created_at: datetime
 
     @classmethod
-    def from_model(cls, user: User) -> CurrentUserDTO:
+    def from_model(
+        cls,
+        user: User,
+        *,
+        has_pro_access: Optional[bool] = None,
+        access_reason: Optional[str] = None,
+    ) -> CurrentUserDTO:
+        from app.core.offer_windows import free_tier_sunset_at
+
+        legacy_free = user.is_legacy_free_account() and not user.is_read_only
         return cls(
             id=user.id,
             email=user.email,
@@ -52,9 +66,14 @@ class CurrentUserDTO(BaseModel):
             subscription_status=user.subscription_status,
             subscription_ends_at=user.subscription_ends_at,
             cancel_at_period_end=user.cancel_at_period_end,
-            has_pro_access=user.has_pro_access,
-            access_reason=user.access_reason,
+            has_pro_access=user.has_pro_access if has_pro_access is None else has_pro_access,
+            access_reason=user.access_reason if access_reason is None else access_reason,
             trial_consumed=user.trial_consumed_at is not None,
+            usage_tier=user.usage_tier,
+            is_read_only=user.is_read_only,
+            show_sunset_banner=legacy_free or user.is_read_only,
+            show_sunset_popup=legacy_free and user.sunset_notice_seen_at is None,
+            free_tier_sunset_at=free_tier_sunset_at(),
             billing_channel=user.billing_channel,
             store_provider=user.store_provider,
             store_product_id=user.store_product_id,
@@ -80,6 +99,7 @@ class AdminUserListDTO(BaseModel):
     subscription_ends_at: Optional[datetime] = None
     cancel_at_period_end: bool = False
     is_admin: bool
+    usage_exempt: bool = False
     has_pro_access: bool
     access_reason: str
     granted_pro_until: Optional[datetime] = None
@@ -99,6 +119,7 @@ class AdminUserListDTO(BaseModel):
             subscription_ends_at=user.subscription_ends_at,
             cancel_at_period_end=user.cancel_at_period_end,
             is_admin=user.is_admin,
+            usage_exempt=bool(user.usage_exempt),
             has_pro_access=user.has_pro_access,
             access_reason=user.access_reason,
             granted_pro_until=user.granted_pro_until,
@@ -128,6 +149,12 @@ class AdminToggleAdminDTO(BaseModel):
     is_admin: bool
 
 
+class AdminSetUsageExemptDTO(BaseModel):
+    """Request DTO for keeping one account on the pre-release Pro allowances."""
+
+    usage_exempt: bool
+
+
 # ── Usage-by-User DTOs ──────────────────────────────────────────────────────
 
 
@@ -144,16 +171,17 @@ class AdminUsageLimitsDTO(BaseModel):
         """Resolve per-field caps from the user's effective tier.
 
         Admins are uncapped, so all their limits are ``None`` (mirrors the
-        ``is_admin`` bypass in ``require_within_usage_limit``).
+        ``is_admin`` bypass in ``require_within_usage_limit``). Usage-exempt
+        Pro accounts show the pre-release allowances. A household of two or
+        more scales the owner's Pro cap by 1.5 when the usage hook is bound.
         """
-        if user.is_admin:
+        if user.keeps_admin_access():
             return cls()
-        tier = "pro" if user.has_pro_access else "free"
         return cls(
-            ai_images_generated=get_monthly_limit(tier, "ai_images_generated"),
-            ai_suggestions_requested=get_monthly_limit(tier, "ai_suggestions_requested"),
-            ai_assistant_messages=get_monthly_limit(tier, "ai_assistant_messages"),
-            recipes_imported=get_monthly_limit(tier, "recipes_imported"),
+            ai_images_generated=get_user_monthly_limit(user, "ai_images_generated"),
+            ai_suggestions_requested=get_user_monthly_limit(user, "ai_suggestions_requested"),
+            ai_assistant_messages=get_user_monthly_limit(user, "ai_assistant_messages"),
+            recipes_imported=get_user_monthly_limit(user, "recipes_imported"),
         )
 
 
@@ -217,16 +245,32 @@ class CurrentUserUsageDTO(BaseModel):
     ai_assistant_messages: int
     recipes_imported: int
     limits: AdminUsageLimitsDTO
+    usage_tier: str
+    resets: str
+    # True when the numbers are the household owner's shared pool.
+    shared_with_household: bool = False
 
     @classmethod
-    def from_models(cls, user: User, usage: UserUsage) -> CurrentUserUsageDTO:
+    def from_models(
+        cls,
+        user: User,
+        usage: UserUsage,
+        *,
+        limits: Optional[AdminUsageLimitsDTO] = None,
+        shared_with_household: bool = False,
+    ) -> CurrentUserUsageDTO:
+        tier = user.usage_tier
+        resets = "trial" if tier == "trial" else "none" if tier in {"expired", "none"} else "monthly"
         return cls(
             month=usage.month,
             ai_images_generated=usage.ai_images_generated or 0,
             ai_suggestions_requested=usage.ai_suggestions_requested or 0,
             ai_assistant_messages=usage.ai_assistant_messages or 0,
             recipes_imported=usage.recipes_imported or 0,
-            limits=AdminUsageLimitsDTO.for_user(user),
+            limits=limits if limits is not None else AdminUsageLimitsDTO.for_user(user),
+            usage_tier=tier,
+            resets=resets,
+            shared_with_household=shared_with_household,
         )
 
 

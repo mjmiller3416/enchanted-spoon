@@ -2,7 +2,10 @@
 import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
-import { recipeApi } from "@/lib/api";
+import { toast } from "sonner";
+import { recipeApi, ApiError } from "@/lib/api";
+import { useHousehold, useSetHouseholdRecipeShare } from "@/hooks/api";
+import { Badge } from "@/components/ui/badge";
 
 import {
   Clock,
@@ -82,6 +85,10 @@ export function RecipeHeaderCard({
   const { data: recipeGroups = [] } = useRecipeGroupsForRecipe(recipeId);
   const { openWizardForEdit } = useRecipeWizardDialog();
   const { getToken } = useAuth();
+  const canEdit = recipe.can_edit !== false;
+  const householdQuery = useHousehold();
+  const shareRecipe = useSetHouseholdRecipeShare();
+  const inHousehold = !!householdQuery.data?.household;
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const impact = useQuery({ queryKey: ["recipes", "deletion-impact", recipeId], enabled: deleteOpen,
@@ -172,6 +179,9 @@ export function RecipeHeaderCard({
               type="sample"
               size="md"
             />
+          )}
+          {recipe.shared_with_household && (
+            <Badge variant="secondary">Household</Badge>
           )}
         </RecipeBadgeGroup>
 
@@ -271,23 +281,64 @@ export function RecipeHeaderCard({
             </Tooltip>
           )}
 
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => openWizardForEdit(recipeId)}
-          >
-            <Edit3 className="w-4 h-4" strokeWidth={1.5} />
-            Edit Recipe
-          </Button>
+          {canEdit && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => openWizardForEdit(recipeId)}
+            >
+              <Edit3 className="w-4 h-4" strokeWidth={1.5} />
+              Edit Recipe
+            </Button>
+          )}
+
+          {inHousehold && canEdit && (
+            <Button
+              variant={recipe.shared_with_household ? "secondary" : "outline"}
+              className="gap-2"
+              aria-pressed={!!recipe.shared_with_household}
+              disabled={shareRecipe.isPending}
+              onClick={() =>
+                shareRecipe.mutate(
+                  { recipeId, shared: !recipe.shared_with_household },
+                  {
+                    onSuccess: () =>
+                      toast.success(
+                        recipe.shared_with_household
+                          ? "Removed from the household cookbook"
+                          : "Shared with your household",
+                      ),
+                    onError: (error) =>
+                      toast.error(
+                        error instanceof ApiError ? error.message : "Could not update sharing",
+                      ),
+                  },
+                )
+              }
+            >
+              {shareRecipe.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
+              ) : (
+                <Users className="w-4 h-4" strokeWidth={1.5} />
+              )}
+              {recipe.shared_with_household ? "Shared with household" : "Share with household"}
+            </Button>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" aria-label="More recipe actions"><MoreHorizontal className="size-4" strokeWidth={1.5} />More</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={onManageGroupsClick}><FolderOpen className="size-4" strokeWidth={1.5} />Manage groups</DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem onSelect={onManageGroupsClick}><FolderOpen className="size-4" strokeWidth={1.5} />Manage groups</DropdownMenuItem>
+              )}
               <DropdownMenuItem onSelect={onPrintClick}><Printer className="size-4" strokeWidth={1.5} />Print recipe</DropdownMenuItem>
               <DropdownMenuItem onSelect={onShare}><Share2 className="size-4" strokeWidth={1.5} />Copy private link</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => setDeleteOpen(true)}><Trash2 className="size-4" strokeWidth={1.5} />Delete recipe</DropdownMenuItem>
+              {canEdit && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={() => setDeleteOpen(true)}><Trash2 className="size-4" strokeWidth={1.5} />Delete recipe</DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 

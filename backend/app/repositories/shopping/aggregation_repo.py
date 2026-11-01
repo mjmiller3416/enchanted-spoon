@@ -11,11 +11,12 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from ...models.ingredient import Ingredient
 from ...models.recipe import Recipe
+from ...models.household import owner_shared_recipe_id_select
 from ...models.recipe_ingredient import RecipeIngredient
 from ...models.shopping_item import ShoppingItem
 from ...models.shopping_item_contribution import ShoppingItemContribution
@@ -87,7 +88,10 @@ class ShoppingAggregationRepo:
             Recipe, RecipeIngredient.recipe_id == Recipe.id
         ).where(
             RecipeIngredient.recipe_id.in_(unique_recipe_ids),
-            Recipe.user_id == self.user_id,
+            or_(
+                Recipe.user_id == self.user_id,
+                Recipe.id.in_(owner_shared_recipe_id_select(self.user_id)),
+            ),
         ).options(
             joinedload(RecipeIngredient.ingredient),
             joinedload(RecipeIngredient.recipe)

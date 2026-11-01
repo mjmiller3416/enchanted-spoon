@@ -1,9 +1,13 @@
 """Tests for the metered free tier (GitHub issue #164).
 
+The monthly free allowance is only for accounts created before
+LEGACY_FREE_CUTOFF. Newer free accounts get a trial_required 403 and are
+not metered.
+
 Covers:
-- require_within_usage_limit — free users are metered against free caps
-  instead of being blocked by the old binary pro gate: under-cap free users
-  pass, at-cap free users get a structured 429, pro users get pro caps,
+- require_within_usage_limit — legacy free users are metered against free caps
+  instead of being blocked by the old binary pro gate: under-cap users
+  pass, at-cap users get a structured 429, pro users get pro caps,
   admins are exempt entirely.
 - GET /api/users/me/usage — the settings usage-meter endpoint: counters and
   per-tier limits for the signed-in user.
@@ -14,6 +18,7 @@ and the usage-endpoint tests use MagicMock sessions, rather than the
 thread-bound in-memory SQLite fixture.
 """
 
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from fastapi import Depends, FastAPI
@@ -27,9 +32,14 @@ from app.models.user import User
 from app.models.user_usage import UserUsage
 
 MONTH = "2026-08"
+LEGACY_CREATED = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
 FREE_IMAGE_CAP = TIER_USAGE_LIMITS["free"]["ai_images_generated"]
 PRO_IMAGE_CAP = TIER_USAGE_LIMITS["pro"]["ai_images_generated"]
+
+
+def _grandfather(monkeypatch) -> None:
+    monkeypatch.setenv("LEGACY_FREE_CUTOFF", "2026-06-01T00:00:00+00:00")
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +56,7 @@ def _user(**overrides) -> User:
         is_admin=False,
         subscription_tier="free",
         subscription_status="active",
+        created_at=LEGACY_CREATED,
     )
     data.update(overrides)
     return User(**data)
@@ -61,6 +72,9 @@ def _usage(**counts) -> UserUsage:
 def _session_returning(usage: UserUsage) -> MagicMock:
     session = MagicMock()
     session.query.return_value.filter.return_value.first.return_value = usage
+    # No household membership on this fake session.
+    session.scalars.return_value.first.return_value = None
+    session.get.return_value = None
     return session
 
 
@@ -95,12 +109,14 @@ def _gated_app(user: User, usage: UserUsage, file_db) -> TestClient:
 # ---------------------------------------------------------------------------
 
 class TestFreeUserMetering:
-    def test_free_user_under_cap_is_allowed(self, file_db):
+    def test_free_user_under_cap_is_allowed(self, file_db, monkeypatch):
+        _grandfather(monkeypatch)
         client = _gated_app(_user(), _usage(ai_images_generated=0), file_db)
 
         assert client.post("/gated").status_code == 200
 
-    def test_free_user_at_cap_gets_structured_429(self, file_db):
+    def test_free_user_at_cap_gets_structured_429(self, file_db, monkeypatch):
+        _grandfather(monkeypatch)
         client = _gated_app(_user(), _usage(ai_images_generated=FREE_IMAGE_CAP), file_db)
 
         response = client.post("/gated")
@@ -112,11 +128,25 @@ class TestFreeUserMetering:
         assert detail["current"] == FREE_IMAGE_CAP
         assert detail["limit"] == FREE_IMAGE_CAP
 
-    def test_free_user_is_not_403_blocked(self, file_db):
-        """The old binary pro gate must not fire — free users are metered."""
+    def test_legacy_free_user_is_not_403_blocked(self, file_db, monkeypatch):
+        """The old binary pro gate must not fire — legacy free users are metered."""
+        _grandfather(monkeypatch)
         client = _gated_app(_user(), _usage(ai_images_generated=FREE_IMAGE_CAP), file_db)
 
         assert client.post("/gated").status_code != 403
+
+    def test_new_account_requires_a_trial(self, file_db, monkeypatch):
+        _grandfather(monkeypatch)
+        user = _user(created_at=datetime(2026, 6, 1, tzinfo=timezone.utc))
+        client = _gated_app(user, _usage(ai_images_generated=0), file_db)
+
+        response = client.post("/gated")
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == {
+            "error": "trial_required",
+            "message": "Start your 7-day trial",
+        }
 
 
 class TestProUserMetering:
@@ -157,7 +187,8 @@ def _users_app(user: User, usage: UserUsage) -> TestClient:
 
 
 class TestCurrentUserUsageEndpoint:
-    def test_free_user_gets_counters_and_free_caps(self):
+    def test_free_user_gets_counters_and_free_caps(self, monkeypatch):
+        _grandfather(monkeypatch)
         client = _users_app(
             _user(), _usage(ai_images_generated=2, ai_assistant_messages=4)
         )

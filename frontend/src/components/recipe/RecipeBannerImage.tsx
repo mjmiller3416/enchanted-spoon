@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { getBannerUrl, getRecipeCardUrl } from "@/lib/imageUtils";
+import { getHeroBannerUrl } from "@/lib/imageUtils";
 import { RecipeImage } from "./RecipeImage";
 
 interface RecipeBannerImageProps {
@@ -33,11 +33,7 @@ export function RecipeBannerImage({
   showLoadingState = false,
 }: RecipeBannerImageProps) {
   // Determine which source to use and apply appropriate transformation
-  const effectiveSrc = bannerSrc
-    ? getBannerUrl(bannerSrc)
-    : fallbackSrc
-      ? getRecipeCardUrl(fallbackSrc, 800, 450)
-      : undefined;
+  const effectiveSrc = getHeroBannerUrl(bannerSrc || fallbackSrc);
 
   const aspectClasses = {
     "16/9": "aspect-[16/9]",

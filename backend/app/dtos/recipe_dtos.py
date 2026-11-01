@@ -99,6 +99,9 @@ class RecipeCardDTO(BaseModel):
     times_cooked: Optional[int] = None
     last_cooked: Optional[str] = None  # ISO datetime string
     created_at: Optional[str] = None  # ISO datetime string - when recipe was added
+    # False when the card is someone else's recipe shared into the household.
+    can_edit: bool = True
+    shared_with_household: bool = False
 
     @classmethod
     def from_recipe(
@@ -203,6 +206,9 @@ class RecipeResponseDTO(RecipeBaseDTO):
     ingredients: List["RecipeIngredientResponseDTO"] = []
     group_ids: List[int] = []  # IDs of recipe groups this recipe belongs to
     nutrition_facts: Optional[NutritionFactsResponseDTO] = None
+    # False when this is someone else's recipe shared into the household.
+    can_edit: bool = True
+    shared_with_household: bool = False
 
     @classmethod
     def from_recipe(cls, recipe: "Recipe") -> "RecipeResponseDTO":

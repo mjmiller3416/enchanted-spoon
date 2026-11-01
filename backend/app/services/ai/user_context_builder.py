@@ -21,13 +21,18 @@ MAX_CATALOG_INGREDIENTS = 8
 class UserContextBuilder:
     """Builds structured user context data for AI prompts."""
 
-    def __init__(self, session: Session, user_id: int) -> None:
-        """Initialize with database session and user ID."""
+    def __init__(self, session: Session, user_id: int, kitchen_user_id: int | None = None) -> None:
+        """Initialize with the actor and, when set, the household kitchen owner.
+
+        Recipes stay the actor's (plus anything shared into their household).
+        The meal plan and shopping list are the kitchen's.
+        """
         self.session = session
         self.user_id = user_id
+        self.kitchen_user_id = kitchen_user_id if kitchen_user_id is not None else user_id
         self.recipe_repo = RecipeRepo(session, user_id=user_id)
         self.planner_repo = PlannerRepo(session)
-        self.shopping_repo = ShoppingRepo(session, user_id)
+        self.shopping_repo = ShoppingRepo(session, self.kitchen_user_id)
 
     def build_context_data(
         self,
@@ -67,7 +72,9 @@ class UserContextBuilder:
         This prevents context window bloat while still providing useful data.
         """
         filter_dto = RecipeFilterDTO()
-        all_recipes = self.recipe_repo.filter_recipes(filter_dto, self.user_id)
+        all_recipes = self.recipe_repo.filter_recipes(
+            filter_dto, self.user_id, include_shared=True
+        )
 
         if not all_recipes:
             return []
@@ -100,7 +107,9 @@ class UserContextBuilder:
     def _get_recipe_ingredients(self) -> Dict[str, List[str]]:
         """Get ingredients for each recipe (for ingredient-based queries)."""
         filter_dto = RecipeFilterDTO()
-        recipes = self.recipe_repo.filter_recipes(filter_dto, self.user_id)
+        recipes = self.recipe_repo.filter_recipes(
+            filter_dto, self.user_id, include_shared=True
+        )
         result: Dict[str, List[str]] = {}
 
         for recipe in recipes:
@@ -125,7 +134,11 @@ class UserContextBuilder:
         Returns:
             List of {id, name, category, meal_type, total_time, is_favorite, ingredients}.
         """
-        recipes = list(self.recipe_repo.filter_recipes(RecipeFilterDTO(), self.user_id))
+        recipes = list(
+            self.recipe_repo.filter_recipes(
+                RecipeFilterDTO(), self.user_id, include_shared=True
+            )
+        )
         # Higher id = created later; avoids comparing mixed naive/aware datetimes
         recipes.sort(key=lambda r: (not r.is_favorite, -r.id))
 
@@ -146,7 +159,7 @@ class UserContextBuilder:
 
     def _get_meal_plan(self) -> List[dict]:
         """Get current meal plan entries."""
-        entries = self.planner_repo.get_incomplete_entries(self.user_id)
+        entries = self.planner_repo.get_incomplete_entries(self.kitchen_user_id)
 
         return [
             {
@@ -168,7 +181,7 @@ class UserContextBuilder:
 
     def _get_shopping_list(self) -> dict:
         """Get shopping list split by have/need."""
-        items = self.shopping_repo.get_all_shopping_items(self.user_id)
+        items = self.shopping_repo.get_all_shopping_items(self.kitchen_user_id)
         return {
             "need": [i.ingredient_name for i in items if not i.have],
             "have": [i.ingredient_name for i in items if i.have],

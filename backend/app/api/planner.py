@@ -22,6 +22,7 @@ from app.dtos.planner_dtos import (
     PlannerSummaryDTO,
 )
 from app.models.user import User
+from app.services.household.scope import kitchen_user_id
 from app.services.planner import (
     InvalidMealError,
     PlannerFullError,
@@ -49,7 +50,7 @@ def get_all_entries(
     - **meal_id**: Filter entries for a specific meal
     - **completed**: Filter by completion status (true/false)
     """
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     return service.get_all_entries(meal_id=meal_id, completed=completed)
 
 
@@ -60,7 +61,7 @@ def get_entry(
     current_user: User = Depends(get_current_user),
 ):
     """Get a single planner entry by ID."""
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     entry = service.get_entry(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Planner entry not found")
@@ -73,7 +74,7 @@ def get_summary(
     current_user: User = Depends(get_current_user),
 ):
     """Get a summary of the current planner state."""
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     return service.get_summary()
 
 
@@ -83,7 +84,7 @@ def get_meal_ids(
     current_user: User = Depends(get_current_user),
 ):
     """Get all meal IDs currently in the planner."""
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     return service.get_meal_ids()
 
 
@@ -101,7 +102,7 @@ def get_cooking_streak(
 
     The tz parameter ensures dates are calculated in the user's timezone.
     """
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     return service.get_cooking_streak(user_timezone=tz)
 
 
@@ -118,7 +119,7 @@ def add_meal_to_planner(
     Creates a new planner entry referencing the meal.
     The meal must exist. Maximum 15 entries allowed.
     """
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     try:
         return service.add_meal_to_planner(meal_id)
     except PlannerFullError as e:
@@ -140,7 +141,7 @@ def add_meals_to_planner(
 
     All meals must exist. Total entries cannot exceed 15.
     """
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     try:
         return service.add_meals_to_planner(data.meal_ids)
     except PlannerFullError as e:
@@ -163,7 +164,7 @@ def reorder_entries(
 
     Provide entry IDs in the desired order. Positions will be reassigned 0, 1, 2, ...
     """
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     success = service.reorder_entries(data.entry_ids)
     return PlannerOperationResultDTO(
         success=success,
@@ -179,7 +180,7 @@ def mark_completed(
     current_user: User = Depends(get_current_user),
 ):
     """Mark a planner entry as completed."""
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     entry = service.mark_completed(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Planner entry not found")
@@ -193,7 +194,7 @@ def mark_incomplete(
     current_user: User = Depends(get_current_user),
 ):
     """Mark a planner entry as incomplete."""
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     entry = service.mark_incomplete(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Planner entry not found")
@@ -207,7 +208,7 @@ def set_shopping_mode(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> PlannerEntryResponseDTO:
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     try:
         return service.set_shopping_mode(entry_id, data)
     except EntryNotFoundError as error:
@@ -230,7 +231,7 @@ def cycle_shopping_mode(
     - produce_only: Include only produce category ingredients
     - none: Exclude from shopping list entirely
     """
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     entry = service.cycle_shopping_mode(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Planner entry not found")
@@ -250,7 +251,7 @@ def remove_entry(
     Note: This does NOT delete the underlying meal.
     The meal can be re-added to the planner later.
     """
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     if not service.remove_entry(entry_id):
         raise HTTPException(status_code=404, detail="Planner entry not found")
     return {"message": "Entry removed from planner"}
@@ -263,7 +264,7 @@ def remove_entries_by_meal(
     current_user: User = Depends(get_current_user),
 ):
     """Remove all planner entries for a specific meal."""
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     count = service.remove_entries_by_meal(meal_id)
     return {"message": f"Removed {count} entries for meal {meal_id}"}
 
@@ -274,7 +275,7 @@ def clear_planner(
     current_user: User = Depends(get_current_user),
 ):
     """Clear all entries from the planner."""
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     count = service.clear_planner()
     return {"message": f"Cleared {count} entries from planner"}
 
@@ -285,6 +286,6 @@ def clear_completed(
     current_user: User = Depends(get_current_user),
 ):
     """Clear all completed entries from the planner."""
-    service = PlannerService(session, current_user.id)
+    service = PlannerService(session, kitchen_user_id(session, current_user))
     count = service.clear_completed()
     return {"message": f"Cleared {count} completed entries from planner"}

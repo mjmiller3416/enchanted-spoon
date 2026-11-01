@@ -24,6 +24,7 @@ import { PaywallDialog } from "@/components/common/PaywallDialog";
 import { IdentifyStoreAccount } from "@/components/native/NativeRuntime";
 import { ShareImportListener } from "@/components/native/ShareImportListener";
 import { TrialPushRegistration } from "@/components/native/TrialPushRegistration";
+import { FreePlanNotice } from "@/components/common/FreePlanNotice";
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const {
@@ -42,6 +43,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       <ShareImportListener />
       <TrialPushRegistration />
       <TopNav onOpenAssistant={openAssistant} />
+      <FreePlanNotice />
       <MobileBottomNav onOpenAssistant={openAssistant} />
       <main id="main-content" tabIndex={-1} className="flex-1 pb-20 md:pb-0 print:pb-0">
         {children}

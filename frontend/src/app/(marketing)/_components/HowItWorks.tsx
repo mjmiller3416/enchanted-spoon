@@ -13,7 +13,7 @@ const STEPS: Step[] = [
   {
     vignette: <SaveVignette />,
     title: "Save recipes",
-    body: "Type them in, import from any URL, or let the Genie generate one for you.",
+    body: "Type them in, import from a supported recipe URL, or let the Genie generate one for you.",
   },
   {
     vignette: <PlanVignette />,
@@ -23,7 +23,7 @@ const STEPS: Step[] = [
   {
     vignette: <ShopVignette />,
     title: "Shop once",
-    body: "Your shopping list builds itself from the plan, aggregated and sorted by aisle.",
+    body: "Choose what each meal adds: all ingredients, produce only, or nothing. Included quantities combine by category.",
   },
 ];
 

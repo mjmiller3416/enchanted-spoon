@@ -31,7 +31,7 @@ export function useStartCheckout() {
   const { getToken } = useAuth();
 
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (input?: { plan?: "monthly" | "annual"; promotionCode?: string }) => {
       const { isNativeApp } = await import("@/lib/native/platform");
       if (isNativeApp()) {
         throw new Error(
@@ -39,7 +39,11 @@ export function useStartCheckout() {
         );
       }
       const token = await getToken();
-      const { checkout_url } = await billingApi.createCheckoutSession(token);
+      const { checkout_url } = await billingApi.createCheckoutSession(
+        input?.plan ?? "monthly",
+        input?.promotionCode,
+        token,
+      );
       window.location.assign(checkout_url);
     },
   });

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: `How ${appConfig.appName} collects, uses, and protects your data.`,
 };
 
-const LAST_UPDATED = "September 26, 2026";
+const LAST_UPDATED = "October 30, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -41,8 +41,11 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong className="text-foreground">Content you create.</strong> Recipes,
-            ingredients, meal plans, shopping lists, cooking history, settings, and feedback
-            you submit are stored in our database so the service can function.
+            ingredients, meal plans, shopping lists, cooking history, and settings
+            are stored in our database so the service can function. Feedback is sent to
+            a GitHub support tracker only after its private visibility is verified. Do not
+            include sensitive information. Contact support to request review or removal of
+            previously submitted feedback.
           </li>
           <li>
             <strong className="text-foreground">Images.</strong> Recipe photos you upload or
@@ -62,7 +65,8 @@ export default function PrivacyPage() {
         <p className="leading-7 text-foreground-subtle">
           We use cookies for authentication (via Clerk) and your browser&apos;s local storage
           for preferences such as theme, chat history, recently viewed recipes, and filter
-          state. We do not use third-party advertising or tracking cookies.
+          state. Authentication and error-reporting providers may process technical
+          information under their own privacy terms.
         </p>
       </Section>
 
@@ -76,10 +80,12 @@ export default function PrivacyPage() {
 
       <Section title="Data export and deletion">
         <p className="leading-7 text-foreground-subtle">
-          You can export a complete backup of your data (recipes, meals, planner entries,
-          shopping lists, and settings) or delete your data at any time from Settings &rarr;
-          Data Management inside the app. Deleting your account removes your content from our
-          systems.
+          Settings includes exports for supported recipe and kitchen data and account
+          deletion controls. Exports do not include every record held by third-party
+          providers. Account deletion removes app records and requests cancellation of
+          billing and deletion of owned recipe images; provider records, prior feedback,
+          logs, backups, and failed image deletions may remain. Contact support about
+          data that remains after deletion.
         </p>
       </Section>
 
@@ -87,7 +93,7 @@ export default function PrivacyPage() {
         <p className="leading-7 text-foreground-subtle">
           We rely on the following processors to run the service: Clerk (authentication),
           Cloudinary (image hosting), Google Gemini (AI processing), Sentry (error
-          reports, identified only by an internal account number), and Railway (hosting).
+          reports), Railway (hosting), Stripe (subscription payments), and GitHub (feedback).
           Each processes only the data needed for its role, under its own privacy terms.
         </p>
       </Section>
