@@ -84,6 +84,11 @@ jobs:
             "platforms;android-36" \
             "build-tools;36.0.0"
 
+      # ubuntu-latest also exports ANDROID_SDK_ROOT to the preinstalled SDK.
+      # Gradle refuses to run when that path differs from ANDROID_HOME.
+      - name: Align ANDROID_SDK_ROOT with ANDROID_HOME
+        run: echo "ANDROID_SDK_ROOT=${ANDROID_HOME}" >> "${GITHUB_ENV}"
+
       - name: Inject Firebase google-services.json when the secret is set
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
