@@ -34,6 +34,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.3,
     },
     {
+      url: `${BASE_URL}/delete-account`,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
       url: `${BASE_URL}/sign-in`,
       changeFrequency: "yearly",
       priority: 0.4,

@@ -4,18 +4,21 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * Define public routes that don't require authentication.
  * All other routes will require a signed-in user.
  */
-const isPublicRoute = createRouteMatcher([
+export const publicRoutePatterns = [
   "/",                // landing
   "/pricing(.*)",
   "/privacy(.*)",
   "/terms(.*)",
+  "/delete-account(.*)", // public account-deletion URL (Google Play)
   "/whats-new(.*)",   // public changelog (marketing footer)
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/sso-callback(.*)",
   "/sitemap.xml",     // .xml/.txt aren't excluded by the matcher below
   "/robots.txt",
-]);
+];
+
+const isPublicRoute = createRouteMatcher(publicRoutePatterns);
 
 export default clerkMiddleware(async (auth, request) => {
   // Protect all routes except public ones
