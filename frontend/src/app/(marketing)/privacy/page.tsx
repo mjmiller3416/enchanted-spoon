@@ -1,5 +1,6 @@
 // ⚠️ PLACEHOLDER LEGAL COPY — owner must review with counsel before public launch.
 import type { Metadata } from "next";
+import Link from "next/link";
 import { appConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
@@ -85,7 +86,11 @@ export default function PrivacyPage() {
           providers. Account deletion removes app records and requests cancellation of
           billing and deletion of owned recipe images; provider records, prior feedback,
           logs, backups, and failed image deletions may remain. Contact support about
-          data that remains after deletion.
+          data that remains after deletion. The steps are on the{" "}
+          <Link href="/delete-account" className="text-primary hover:underline">
+            account deletion
+          </Link>{" "}
+          page.
         </p>
       </Section>
 

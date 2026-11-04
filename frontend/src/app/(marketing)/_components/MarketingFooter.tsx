@@ -26,6 +26,9 @@ export function MarketingFooter() {
           <Link href="/terms" className="transition-colors hover:text-foreground">
             Terms
           </Link>
+          <Link href="/delete-account" className="transition-colors hover:text-foreground">
+            Delete account
+          </Link>
           <Link href="/whats-new" className="transition-colors hover:text-foreground">
             What&apos;s New
           </Link>
