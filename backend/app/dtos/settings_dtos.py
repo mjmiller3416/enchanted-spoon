@@ -14,7 +14,7 @@ class ProfileSettings(SettingsSection):
 
 
 class AppearanceSettings(SettingsSection):
-    theme: Literal["light", "dark", "system"] = "dark"
+    theme: Literal["light", "dark", "system"] = "system"
 
 
 class RecipePreferences(SettingsSection):

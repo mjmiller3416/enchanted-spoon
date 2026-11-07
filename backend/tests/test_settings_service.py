@@ -7,6 +7,15 @@ from app.models.user_settings import UserSettings
 from app.services.settings_service import SettingsService
 
 
+def test_new_settings_default_theme_follows_the_system():
+    assert SettingsDTO().appearance.theme == "system"
+
+
+def test_explicit_theme_is_preserved():
+    result = SettingsDTO.model_validate({"appearance": {"theme": "dark"}})
+    assert result.appearance.theme == "dark"
+
+
 def test_legacy_settings_migrate_without_losing_custom_fields(db_session, test_user):
     row = UserSettings(user_id=test_user.id)
     row._settings_json = json.dumps({"theme": "light", "customLegacyValue": "keep", "shoppingList": {"autoClearChecked": "daily"}})

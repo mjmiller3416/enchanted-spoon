@@ -4,19 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import {
   useSettings,
   LEGACY_THEME_STORAGE_KEY,
-  type AppearanceSettings,
 } from "@/hooks/persistence/useSettings";
+import {
+  prefersDarkScheme,
+  resolveThemePreference,
+  type ResolvedTheme,
+  type ThemePreference,
+} from "@/lib/theme-preference";
 
-export type ThemePreference = AppearanceSettings["theme"]; // "light" | "dark" | "system"
-export type ResolvedTheme = "light" | "dark";
+export type { ResolvedTheme, ThemePreference };
 
 function resolveTheme(preference: ThemePreference): ResolvedTheme {
-  if (preference === "system") {
-    return window.matchMedia("(prefers-color-scheme: light)").matches
-      ? "light"
-      : "dark";
-  }
-  return preference;
+  return resolveThemePreference(preference, prefersDarkScheme());
 }
 
 function applyTheme(resolved: ResolvedTheme) {
@@ -55,12 +54,19 @@ export function useTheme(): UseThemeReturn {
   const { settings, updateSettings, isLoaded } = useSettings();
   const preference = settings.appearance.theme;
 
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    typeof window === "undefined" ? "dark" : resolveTheme(preference)
-  );
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
 
-  // Apply the preference to the DOM; track OS changes while on "system"
+  // The blocking script owns the class until settings have loaded, so a saved
+  // light or dark choice is not overwritten by the system default. After that,
+  // this hook keeps the class in sync and follows OS changes while on system.
   useEffect(() => {
+    if (!isLoaded) {
+      setResolvedTheme(
+        document.documentElement.classList.contains("light") ? "light" : "dark"
+      );
+      return;
+    }
+
     const apply = () => {
       const resolved = resolveTheme(preference);
       setResolvedTheme(resolved);
@@ -69,11 +75,11 @@ export function useTheme(): UseThemeReturn {
     apply();
 
     if (preference === "system") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       mediaQuery.addEventListener("change", apply);
       return () => mediaQuery.removeEventListener("change", apply);
     }
-  }, [preference]);
+  }, [preference, isLoaded]);
 
   // One-time migration off the pre-unification "theme" localStorage key
   useEffect(() => {

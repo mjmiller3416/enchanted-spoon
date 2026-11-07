@@ -6,6 +6,7 @@ import { NativeRuntime } from "@/components/native/NativeRuntime";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
 import { appConfig } from "@/lib/config";
+import { themeInitScript } from "@/lib/theme-preference";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,11 +27,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
-    default: `${appConfig.appName} — Recipes, meal planning, and smart shopping lists`,
+    default: `${appConfig.appName} — Recipes, meal planning, and shopping lists`,
     template: `%s · ${appConfig.appName}`,
   },
   description:
-    "Save recipes, plan your week, and get an auto-built shopping list. AI-powered recipe import and generation.",
+    "Save the recipes you cook, plan the week, and shop from one list.",
   openGraph: {
     siteName: appConfig.appName,
     type: "website",
@@ -40,41 +41,6 @@ export const metadata: Metadata = {
   // Home-screen launches on older iOS read these instead of the manifest
   appleWebApp: { capable: true, title: appConfig.appName },
 };
-
-// Runs synchronously before any content paints so a stored light preference
-// never flashes the default dark theme. Reads the same key useSettings writes
-// ("enchanted-spoon-theme", JSON-encoded), falling back to the pre-rename
-// "meal-genie-theme" key (runs before useSettings' migration shim, so it must
-// read the old key itself on a user's first post-rename load), then the legacy
-// bare "theme" key. An explicit "system" preference follows the OS; with no
-// stored preference at all we default to dark. Keep in sync with
-// hooks/ui/useTheme.ts.
-const themeInitScript = `(function () {
-  try {
-    var pref = null;
-    var raw = localStorage.getItem("enchanted-spoon-theme");
-    if (!raw) {
-      raw = localStorage.getItem("meal-genie-theme");
-    }
-    if (raw) {
-      try { pref = JSON.parse(raw); } catch (e) { pref = raw; }
-    }
-    if (pref !== "light" && pref !== "dark" && pref !== "system") {
-      pref = localStorage.getItem("theme");
-    }
-    var resolved;
-    if (pref === "light" || pref === "dark") {
-      resolved = pref;
-    } else if (pref === "system") {
-      resolved = window.matchMedia("(prefers-color-scheme: light)").matches
-        ? "light"
-        : "dark";
-    } else {
-      resolved = "dark";
-    }
-    document.documentElement.classList.toggle("light", resolved === "light");
-  } catch (e) {}
-})();`;
 
 // Chromium fires `beforeinstallprompt` once per page load, often before React
 // hydrates, so it's stashed on window here for PwaInstallProvider to pick up.
