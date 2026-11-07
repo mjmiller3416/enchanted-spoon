@@ -3,31 +3,30 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/layout/Logo";
 import { appConfig } from "@/lib/config";
 
-/**
- * Slimmed-down cousin of the in-app TopNav: same height, logo, and name
- * placement so signing in feels like the chrome "filled in," not switched.
- */
+const textLink =
+  "h-11 items-center rounded-lg px-3 text-sm font-medium text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
 export function MarketingHeader() {
   return (
-    <header className="sticky top-0 z-30 h-16 border-b border-border bg-background/80 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4 lg:px-6">
-        <Link href="/" className="flex items-center gap-3" aria-label={`${appConfig.appName} home`}>
+    <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-sm">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 lg:px-6">
+        <Link href="/" className="flex min-w-0 items-center gap-2 rounded-lg" aria-label={`${appConfig.appName} home`}>
           <Logo className="h-8 w-auto shrink-0" />
-          <span className="hidden sm:inline whitespace-nowrap text-lg font-semibold text-foreground">
+          <span className="hidden truncate font-display text-lg text-foreground sm:inline sm:text-xl">
             {appConfig.appName}
           </span>
         </Link>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button asChild variant="ghost" className="hidden sm:inline-flex">
-            <Link href="/pricing">Pricing</Link>
-          </Button>
-          <Button asChild variant="ghost">
+        <nav aria-label="Account" className="flex shrink-0 items-center gap-1">
+          <Link href="/pricing" className={`hidden sm:inline-flex ${textLink}`}>
+            Pricing
+          </Link>
+          <Button asChild variant="ghost" className="h-11 px-3">
             <Link href="/sign-in">Sign in</Link>
           </Button>
-          <Button asChild>
-            <Link href="/sign-up">Get started</Link>
+          <Button asChild className="h-11 px-3 sm:px-4">
+            <Link href="/sign-up">Start free</Link>
           </Button>
-        </div>
+        </nav>
       </div>
     </header>
   );

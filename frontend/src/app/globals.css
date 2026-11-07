@@ -586,6 +586,108 @@
 }
 
 /* ============================================
+   MARKETING SURFACES
+   Warm paper in light, warm espresso in dark.
+   Scoped so the signed-in app keeps its own tokens.
+   ============================================ */
+.marketing {
+  color-scheme: dark;
+  --background: #1c1612;
+  --background-subtle: #261e18;
+  --background-intense: #140f0c;
+  --sidebar: #261e18;
+  --elevated: #322820;
+  --hover: #3a2e24;
+  --foreground: #f6f0e6;
+  --foreground-subtle: #e4d5c3;
+  --foreground-disabled: #8d7d6c;
+  --card: #2a221b;
+  --card-foreground: #f6f0e6;
+  --popover: #2a221b;
+  --popover-foreground: #f6f0e6;
+  --muted: #322820;
+  --muted-foreground: #d2c1ae;
+  --accent: #322820;
+  --accent-foreground: #f6f0e6;
+  --border: #4a3b2e;
+  --border-subtle: #3a2e24;
+  --border-strong: #6a5746;
+  --input: #2a221b;
+  --button-outline-bg: #322820;
+  --primary: #7c3aed;
+  --primary-dark: #6d28d9;
+  --primary-hover: #6d28d9;
+  --primary-active: #5b21b6;
+  --primary-foreground: #ffffff;
+  --primary-surface: #3a2a4a;
+  --primary-surface-hover: #463356;
+  --primary-muted: #5b4570;
+  --primary-on-surface: #ddd6fe;
+  --secondary-surface: #1e3330;
+  --secondary-on-surface: #99f6e4;
+  --ring: #a78bfa;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-raised:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 8px 20px rgba(0, 0, 0, 0.22);
+  --shadow-elevated:
+    0 2px 4px rgba(0, 0, 0, 0.28),
+    0 16px 32px rgba(0, 0, 0, 0.28);
+  --shadow-floating:
+    0 8px 16px rgba(0, 0, 0, 0.28),
+    0 24px 48px rgba(0, 0, 0, 0.32);
+}
+
+:root.light .marketing {
+  color-scheme: light;
+  --background: #f4efe6;
+  --background-subtle: #ebe3d4;
+  --background-intense: #fffaf3;
+  --sidebar: #efe6d6;
+  --elevated: #fffaf3;
+  --hover: #e6dccb;
+  --foreground: #2c241c;
+  --foreground-subtle: #4a3f34;
+  --foreground-disabled: #8a7b6b;
+  --card: #fffaf3;
+  --card-foreground: #2c241c;
+  --popover: #fffaf3;
+  --popover-foreground: #2c241c;
+  --muted: #efe6d6;
+  --muted-foreground: #4e4338;
+  --accent: #efe6d6;
+  --accent-foreground: #2c241c;
+  --border: #e0d3bf;
+  --border-subtle: #eadfcd;
+  --border-strong: #c9b79a;
+  --input: #fffaf3;
+  --button-outline-bg: #fffaf3;
+  --primary: #6d28d9;
+  --primary-dark: #5b21b6;
+  --primary-hover: #5b21b6;
+  --primary-active: #4c1d95;
+  --primary-foreground: #ffffff;
+  --primary-surface: #f3eadf;
+  --primary-surface-hover: #e9dccb;
+  --primary-muted: #e0d0ba;
+  --primary-on-surface: #5b21b6;
+  --secondary-surface: #e7f4f1;
+  --secondary-on-surface: #0f766e;
+  --ring: #6d28d9;
+  --shadow-sm: 0 1px 2px rgba(72, 48, 24, 0.06);
+  --shadow-raised:
+    0 1px 2px rgba(72, 48, 24, 0.05),
+    0 10px 24px rgba(72, 48, 24, 0.06);
+  --shadow-elevated:
+    0 2px 4px rgba(72, 48, 24, 0.05),
+    0 16px 32px rgba(72, 48, 24, 0.08);
+  --shadow-floating:
+    0 8px 16px rgba(72, 48, 24, 0.06),
+    0 28px 56px rgba(72, 48, 24, 0.1);
+}
+
+
+/* ============================================
    ANIMATION KEYFRAMES
    Reusable animations for consistent motion
    ============================================ */
@@ -825,6 +927,7 @@
    Maps CSS variables to Tailwind classes
    ============================================ */
 @theme inline {
+  --font-display: var(--font-fraunces), Georgia, "Iowan Old Style", Palatino, serif;
   /* Backgrounds */
   --color-background: var(--background);
   --color-background-subtle: var(--background-subtle);

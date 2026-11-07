@@ -73,7 +73,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     avatar: "",
   },
   appearance: {
-    theme: "dark",
+    // First visit follows the OS and falls back to light. A saved
+    // light/dark/system value still wins — see themeInitScript.
+    theme: "system",
   },
   recipePreferences: {
     defaultSortOrder: "alphabetical",

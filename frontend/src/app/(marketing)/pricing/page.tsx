@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Check, Sparkles } from "lucide-react";
+import { Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -10,22 +10,22 @@ import { PRO_ANNUAL_PRICE_LABEL, PRO_MONTHLY_PRICE_LABEL, PRO_TRIAL_DAYS } from 
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `${appConfig.appName} is free for recipes, meal planning, and shopping lists. Go Pro for larger AI allowances — recipe import, generation, food photography, and the assistant.`,
+  description: `${appConfig.appName} is free for recipes, meal planning, and shopping lists. Pro is ${PRO_MONTHLY_PRICE_LABEL} a month or ${PRO_ANNUAL_PRICE_LABEL} a year and adds link import, recipe drafts, food photos, and the kitchen assistant.`,
 };
 
 const FREE_FEATURES = [
-  "Recipes, collections, and favorites",
-  "Meal planning and your grocery list",
-  "No monthly free AI allowance",
+  "Save, edit, and organize recipes",
+  "Meal planning and your shopping list",
+  "No monthly allowance for link import, drafts, photos, or the assistant",
 ];
 
 const PRO_FEATURES = [
   "7-day trial, card required",
-  "Import recipes from a URL",
-  "Generate complete recipes from a prompt",
-  "On-demand AI photos (banners are cropped from the square photo)",
-  "Genie assistant",
-  "Monthly: 20 photos, 200 AI suggestions, 300 Genie messages, 50 imports",
+  "Import a recipe from a link",
+  "Draft a complete recipe from a short description",
+  "Food photos on demand (banners are cropped from the square photo)",
+  "Kitchen assistant",
+  "Monthly: 20 photos, 200 suggestions, 300 assistant messages, 50 imports",
 ];
 
 function FeatureList({ features }: { features: string[] }) {
@@ -45,14 +45,16 @@ export default function PricingPage() {
   return (
     <section className="mx-auto flex max-w-4xl flex-col items-center gap-12 px-4 pt-16 pb-24 sm:pt-24 lg:px-6">
       <div className="flex max-w-2xl flex-col items-center gap-4 text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          Start free. <span className="text-primary">Go Pro for the magic.</span>
+        <h1 className="font-display text-4xl leading-tight text-foreground sm:text-5xl">
+          Free for the weekly cook. <span className="text-primary">Pro when you want extra help.</span>
         </h1>
         <p className="text-lg text-muted-foreground">
-          Existing accounts created before release keep a free AI taste until
-          Mar 31, 2027. After that they become read-only. New accounts keep
-          recipes and the grocery list free. AI starts with a 7-day trial,
-          then Pro at $6.99/mo or $49.99/yr plus applicable tax.
+          Accounts created before release keep a free allowance for link import,
+          recipe drafts, photos, and the assistant until March 31, 2027. After
+          that they become read-only. New accounts keep recipes, meal planning,
+          and the shopping list free. Those extra tools start with a {PRO_TRIAL_DAYS}-day
+          trial, then Pro at {PRO_MONTHLY_PRICE_LABEL} a month or {PRO_ANNUAL_PRICE_LABEL} a
+          year, plus applicable tax.
         </p>
       </div>
 
@@ -65,7 +67,7 @@ export default function PricingPage() {
               <span className="text-sm text-muted-foreground">forever</span>
             </p>
             <p className="text-sm text-muted-foreground">
-              Recipes, meal planning, and your grocery list. AI needs a trial.
+              Recipes, meal planning, and your shopping list. Link import, drafts, photos, and the assistant need a trial.
             </p>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col gap-6">
@@ -80,10 +82,7 @@ export default function PricingPage() {
           <CardHeader className="gap-2">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">Pro</h2>
-              <Badge>
-                <Sparkles className="mr-1 h-3 w-3" strokeWidth={1.5} />
-                More AI
-              </Badge>
+              <Badge>7-day trial</Badge>
             </div>
             <p className="flex flex-col gap-1">
               <span className="flex items-baseline gap-1">

@@ -1,5 +1,12 @@
+import { Fraunces } from "next/font/google";
 import { MarketingHeader } from "./_components/MarketingHeader";
 import { MarketingFooter } from "./_components/MarketingFooter";
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  display: "swap",
+});
 
 export default function MarketingLayout({
   children,
@@ -7,10 +14,15 @@ export default function MarketingLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // font-sans opts marketing pages into Geist (body falls back to Arial until Phase 5)
-    <div className="flex min-h-screen flex-col bg-background font-sans">
+    <div className={`marketing ${fraunces.variable} flex min-h-screen flex-col overflow-x-clip bg-background font-sans text-foreground`}>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
+      >
+        Skip to main content
+      </a>
       <MarketingHeader />
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1">{children}</main>
       <MarketingFooter />
     </div>
   );
