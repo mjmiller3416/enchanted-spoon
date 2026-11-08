@@ -1,9 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { appConfig } from "@/lib/config";
-import { Benefits } from "./_components/Benefits";
 import { CtaBand } from "./_components/CtaBand";
-import { ExampleWeek } from "./_components/ExampleWeek";
+import { Features } from "./_components/Features";
 import { Hero } from "./_components/Hero";
 import { HowItWorks } from "./_components/HowItWorks";
 
@@ -14,7 +13,7 @@ const jsonLd = {
   applicationCategory: "LifestyleApplication",
   operatingSystem: "Web",
   description:
-    "Save the recipes you cook, plan the week, and shop from one list. Free for recipes, meal planning, and shopping lists.",
+    "Keep your recipes in one place, plan the week's dinners, and get a grocery list that builds itself. Free for recipes, meal planning, and grocery lists.",
   offers: {
     "@type": "Offer",
     price: "0",
@@ -34,8 +33,7 @@ export default async function RootPage() {
       />
       <Hero />
       <HowItWorks />
-      <ExampleWeek />
-      <Benefits />
+      <Features />
       <CtaBand />
     </>
   );

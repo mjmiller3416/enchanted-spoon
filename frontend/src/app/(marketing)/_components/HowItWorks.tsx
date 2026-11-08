@@ -1,145 +1,170 @@
 import Image from "next/image";
+import { CheckCircle2, Circle, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { AVOCADO_CORN_SALAD, SHRIMP_PASTA, TUESDAY_INGREDIENTS } from "./examples";
+import { cn } from "@/lib/utils";
+import { AVOCADO_CORN_SALAD, FISH_SANDWICHES, RIBEYE_STEAK, SHRIMP_PASTA } from "./examples";
 import { Reveal } from "./Reveal";
 
 const STEPS = [
   {
-    title: "Save the recipe",
-    body: "Type the dish the way you cook it, then edit it whenever it changes. A recipe that already lives on a web page can be copied in from its link — that import is part of the 7-day trial and Pro.",
+    title: "Save your recipes",
+    body: "Type in the dishes you already make, or paste a link from a recipe site and skip the life story. Edit anything, any time.",
+    visual: <RecipeVisual />,
   },
   {
-    title: "Give it a night",
-    body: "Drop the main on the weekly menu and add up to three sides. Servings stay with the meal, so Tuesday is for four, not a guess.",
+    title: "Plan your week",
+    body: "Pick a main for any night and add up to three sides. Plans change? Drag the meal to another day.",
+    visual: <PlanVisual />,
   },
   {
-    title: "Shop once",
-    body: "Each meal can add all of its ingredients, produce only, or nothing. Quantities for the same item combine and group the way you walk the store.",
+    title: "Shop with one list",
+    body: "Every planned meal adds its ingredients to one list, with amounts combined and items sorted by category.",
+    visual: <ShopVisual />,
   },
 ];
 
 export function HowItWorks() {
   return (
-    <section aria-labelledby="how-it-works-heading" className="border-t border-border bg-background-subtle">
-      <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-16 lg:px-6 lg:py-20">
+    <section
+      id="how-it-works"
+      aria-labelledby="how-it-works-heading"
+      className="scroll-mt-16 border-t border-border bg-background-subtle"
+    >
+      <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-16 lg:px-6 lg:py-24">
         <div className="flex max-w-2xl flex-col gap-3">
-          <h2 id="how-it-works-heading" className="font-display text-3xl leading-tight text-foreground sm:text-4xl">
-            One pasta, from the recipe box to the store
+          <p className="text-sm font-semibold text-primary">How it works</p>
+          <h2 id="how-it-works-heading" className="font-display text-3xl leading-tight text-foreground sm:text-5xl">
+            From recipe to grocery run in three steps
           </h2>
-          <p className="text-muted-foreground">
-            An example, not someone else&apos;s account. Garlic butter shrimp pasta is saved, set on Tuesday with a side, and its ingredients show up on the list.
-          </p>
         </div>
 
-        <ol className="grid gap-6 lg:grid-cols-3">
-          <li>
-            <Reveal className="h-full">
-              <Card className="h-full gap-0 overflow-hidden pt-0 pb-0">
-                <RecipeSlip />
-                <CardContent className="flex flex-col gap-2">
-                  <StepTitle index={1} title={STEPS[0].title} />
-                  <p className="text-sm leading-relaxed text-muted-foreground">{STEPS[0].body}</p>
-                </CardContent>
-              </Card>
-            </Reveal>
-          </li>
-          <li>
-            <Reveal delay={120} className="h-full">
-              <Card className="h-full gap-0 overflow-hidden pt-0 pb-0">
-                <PlanSlip />
-                <CardContent className="flex flex-col gap-2">
-                  <StepTitle index={2} title={STEPS[1].title} />
-                  <p className="text-sm leading-relaxed text-muted-foreground">{STEPS[1].body}</p>
-                </CardContent>
-              </Card>
-            </Reveal>
-          </li>
-          <li>
-            <Reveal delay={240} className="h-full">
-              <Card className="h-full gap-0 overflow-hidden pt-0 pb-0">
-                <ShopSlip />
-                <CardContent className="flex flex-col gap-2">
-                  <StepTitle index={3} title={STEPS[2].title} />
-                  <p className="text-sm leading-relaxed text-muted-foreground">{STEPS[2].body}</p>
-                </CardContent>
-              </Card>
-            </Reveal>
-          </li>
+        <ol className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {STEPS.map((step, index) => (
+            <li key={step.title}>
+              <Reveal delay={index * 120} className="h-full">
+                <Card className="h-full gap-0 overflow-hidden p-0">
+                  <div aria-hidden className="flex h-64 flex-col justify-center border-b border-border bg-background p-5">
+                    {step.visual}
+                  </div>
+                  <CardContent className="flex flex-col gap-2 py-6">
+                    <h3 className="flex items-center gap-3 text-lg font-semibold text-foreground">
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                        {index + 1}
+                      </span>
+                      {step.title}
+                    </h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+                  </CardContent>
+                </Card>
+              </Reveal>
+            </li>
+          ))}
         </ol>
       </div>
     </section>
   );
 }
 
-function StepTitle({ index, title }: { index: number; title: string }) {
+function RecipeVisual() {
   return (
-    <h3 className="flex items-center gap-3 text-lg font-semibold text-foreground">
-      <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-        {index}
-      </span>
-      {title}
-    </h3>
-  );
-}
-
-function RecipeSlip() {
-  return (
-    <div className="flex flex-col gap-3 border-b border-border bg-background p-4" aria-hidden>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Example recipe</p>
-      <p className="font-display text-xl text-foreground">{SHRIMP_PASTA.name}</p>
-      <ul className="flex flex-col gap-1 text-sm text-foreground-subtle">
-        <li>Shrimp, 1 lb</li>
-        <li>Spaghetti, 12 oz</li>
-        <li>Garlic, butter, parsley, lemon</li>
-      </ul>
-      <p className="truncate rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground">
-        example.com/garlic-butter-shrimp-pasta
-      </p>
-    </div>
-  );
-}
-
-function PlanSlip() {
-  return (
-    <div className="flex flex-col gap-3 border-b border-border bg-background p-4" aria-hidden>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Example menu</p>
-      <div className="flex items-center gap-3 rounded-lg border border-primary bg-card p-2">
-        <span className="relative size-12 shrink-0 overflow-hidden rounded-md bg-elevated">
-          <Image src={SHRIMP_PASTA.image} alt="" fill sizes="48px" className="object-cover" />
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2 rounded-full border border-border bg-card py-1.5 pr-1.5 pl-3 shadow-sm">
+        <Link2 className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          myfavoritefoodblog.com/shrimp-pasta
         </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium text-foreground">Tue · {SHRIMP_PASTA.name}</span>
-          <span className="block text-xs text-muted-foreground">{SHRIMP_PASTA.servings} servings · {SHRIMP_PASTA.time}</span>
-        </span>
+        <Badge variant="default" className="shrink-0 rounded-full">
+          Import
+        </Badge>
       </div>
-      <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-2">
-        <span className="relative size-12 shrink-0 overflow-hidden rounded-md bg-elevated">
-          <Image src={AVOCADO_CORN_SALAD.image} alt="" fill sizes="48px" className="object-cover" />
+      <div className="flex gap-3 rounded-xl border border-border bg-card p-3 shadow-raised">
+        <span className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-elevated">
+          <Image src={SHRIMP_PASTA.image} alt="" fill sizes="80px" className="object-cover" />
         </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium text-foreground">Side · {AVOCADO_CORN_SALAD.name}</span>
-          <span className="block text-xs text-muted-foreground">{AVOCADO_CORN_SALAD.time}</span>
-        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="truncate font-display text-base text-foreground">{SHRIMP_PASTA.name}</p>
+          <ul className="flex flex-col text-xs text-muted-foreground">
+            <li>1 lb shrimp</li>
+            <li>12 oz spaghetti</li>
+            <li>4 cloves garlic, 3 tbsp butter</li>
+          </ul>
+        </div>
       </div>
     </div>
   );
 }
 
-function ShopSlip() {
+const PLAN_DAYS = [
+  { day: "Mon", recipe: RIBEYE_STEAK },
+  { day: "Tue", recipe: SHRIMP_PASTA, side: AVOCADO_CORN_SALAD, active: true },
+  { day: "Wed", recipe: FISH_SANDWICHES },
+];
+
+function PlanVisual() {
   return (
-    <div className="flex flex-col gap-2 border-b border-border bg-background p-4" aria-hidden>
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Example list</p>
-        <Badge variant="outline">All ingredients</Badge>
-      </div>
-      {TUESDAY_INGREDIENTS.slice(0, 4).map((item) => (
-        <div key={item.name} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-foreground">{item.name}</span>
-            <span className="block truncate text-xs text-muted-foreground">{item.source}</span>
+    <div className="flex flex-col gap-2">
+      {PLAN_DAYS.map(({ day, recipe, side, active }) => (
+        <div
+          key={day}
+          className={cn(
+            "flex items-center gap-3 rounded-lg border bg-card p-2",
+            active ? "translate-x-2 -rotate-1 border-primary shadow-elevated" : "border-border"
+          )}
+        >
+          <span className="w-8 shrink-0 text-xs font-semibold text-muted-foreground">{day}</span>
+          <span className="relative size-10 shrink-0 overflow-hidden rounded-md bg-elevated">
+            <Image src={recipe.image} alt="" fill sizes="40px" className="object-cover" />
           </span>
-          <span className="shrink-0 text-sm text-foreground-subtle">{item.qty}</span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-foreground">{recipe.name}</span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {side ? `+ ${side.name}` : recipe.time}
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const SHOP_GROUPS = [
+  {
+    label: "Produce",
+    items: [
+      { name: "Avocados", qty: "2", done: true },
+      { name: "Lemons", qty: "3", done: true },
+      { name: "Parsley", qty: "1 bunch", done: false },
+    ],
+  },
+  {
+    label: "Seafood",
+    items: [
+      { name: "Shrimp", qty: "1 lb", done: false },
+      { name: "Cod fillets", qty: "1 lb", done: false },
+    ],
+  },
+];
+
+function ShopVisual() {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 shadow-raised">
+      {SHOP_GROUPS.map((group) => (
+        <div key={group.label} className="flex flex-col gap-1">
+          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{group.label}</p>
+          {group.items.map((item) => (
+            <div key={item.name} className="flex items-center gap-2 text-sm">
+              {item.done ? (
+                <CheckCircle2 className="size-4 shrink-0 text-primary" strokeWidth={1.5} />
+              ) : (
+                <Circle className="size-4 shrink-0 text-border-strong" strokeWidth={1.5} />
+              )}
+              <span className={cn("flex-1 truncate", item.done ? "text-muted-foreground line-through" : "text-foreground")}>
+                {item.name}
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{item.qty}</span>
+            </div>
+          ))}
         </div>
       ))}
     </div>
