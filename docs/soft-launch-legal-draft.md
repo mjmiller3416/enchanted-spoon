@@ -43,8 +43,8 @@ If configured as intended: the subscription renews monthly until canceled; users
 manage cancellation through Settings billing. [OWNER: confirm exact cancellation
 and refund terms against the configured live Stripe portal before publishing.]
 
-New-account monthly allowances: Free 1 photo action, 10 shared requests,
-10 Genie messages and 5 imports; Pro is 20 photos, 50 suggestions, 100 assistant
+New-account monthly allowances: Free 0/0/0/0 for photo actions, suggestions,
+assistant messages and imports; Pro is 20 photos, 50 suggestions, 100 assistant
 messages and 25 imports. Photo actions
 may produce up to a square/banner pair; single-image regeneration also consumes an
 action. Suggestions cover generation, nutrition estimates, meal ideas and tips.

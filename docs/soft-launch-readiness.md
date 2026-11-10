@@ -8,7 +8,7 @@ review checkpoint. Native iOS/Android releases are outside this implementation.
 - Optional images reserve a shared image allowance atomically before provider calls.
   Quota exhaustion preserves recipe success; partial photo success consumes one action,
   and total failure releases the reservation. Images are opt-in by default.
-- New-account allowances are Free 1/10/10/5 and Pro 20/50/100/25 for photo actions,
+- New-account allowances are Free 0/0/0/0 and Pro 20/50/100/25 for photo actions,
   suggestions, assistant messages and imports. Proposed Pro price: US$4.99/month
   (499 cents). These are feature allowances, not guaranteed provider dollar budgets.
 - The usage-plan migration preserves existing accounts' legacy allowances. Enforcement
