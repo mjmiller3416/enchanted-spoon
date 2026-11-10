@@ -23,7 +23,8 @@ def _user(**kwargs) -> User:
 
 
 def _event(**overrides):
-    now = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    # Expiration is compared to the clock, so the window has to stay in the future.
+    now = datetime.now(timezone.utc)
     expires = now + timedelta(days=7)
     payload = {
         "type": "INITIAL_PURCHASE",
