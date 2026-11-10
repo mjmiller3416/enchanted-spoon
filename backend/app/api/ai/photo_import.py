@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
-from app.api.auth import require_within_usage_limit
+from app.api.auth import get_current_user, require_within_usage_limit
 from app.api.errors import internal_error
 from app.core.photo_import import photo_import_enabled
 from app.core.rate_limit import GENERATION_IP_LIMITS, GENERATION_USER_LIMITS, ip_limiter, limiter
@@ -39,14 +39,17 @@ def require_photo_import_enabled() -> None:
 
 
 def _photo_import_user(
+    _authenticated: User = Depends(get_current_user),
     _enabled: None = Depends(require_photo_import_enabled),
     user: User = Depends(_import_limit),
 ) -> User:
-    """Flag check first, then the same import cap and rate limits as URL import.
+    """Authenticate, then the flag, then the same import cap as URL import.
 
+    A missing token is 401 before the flag or the import unit is considered.
     One request reserves one ``recipes_imported`` unit. Photo count does not
     change that. A failure in the handler releases the unit.
     """
+    del _authenticated
     return user
 
 

@@ -336,6 +336,42 @@ class TestPhotoImportRoute:
         app.include_router(api_router)
         assert "/api/ai/recipe-import/photo" in app.openapi()["paths"]
 
+    def test_unauthenticated_request_returns_401(self, file_db, monkeypatch):
+        """No token is 401 whether or not photo import is turned on.
+
+        Auth runs before the flag, so a signed-out caller never reaches the
+        import cap. Settings force auth on in case the local env bypasses it.
+        """
+        from app.core.auth_config import AuthSettings, get_auth_settings
+
+        monkeypatch.setenv("PHOTO_IMPORT_ENABLED", "true")
+        app = FastAPI()
+        app.state.limiter = limiter
+        app.include_router(photo_router, prefix="/api/ai/recipe-import")
+
+        def session_dependency():
+            with file_db() as session:
+                yield session
+
+        app.dependency_overrides[get_session] = session_dependency
+        app.dependency_overrides[get_auth_settings] = lambda: AuthSettings(auth_disabled=False)
+        reserved: list[str] = []
+        real = UsageService.reserve
+
+        def spy(self, field, limit):
+            reserved.append(field)
+            return real(self, field, limit)
+
+        monkeypatch.setattr("app.api.auth.dependencies.UsageService.reserve", spy)
+        response = TestClient(app).post(
+            "/api/ai/recipe-import/photo",
+            files=_files(1),
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Missing authentication token"
+        assert reserved == []
+        assert _imported(file_db) == 0
+
     def test_flag_off_does_not_reserve(self, file_db, monkeypatch):
         monkeypatch.setenv("PHOTO_IMPORT_ENABLED", "false")
         user = _pro_user(file_db)
