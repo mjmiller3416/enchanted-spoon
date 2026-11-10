@@ -43,13 +43,14 @@ If configured as intended: the subscription renews monthly until canceled; users
 manage cancellation through Settings billing. [OWNER: confirm exact cancellation
 and refund terms against the configured live Stripe portal before publishing.]
 
-New-account monthly AI allowances: Free 1 photo action, 10 shared AI requests,
-10 Genie messages and 5 imports; Pro 10, 50, 50 and 100 respectively. Photo actions
+New-account monthly allowances: Free 1 photo action, 10 shared requests,
+10 Genie messages and 5 imports; Pro is 20 photos, 50 suggestions, 100 assistant
+messages and 25 imports. Photo actions
 may produce up to a square/banner pair; single-image regeneration also consumes an
-action. Shared AI requests cover generation, nutrition estimates, meal ideas and tips.
+action. Suggestions cover generation, nutrition estimates, meal ideas and tips.
 Allowances reset by calendar month and do not roll over. Existing accounts retain
 their legacy allowances, shown in their usage view. Ordinary saved recipes, Menu,
-shopping and cooking are distinct from optional AI use. Do not call AI unlimited.
+shopping and cooking are distinct from optional use of these tools. Do not call these allowances unlimited.
 
 AI results, including nutrition, are estimates and can be inaccurate. Users should
 check ingredients, cooking instructions and suitability. Avoid unsupported claims

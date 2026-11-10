@@ -24,9 +24,9 @@ def test_legacy_pro_and_grants_use_launch_caps_unless_exempt(monkeypatch):
         created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
     )
     assert get_user_monthly_limit(user, "ai_images_generated") == 20
-    assert get_user_monthly_limit(user, "ai_assistant_messages") == 300
-    assert get_user_monthly_limit(user, "ai_suggestions_requested") == 200
-    assert get_user_monthly_limit(user, "recipes_imported") == 50
+    assert get_user_monthly_limit(user, "ai_assistant_messages") == 100
+    assert get_user_monthly_limit(user, "ai_suggestions_requested") == 50
+    assert get_user_monthly_limit(user, "recipes_imported") == 25
     assert AdminUsageLimitsDTO.for_user(user).ai_images_generated == 20
     user.subscription_tier = "free"
     assert user.usage_tier == "free"
@@ -138,9 +138,9 @@ def test_admin_exempt_emails_stay_admin_and_other_legacy_pro_uses_launch_caps(mo
 
     assert other.keeps_admin_access() is False
     assert get_user_monthly_limit(other, "ai_images_generated") == 20
-    assert get_user_monthly_limit(other, "ai_assistant_messages") == 300
-    assert get_user_monthly_limit(other, "ai_suggestions_requested") == 200
-    assert get_user_monthly_limit(other, "recipes_imported") == 50
+    assert get_user_monthly_limit(other, "ai_assistant_messages") == 100
+    assert get_user_monthly_limit(other, "ai_suggestions_requested") == 50
+    assert get_user_monthly_limit(other, "recipes_imported") == 25
     assert granted.usage_tier == "pro"
     assert granted.keeps_admin_access() is False
     assert get_user_monthly_limit(granted, "ai_images_generated") == 20
@@ -155,7 +155,7 @@ def test_admin_exempt_emails_stay_admin_and_other_legacy_pro_uses_launch_caps(mo
 def test_new_account_gets_launch_caps():
     user = User(is_admin=False, usage_plan="launch", subscription_tier="pro", subscription_status="active")
     assert get_user_monthly_limit(user, "ai_images_generated") == 20
-    assert AdminUsageLimitsDTO.for_user(user).ai_assistant_messages == 300
+    assert AdminUsageLimitsDTO.for_user(user).ai_assistant_messages == 100
 
 
 def test_migration_preserves_old_rows_and_new_orm_defaults(tmp_path, monkeypatch):
