@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { AuthScreen } from "@/components/auth/AuthScreen";
 
 export default async function AuthLayout({
   children,
@@ -8,9 +9,5 @@ export default async function AuthLayout({
 }>) {
   const { userId } = await auth();
   if (userId) redirect("/dashboard");
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      {children}
-    </div>
-  );
+  return <AuthScreen>{children}</AuthScreen>;
 }
