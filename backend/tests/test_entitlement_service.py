@@ -23,7 +23,8 @@ def _user(**kwargs) -> User:
 
 
 def _event(**overrides):
-    # Expiration is compared to the clock, so the window has to stay in the future.
+    # Anchored to the real clock: the service checks expiry against now, so a
+    # fixed date turns every "active" event into "expired" a week later
     now = datetime.now(timezone.utc)
     expires = now + timedelta(days=7)
     payload = {
