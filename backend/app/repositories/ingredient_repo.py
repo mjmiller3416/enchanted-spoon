@@ -105,6 +105,38 @@ class IngredientRepo:
             )
         return self.session.execute(stmt).scalars().unique().all()
 
+    def find_category_by_names(self, names: list[str]) -> str | None:
+        """
+        Return the category the user files an ingredient under, by exact name.
+
+        Matches case-insensitively against any of ``names`` (callers pass a few
+        spellings, e.g. "eggs" and "egg"). When the ingredient exists under more
+        than one category, a specific one wins over "other"; ties go to the
+        oldest row so the answer is stable.
+
+        Args:
+            names (list[str]): Candidate ingredient names to look up.
+
+        Returns:
+            str | None: The ingredient's category, or None if no name matches.
+        """
+        candidates = {n.strip().lower() for n in names if n and n.strip()}
+        if not candidates:
+            return None
+
+        stmt = (
+            select(Ingredient.ingredient_category)
+            .where(Ingredient.user_id == self.user_id)
+            # Exact match, not ilike(): % and _ in a name must not act as wildcards
+            .where(func.lower(Ingredient.ingredient_name).in_(candidates))
+            .order_by(Ingredient.id)
+        )
+        categories = [c for c in self.session.execute(stmt).scalars().all() if c]
+        if not categories:
+            return None
+        specific = [c for c in categories if c.strip().lower() != "other"]
+        return (specific or categories)[0]
+
     def get_distinct_names(self) -> list[str]:
         """
         Return a list of all unique ingredient names for the current user.

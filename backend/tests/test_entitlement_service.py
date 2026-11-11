@@ -23,7 +23,9 @@ def _user(**kwargs) -> User:
 
 
 def _event(**overrides):
-    now = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    # Anchored to the real clock: the service checks expiry against now, so a
+    # fixed date turns every "active" event into "expired" a week later
+    now = datetime.now(timezone.utc)
     expires = now + timedelta(days=7)
     payload = {
         "type": "INITIAL_PURCHASE",
