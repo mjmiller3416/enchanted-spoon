@@ -23,9 +23,10 @@ def _user(**kwargs) -> User:
 
 
 def _event(**overrides):
-    # Expiration is compared with the clock, so a fixed date goes stale.
-    moment = datetime.now(timezone.utc)
-    expires = moment + timedelta(days=7)
+    # Anchored to the real clock: the service checks expiry against now, so a
+    # fixed date turns every "active" event into "expired" a week later
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=7)
     payload = {
         "type": "INITIAL_PURCHASE",
         "app_user_id": "7",
@@ -34,7 +35,7 @@ def _event(**overrides):
         "period_type": "TRIAL",
         "original_transaction_id": "tx_1",
         "expiration_at_ms": int(expires.timestamp() * 1000),
-        "event_timestamp_ms": int(moment.timestamp() * 1000),
+        "event_timestamp_ms": int(now.timestamp() * 1000),
         "environment": "SANDBOX",
     }
     payload.update(overrides)

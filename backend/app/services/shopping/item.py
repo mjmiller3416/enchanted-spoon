@@ -19,6 +19,7 @@ from ...dtos.shopping_dtos import (
     ShoppingItemUpdateDTO,
 )
 from ...models.shopping_item import ShoppingItem
+from ...repositories.ingredient_repo import IngredientRepo
 
 
 # -- Item Management Mixin -----------------------------------------------------------------------
@@ -118,6 +119,40 @@ class ItemManagementMixin:
         except SQLAlchemyError:
             self.session.rollback()
             return None
+
+    def add_named_item(
+        self, create_dto: ManualItemCreateDTO
+    ) -> Optional[ManualItemsAddResultDTO]:
+        """
+        Add one manual item typed by name alone, filed under the right category.
+
+        For quick adds where nobody picks a category (the Hearth wall). When the
+        DTO has no category, the user's ingredient library supplies it ("milk" is
+        dairy because her recipes file it there); otherwise it falls back to
+        "other". Then it goes through ``add_manual_items``, so an item already
+        needed is skipped and a checked-off one moves back to "need".
+
+        Args:
+            create_dto (ManualItemCreateDTO): The item; only the name is required.
+
+        Returns:
+            Optional[ManualItemsAddResultDTO]: What happened to the item, or None
+            if the write failed.
+        """
+        if create_dto.category is None:
+            try:
+                category = IngredientRepo(self.session, self.user_id).find_category_by_names(
+                    [create_dto.ingredient_name, self._dedupe_key(create_dto.ingredient_name)]
+                )
+            except SQLAlchemyError:
+                # A failed lookup only costs the category, never the add
+                self.session.rollback()
+                category = None
+            if category:
+                create_dto = create_dto.model_copy(
+                    update={"category": category.strip().lower()}
+                )
+        return self.add_manual_items([create_dto])
 
     @staticmethod
     def _dedupe_key(name: str) -> str:
