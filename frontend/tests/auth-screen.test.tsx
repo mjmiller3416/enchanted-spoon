@@ -12,6 +12,7 @@ import { SignUpForm } from "@/components/auth/SignUpForm";
 vi.mock("@clerk/nextjs", () => ({
   useSignIn: () => ({ isLoaded: true, signIn: {}, setActive: vi.fn() }),
   useSignUp: () => ({ isLoaded: true, signUp: {}, setActive: vi.fn() }),
+  useClerk: () => ({ loaded: false, frontendApi: "" }),
 }));
 
 vi.mock("next/navigation", () => ({
