@@ -57,7 +57,7 @@ export const CATEGORIES: CategoryConfig[] = [
     id: "billing",
     label: "Plan & Billing",
     icon: CreditCard,
-    description: "Subscription and AI usage",
+    description: "Subscription and monthly allowance",
   },
   {
     id: "appearance",

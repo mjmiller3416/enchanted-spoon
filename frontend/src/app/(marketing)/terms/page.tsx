@@ -50,13 +50,13 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section title="AI-generated content">
+      <Section title="Generated content">
         <p className="leading-7 text-foreground-subtle">
-          AI features (recipe generation, URL import, the assistant, cooking tips, nutrition
-          estimation, and image generation) produce automated output that may be inaccurate or
-          incomplete. Nutrition estimates are informational only and are not medical or dietary
-          advice — always verify ingredients and allergens yourself. AI usage may be subject to
-          the monthly allowances shown on our pricing page and in Settings.
+          Recipe generation, link import, the assistant, cooking tips, nutrition estimates, and
+          photos produce automated output that may be inaccurate or incomplete. Nutrition
+          estimates are informational only and are not medical or dietary advice — always verify
+          ingredients and allergens yourself. Those tools may be subject to the monthly
+          allowances shown on our pricing page and in Settings.
         </p>
       </Section>
 

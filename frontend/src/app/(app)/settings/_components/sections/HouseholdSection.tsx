@@ -108,8 +108,8 @@ function HouseholdSetup({ initialCode }: { initialCode: string }) {
       <p className="text-sm text-muted-foreground">
         A household is the owner&apos;s kitchen: one meal plan and one shopping list, for
         up to 6 people. Recipes stay with the person who created them until they share
-        each one. Once a second person joins, AI usage is one shared allowance on the
-        owner&apos;s account.
+        each one. Once a second person joins, photos, chat, suggestions, and imports
+        share one allowance on the owner&apos;s account.
       </p>
 
       <form
@@ -186,8 +186,8 @@ function HouseholdHome({ household }: { household: Household }) {
       <p className="text-sm text-muted-foreground">
         This is the owner&apos;s kitchen. The meal plan and shopping list live on the
         owner&apos;s account, and they come back to you as your own if you leave.
-        Share individual recipes from a recipe page. With two or more people, AI
-        usage is one shared allowance — see Plan &amp; Billing for what&apos;s left.
+        Share individual recipes from a recipe page. With two or more people, photos,
+        chat, suggestions, and imports share one allowance — see Plan &amp; Billing for what&apos;s left.
       </p>
 
       <div className="space-y-3">
