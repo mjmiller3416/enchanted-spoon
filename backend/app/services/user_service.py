@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..models.user import User
 from ..repositories.user_repo import UserRepo
+from .admin_grant import grant_admin_if_listed
 from .clerk_service import clerk_user_has_verified_email
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,9 @@ class UserService:
         signing-in Clerk user. Otherwise AccountLinkError is raised and the
         existing account is left untouched.
 
+        When the stored email is listed in ``ADMIN_EMAILS``, this also sets
+        ``is_admin``. That grant never clears the flag.
+
         Args:
             clerk_id: Clerk user ID from JWT 'sub' claim.
             email: User's email from JWT.
@@ -101,7 +105,7 @@ class UserService:
         user = self.repo.get_by_clerk_id(clerk_id)
         if user:
             self._sync_email(user, email)
-            return user
+            return self._grant_listed_admin(user)
 
         # 2. Relink an existing account by email (pre-provisioned or new Clerk ID)
         existing = self.repo.get_by_email(email)
@@ -118,7 +122,7 @@ class UserService:
             )
             self.repo.update_from_clerk(existing, clerk_id, name, avatar_url)
             self.session.commit()
-            return existing
+            return self._grant_listed_admin(existing)
 
         # 3. Create new user with default settings
         try:
@@ -135,9 +139,30 @@ class UserService:
             user = self.repo.get_by_clerk_id(clerk_id)
             if user is None:
                 raise
-            return user
+            return self._grant_listed_admin(user)
 
         self._seed_starter_content(user)
+        return self._grant_listed_admin(user)
+
+    def _grant_listed_admin(self, user: User) -> User:
+        """Persist ``is_admin`` when the stored email is in ``ADMIN_EMAILS``.
+
+        Best-effort, and only ever turns the flag on. A failed write must not
+        block sign-in; the next startup or sign-in tries again.
+        """
+        if not grant_admin_if_listed(user):
+            return user
+        try:
+            self.session.commit()
+        except SQLAlchemyError:
+            self.session.rollback()
+            logger.warning(
+                "Failed to grant is_admin from ADMIN_EMAILS for user id=%s",
+                user.id,
+                exc_info=True,
+            )
+            return user
+        logger.info("Granted is_admin from ADMIN_EMAILS for user id=%s", user.id)
         return user
 
     def touch_last_active(self, user: User, now: Optional[datetime] = None) -> None:
