@@ -1,18 +1,23 @@
 """app/api/hearth.py
 
-Meal endpoints for the Hearth wall-display integration.
+Meal and shopping-list endpoints for the Hearth wall-display integration.
 
 Hearth is a trusted first-party household display. It authenticates with the
 shared X-API-Key secret (``get_integration_user``) rather than a Clerk user
 token, so every call here is scoped to the single ``INTEGRATION_USER_ID``
 account — the same account the Tada shopping-list ingest writes to.
 
-The router is read-only but for ONE write: marking a plan entry cooked
-(``POST /meals/complete``), so the wall can clear a meal off its display. That
-mirrors the Meal Planner's own "complete" action; everything else — planning,
-and un-completing (restoring) a mistaken completion — stays in the app (Hearth
-spec D6, §5.4). Endpoints just project/drive what the existing planner/meal/
-recipe services already do (see ``hearth_dtos`` mappers) — no new data access.
+Two writes, nothing more:
+- ``POST /meals/complete`` marks a plan entry cooked, so the wall can clear a
+  meal off its display. It mirrors the Meal Planner's own "complete" action;
+  planning and un-completing a mistaken completion stay in the app (Hearth spec
+  D6, §5.4).
+- ``POST /shopping/items`` adds one item to the shopping list by name, deduped
+  the same way Genie's adds are. Checking off, editing and removing items stay
+  in the app for now.
+
+Endpoints project/drive what the existing planner/meal/recipe/shopping services
+already do (see ``hearth_dtos`` mappers) — no new data access in the routes.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -22,17 +27,24 @@ from app.api.auth import get_integration_user
 from app.core.rate_limit import limiter
 from app.database.db import get_session
 from app.dtos.hearth_dtos import (
+    HearthAddShoppingItemDTO,
+    HearthAddShoppingItemResultDTO,
     HearthCompleteMealDTO,
     HearthMealCardDTO,
     HearthMealPlanDTO,
+    HearthShoppingListDTO,
+    add_result_from_batch,
     hearth_recipe_from_response,
     planned_meal_from_entry,
+    shopping_item_from_response,
 )
 from app.dtos.recipe_dtos import RecipeResponseDTO
+from app.dtos.shopping_dtos import ManualItemCreateDTO
 from app.models.user import User
 from app.services.meal import MealService
 from app.services.planner import PlannerService
 from app.services.recipe_service import RecipeService
+from app.services.shopping import ShoppingService
 
 router = APIRouter()
 
@@ -112,3 +124,54 @@ def complete_meal(
     if entry is None:
         raise HTTPException(status_code=404, detail="Planner entry not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/shopping", response_model=HearthShoppingListDTO)
+@limiter.limit("60/minute")
+def get_shopping_list(
+    request: Request,
+    session: Session = Depends(get_session),
+    target_user: User = Depends(get_integration_user),
+):
+    """The household shopping list — every row, needed and checked off.
+
+    The same list the app's Shopping List page shows, scoped to the integration
+    user. The wall groups rows by category and shows the ones still needed.
+    """
+    shopping_list = ShoppingService(session, target_user.id).get_shopping_list()
+    return HearthShoppingListDTO(
+        items=[shopping_item_from_response(item) for item in shopping_list.items]
+    )
+
+
+@router.post("/shopping/items", response_model=HearthAddShoppingItemResultDTO)
+@limiter.limit("60/minute")
+def add_shopping_item(
+    request: Request,
+    payload: HearthAddShoppingItemDTO,
+    response: Response,
+    session: Session = Depends(get_session),
+    target_user: User = Depends(get_integration_user),
+):
+    """Add one item to the shopping list by name, typed on the wall.
+
+    Lands as a manual item (quantity 1), exactly like a quick add in the app.
+    With no category given, the household's ingredient library supplies one.
+    Deduped like Genie's adds: an item already needed is left alone
+    (``already_listed``) and a checked-off one moves back to "need"
+    (``reactivated``). ``201`` when a row is created, ``200`` otherwise.
+    """
+    create_dto = ManualItemCreateDTO(
+        ingredient_name=payload.name,
+        quantity=1,
+        category=payload.category,
+    )
+    result = ShoppingService(session, target_user.id).add_named_item(create_dto)
+    if result is None:
+        raise HTTPException(status_code=500, detail="Failed to add item")
+
+    outcome = add_result_from_batch(result, payload.name)
+    response.status_code = (
+        status.HTTP_201_CREATED if outcome.status == "added" else status.HTTP_200_OK
+    )
+    return outcome

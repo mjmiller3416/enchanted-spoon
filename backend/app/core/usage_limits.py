@@ -26,15 +26,15 @@ from typing import TYPE_CHECKING, Callable, Optional
 if TYPE_CHECKING:
     from app.models.user import User
 
-# Launch caps. Pro: 20 images / 300 chats / 200 suggestions / 50 imports.
+# Launch caps. Pro: 20 images / 100 chats / 50 suggestions / 25 imports.
 # Trial caps span the whole trial. One image is one generated photo.
 # Suggestions are shared by meal ideas, nutrition, recipe generation, and tips.
 TIER_USAGE_LIMITS: dict[str, dict[str, int]] = {
     "pro": {
         "ai_images_generated": 20,
-        "ai_suggestions_requested": 200,
-        "ai_assistant_messages": 300,
-        "recipes_imported": 50,
+        "ai_suggestions_requested": 50,
+        "ai_assistant_messages": 100,
+        "recipes_imported": 25,
     },
     "trial": {
         "ai_images_generated": 3,

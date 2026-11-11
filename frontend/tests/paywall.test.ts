@@ -9,7 +9,7 @@ describe("trial_required is the error code, not HTTP 403", () => {
     });
     expect(classifyAiGateError(error)).toEqual({
       reason: "trial_required",
-      featureLabel: "AI features",
+      featureLabel: "photos, chat, suggestions, and imports",
     });
   });
 
