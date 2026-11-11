@@ -1,11 +1,12 @@
 """app/dtos/hearth_dtos.py
 
-DTOs for the Hearth wall-display integration (read-only meal surface).
+DTOs for the Hearth wall-display integration (meals and shopping list).
 
 Hearth is a household wall display that renders the current meal plan and, on
-tap, a meal's card (ingredients + recipe). It authenticates as a trusted
+tap, a meal's card (ingredients + recipe), and shows the shopping list with a
+quick "add an item" field. It authenticates as a trusted
 first-party app via the shared X-API-Key secret (see ``get_integration_user``)
-and reads the meal data of the single ``INTEGRATION_USER_ID`` account.
+and works on the single ``INTEGRATION_USER_ID`` account.
 
 These shapes are a deliberately stable, self-contained integration CONTRACT:
 Hearth's TypeScript client mirrors them 1:1. They are decoupled from the
@@ -17,12 +18,13 @@ endpoint just projects what the planner/meal/recipe services already return.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .planner_dtos import PlannerEntryResponseDTO
 from .recipe_dtos import RecipeCardDTO, RecipeResponseDTO
+from .shopping_dtos import ManualItemsAddResultDTO, ShoppingItemResponseDTO
 
 
 # ── Card shapes ─────────────────────────────────────────────────────────────
@@ -119,6 +121,71 @@ class HearthCompleteMealDTO(BaseModel):
     entry_id: int
 
 
+# ── Shopping shapes ─────────────────────────────────────────────────────────
+class HearthShoppingItemDTO(BaseModel):
+    """One shopping-list row as the wall renders it. ``have`` is True once the
+    item is checked off; ``source`` is "recipe", "manual" or an app slug such
+    as "tada". ``category`` is the lowercase slug the app groups by."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    category: Optional[str] = None
+    have: bool = False
+    source: str
+
+
+class HearthShoppingListDTO(BaseModel):
+    """The household shopping list: every row, needed and checked off. The
+    wall groups rows by ``category`` the same way the app does."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    items: List[HearthShoppingItemDTO] = Field(default_factory=list)
+
+
+class HearthAddShoppingItemDTO(BaseModel):
+    """Request body for ``POST /shopping/items``: one item typed on the wall.
+
+    Only the name is required. Without a category, Enchanted Spoon files the
+    item from the household's ingredient library (``"other"`` when unknown)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str = Field(..., min_length=1, max_length=255)
+    category: Optional[str] = Field(None, max_length=100)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, v):
+        """Trim surrounding whitespace so "  milk " can't slip past min_length."""
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def normalize_category(cls, v):
+        """Lowercase to the app's category slugs; blank means "not given"."""
+        if isinstance(v, str):
+            return v.strip().lower() or None
+        return v
+
+
+class HearthAddShoppingItemResultDTO(BaseModel):
+    """What an add did. ``added``: a new row. ``reactivated``: a checked-off row
+    with that name moved back to "need". ``already_listed``: it was already
+    needed, nothing changed. ``name`` is the name as it reads on the list."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    status: Literal["added", "reactivated", "already_listed"]
+    name: str
+
+
 # ── Pure mappers (internal DTO → contract DTO) ──────────────────────────────
 def _card_image(card: Optional[RecipeCardDTO]) -> Optional[str]:
     if card is None:
@@ -180,6 +247,38 @@ def hearth_recipe_from_response(recipe: RecipeResponseDTO, role: str) -> HearthR
     )
 
 
+def shopping_item_from_response(item: ShoppingItemResponseDTO) -> HearthShoppingItemDTO:
+    """Project an internal shopping item into a wall row."""
+    return HearthShoppingItemDTO(
+        id=item.id,
+        name=item.ingredient_name,
+        quantity=item.quantity,
+        unit=item.unit,
+        category=item.category,
+        have=item.have,
+        source=item.source,
+    )
+
+
+def add_result_from_batch(
+    result: ManualItemsAddResultDTO, requested_name: str
+) -> HearthAddShoppingItemResultDTO:
+    """Reduce a one-item ``add_manual_items`` batch to what the wall reports.
+
+    The batch puts the single item in exactly one of its three buckets; the
+    reported name is the row's own (the existing spelling on a match)."""
+    if result.added:
+        return HearthAddShoppingItemResultDTO(
+            status="added", name=result.added[0].ingredient_name
+        )
+    if result.reactivated:
+        return HearthAddShoppingItemResultDTO(
+            status="reactivated", name=result.reactivated[0].ingredient_name
+        )
+    name = result.already_listed[0] if result.already_listed else requested_name
+    return HearthAddShoppingItemResultDTO(status="already_listed", name=name)
+
+
 __all__ = [
     "HearthIngredientDTO",
     "HearthRecipeDTO",
@@ -187,6 +286,12 @@ __all__ = [
     "HearthPlannedMealDTO",
     "HearthMealPlanDTO",
     "HearthCompleteMealDTO",
+    "HearthShoppingItemDTO",
+    "HearthShoppingListDTO",
+    "HearthAddShoppingItemDTO",
+    "HearthAddShoppingItemResultDTO",
     "planned_meal_from_entry",
     "hearth_recipe_from_response",
+    "shopping_item_from_response",
+    "add_result_from_batch",
 ]

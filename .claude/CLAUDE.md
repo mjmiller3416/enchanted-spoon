@@ -147,9 +147,9 @@ Trusted household apps authenticate with the shared `INTEGRATION_API_KEY` via `g
 | Prefix | Consumer | Access |
 |--------|----------|--------|
 | `/api/shopping/external/*` | Tada (cleaning/chores app) | Shopping-list ingest (write) |
-| `/api/hearth/*` | Hearth (family wall display) | Meal plan + meal cards (read); `POST /meals/complete` marks a plan entry cooked (the only write) |
+| `/api/hearth/*` | Hearth (family wall display) | Meal plan + meal cards + shopping list (read); writes: `POST /meals/complete` marks a plan entry cooked, `POST /shopping/items` adds one item by name |
 
-`app/api/hearth.py` projects existing planner/meal/recipe services through `app/dtos/hearth_dtos.py` mappers — no new data-access logic. Hearth deliberately cannot plan or un-complete; both stay in the app.
+`app/api/hearth.py` projects existing planner/meal/recipe/shopping services through `app/dtos/hearth_dtos.py` mappers — no data-access logic in the routes. Hearth deliberately cannot plan or un-complete; both stay in the app. Its shopping add (`ShoppingService.add_named_item`) is a quantity-1 manual item, deduped like Genie's adds (`add_manual_items`), and takes its category from the account's ingredient library when none is sent. Checking off, editing and removing items from the wall are not built yet.
 
 > **Note:** Hearth's own repo is a separate workspace. Claude sessions there routinely edit this repo's backend directly, which means *this* repo's hooks and rules do not load for them — re-check branch strategy, commit trailers, and doc updates on anything that lands that way.
 
