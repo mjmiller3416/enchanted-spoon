@@ -7,6 +7,7 @@ from .meal_suggestions import router as meal_suggestions_router
 from .nutrition_estimation import router as nutrition_estimation_router
 from .recipe_generation import router as recipe_generation_router
 from .recipe_import import router as recipe_import_router
+from .photo_import import router as photo_import_router
 
 __all__ = [
     "cooking_tips_router",
@@ -16,4 +17,5 @@ __all__ = [
     "nutrition_estimation_router",
     "recipe_generation_router",
     "recipe_import_router",
+    "photo_import_router",
 ]
