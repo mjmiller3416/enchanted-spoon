@@ -20,7 +20,12 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { Logo } from "@/components/layout/Logo";
+import {
+  AuthLogo,
+  authCardContentClassName,
+  authCardHeaderClassName,
+  authCardTitleClassName,
+} from "@/components/auth/AuthScreen";
 import { appConfig } from "@/lib/config";
 import { getPostAuthRedirect } from "@/lib/authRedirect";
 import { isNativeApp } from "@/lib/native/platform";
@@ -168,12 +173,10 @@ export function SignUpForm() {
 
   return (
     <Card className="w-full max-w-md">
-      <CardHeader className="text-center space-y-4">
-        <div className="flex justify-center">
-          <Logo className="h-12 w-auto" />
-        </div>
-        <div className="space-y-2">
-          <CardTitle className="text-2xl">
+      <CardHeader className={authCardHeaderClassName}>
+        <AuthLogo />
+        <div className="space-y-2 [@media(max-height:500px)]:space-y-1">
+          <CardTitle className={authCardTitleClassName}>
             {step === "details" ? "Create your account" : "Verify your email"}
           </CardTitle>
           <CardDescription>
@@ -182,7 +185,7 @@ export function SignUpForm() {
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className={authCardContentClassName}>
         {/* Error display */}
         {error && (
           <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
@@ -214,7 +217,7 @@ export function SignUpForm() {
             </div>
 
             {/* Registration Form */}
-            <form onSubmit={handleSignUpSubmit} className="space-y-4">
+            <form onSubmit={handleSignUpSubmit} className="space-y-4 [@media(max-height:500px)]:space-y-2">
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
                 <Input
@@ -241,7 +244,7 @@ export function SignUpForm() {
                   required
                   minLength={8}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground [@media(max-height:500px)]:hidden">
                   Must be at least 8 characters
                 </p>
               </div>
