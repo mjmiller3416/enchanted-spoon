@@ -29,7 +29,7 @@ export function HowItWorks() {
     <section
       id="how-it-works"
       aria-labelledby="how-it-works-heading"
-      className="scroll-mt-16 border-t border-border bg-background-subtle"
+      className="scroll-mt-[calc(4rem+env(safe-area-inset-top,0px))] border-t border-border bg-background-subtle"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-16 lg:px-6 lg:py-24">
         <div className="flex max-w-2xl flex-col gap-3">

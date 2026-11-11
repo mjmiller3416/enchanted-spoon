@@ -8,7 +8,7 @@ const textLink =
 
 export function MarketingHeader() {
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 border-b border-border bg-background/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 lg:px-6">
         <Link href="/" className="flex min-w-0 items-center gap-2 rounded-lg" aria-label={`${appConfig.appName} home`}>
           <Logo className="h-8 w-auto shrink-0" />
