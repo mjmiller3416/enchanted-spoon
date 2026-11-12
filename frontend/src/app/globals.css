@@ -1660,6 +1660,33 @@ input[type="number"] {
   animation: scale-in var(--duration-normal) var(--ease-bounce);
 }
 
+/* Mobile bottom chrome.
+   The bottom nav is h-16 (4rem) plus the system gesture/nav inset.
+   Floating controls keep the 2rem gap that bottom-24 left above that nav
+   when the inset is zero, and rise with the inset so the bar never
+   covers them. Recipes and Menu also reserve the assistant button
+   (size-12, 3rem) plus 1rem, so the last Add Meal card and recipe cards
+   can scroll fully above it. Non-button pages keep today's 5rem
+   (pb-20) and add only the inset. Scoped below md and to screen so
+   desktop (md:pb-0 / md:bottom-8) and print are unchanged. */
+@utility bottom-above-mobile-nav {
+  @media screen and (max-width: 47.99rem) {
+    bottom: calc(4rem + 2rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@utility pb-mobile-nav {
+  @media screen and (max-width: 47.99rem) {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@utility pb-mobile-fab {
+  @media screen and (max-width: 47.99rem) {
+    padding-bottom: calc(4rem + 2rem + 3rem + 1rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Mobile sheet height accounting for safe-area inset */
 @utility h-sheet-mobile {
   height: calc(100dvh - env(safe-area-inset-top, 0px) - 2rem);
