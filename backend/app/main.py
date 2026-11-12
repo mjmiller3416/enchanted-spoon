@@ -41,10 +41,10 @@ async def lifespan(app: FastAPI):
 
 
 def _grant_admins_from_env() -> None:
-    """Grant ``is_admin`` to accounts listed in ``ADMIN_EMAILS``.
+    """Grant ``is_admin`` when Clerk confirms a listed verified primary email.
 
-    Missing or blank values skip the database. A later sign-in grants the
-    same way, and neither path clears the flag.
+    Missing or blank values skip the database and Clerk. Sign-in uses the
+    same verified-primary check, and neither path clears the flag.
     """
     from app.services.admin_grant import configured_admin_emails, grant_admins_from_env
 

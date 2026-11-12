@@ -89,8 +89,9 @@ class UserService:
         signing-in Clerk user. Otherwise AccountLinkError is raised and the
         existing account is left untouched.
 
-        When the stored email is listed in ``ADMIN_EMAILS``, this also sets
-        ``is_admin``. That grant never clears the flag.
+        When Clerk's verified primary email for this clerk id is listed in
+        ``ADMIN_EMAILS``, this also sets ``is_admin``. The JWT claim and
+        ``users.email`` are not proof. That grant never clears the flag.
 
         Args:
             clerk_id: Clerk user ID from JWT 'sub' claim.
@@ -145,10 +146,11 @@ class UserService:
         return self._grant_listed_admin(user)
 
     def _grant_listed_admin(self, user: User) -> User:
-        """Persist ``is_admin`` when the stored email is in ``ADMIN_EMAILS``.
+        """Persist ``is_admin`` when the verified primary email is listed.
 
-        Best-effort, and only ever turns the flag on. A failed write must not
-        block sign-in; the next startup or sign-in tries again.
+        Best-effort, and only ever turns the flag on. Clerk's verified primary
+        is the allowlist. A failed lookup or a failed write must not block
+        sign-in; the next startup or sign-in tries again.
         """
         if not grant_admin_if_listed(user):
             return user
