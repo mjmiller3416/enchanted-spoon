@@ -32,6 +32,7 @@ import { SelectedMealCard } from "./meal-display/SelectedMealCard";
 import { MealDetailPane } from "./meal-display/MealDetailPane";
 import { MealCreationOverlay } from "./MealCreationOverlay";
 import { useSelectedMealParam } from "./useSelectedMealParam";
+import { MEAL_DETAIL_SHEET_BODY_CLASS, MEAL_DETAIL_SHEET_CLASS } from "./mealDetailSheet";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/ui/useMediaQuery";
 import { ShoppingCart, Plus } from "lucide-react";
@@ -513,12 +514,12 @@ export function MealPlannerView() {
             if (!open) closeMeal();
           }}
         >
-          <SheetContent side="bottom" className="h-dvh max-h-dvh overflow-y-auto">
+          <SheetContent side="bottom" className={MEAL_DETAIL_SHEET_CLASS}>
             <SheetHeader>
               <SheetTitle>Meal details</SheetTitle>
               <SheetDescription>Review recipes and update this planned meal.</SheetDescription>
             </SheetHeader>
-            <div className="p-4">
+            <div className={MEAL_DETAIL_SHEET_BODY_CLASS}>
               {selectedMealId !== null && (
                 <SelectedMealCard
                   key={`meal-${selectedMealId}-${mealRefreshKey}`}
