@@ -1,7 +1,9 @@
 "use client";
 
 import { MotionConfig } from "framer-motion";
+import { usePathname } from "next/navigation";
 import { TopNav } from "@/components/layout/TopNav";
+import { mobileMainPaddingClass } from "@/components/layout/mobileChrome";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { AssistantPopup } from "@/components/assistant/AssistantPopup";
 import { AssistantFab } from "@/components/assistant/AssistantFab";
@@ -27,6 +29,7 @@ import { TrialPushRegistration } from "@/components/native/TrialPushRegistration
 import { FreePlanNotice } from "@/components/common/FreePlanNotice";
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const {
     isOpen: assistantOpen,
     setOpen: setAssistantOpen,
@@ -45,7 +48,11 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       <TopNav onOpenAssistant={openAssistant} />
       <FreePlanNotice />
       <MobileBottomNav onOpenAssistant={openAssistant} />
-      <main id="main-content" tabIndex={-1} className="flex-1 pb-20 md:pb-0 print:pb-0">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className={`flex-1 md:pb-0 print:pb-0 ${mobileMainPaddingClass(pathname)}`}
+      >
         {children}
       </main>
       <AssistantFab />
