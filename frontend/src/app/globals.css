@@ -1742,6 +1742,14 @@ html:not(.native-app) .native-founding-link {
   display: none;
 }
 
+/* Guideline 4.8. Google is hidden in the iOS shell until Sign in with Apple
+   is offered beside it. The website and Android never match native-ios.
+   See docs/SIGN_IN_WITH_APPLE.md and lib/native/social-sign-in.ts. */
+html.native-ios .ios-social-auth,
+html.native-ios .ios-google-sign-in {
+  display: none;
+}
+
 @utility assistant-dialog {
   max-height: calc(100dvh - 3rem);
   @media (width < 48rem) {
