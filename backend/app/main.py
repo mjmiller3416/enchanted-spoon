@@ -36,7 +36,31 @@ async def lifespan(app: FastAPI):
     install_household_usage_hooks()
     log_legacy_cutoff_if_unset()
     _apply_sunset_if_due()
+    _grant_admins_from_env()
     yield
+
+
+def _grant_admins_from_env() -> None:
+    """Grant ``is_admin`` when Clerk confirms a listed verified primary email.
+
+    Missing or blank values skip the database and Clerk. Sign-in uses the
+    same verified-primary check, and neither path clears the flag.
+    """
+    from app.services.admin_grant import configured_admin_emails, grant_admins_from_env
+
+    if not configured_admin_emails():
+        return
+    session = SessionLocal()
+    try:
+        granted = grant_admins_from_env(session)
+        session.commit()
+        if granted:
+            logger.info("Granted is_admin from ADMIN_EMAILS to %s account(s)", granted)
+    except Exception:
+        session.rollback()
+        logger.exception("ADMIN_EMAILS grant failed")
+    finally:
+        session.close()
 
 
 def _apply_sunset_if_due() -> None:

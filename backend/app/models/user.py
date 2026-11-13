@@ -336,6 +336,8 @@ class User(Base):
 
         ``ADMIN_EXEMPT_EMAILS`` does not grant this. Those accounts get
         uncapped AI only, after Clerk confirms the verified primary email.
+        ``ADMIN_EMAILS`` can set this flag at startup and sign-in when Clerk's
+        verified primary email is listed. It only turns the flag on.
         """
         return bool(self.is_admin)
 
