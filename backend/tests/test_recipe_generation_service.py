@@ -18,9 +18,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.dtos.recipe_generation_dtos import (
+    GENERATED_NOTES_MAX_LENGTH,
     RecipeGenerationPreferencesDTO,
     RecipeGenerationRequestDTO,
 )
+from app.services.ai.recipe_generation.config import PROMPT_TEMPLATE
 from app.services.ai.parse_utils import (
     parse_nutrition_dict,
     parse_recipe_dict,
@@ -569,3 +571,65 @@ class TestSafeConversions:
 
     def test_safe_float_empty_string(self):
         assert safe_float("") is None
+
+
+# ---------------------------------------------------------------------------
+# Tests — generated notes stay short cooking tips
+# ---------------------------------------------------------------------------
+
+class TestGeneratedNotes:
+    """The prompt asks for short tips, and the schema enforces that length."""
+
+    def test_prompt_asks_for_short_cooking_tips(self):
+        """Notes instructions forbid URLs, disclaimers, and untested-recipe language."""
+        assert "optional tips or serving suggestions" not in PROMPT_TEMPLATE
+        assert "1 to 3 sentences" in PROMPT_TEMPLATE
+        assert "No URLs" in PROMPT_TEMPLATE
+        assert "legal-style disclaimers" in PROMPT_TEMPLATE
+        assert "allergy" in PROMPT_TEMPLATE
+        assert "Do not mention AI" in PROMPT_TEMPLATE
+        assert "untested" in PROMPT_TEMPLATE
+        assert "kitchen-tested" in PROMPT_TEMPLATE
+        assert str(GENERATED_NOTES_MAX_LENGTH) in PROMPT_TEMPLATE
+        assert "never in notes" in PROMPT_TEMPLATE
+
+    async def test_sent_prompt_includes_notes_rules(self, recipe_service):
+        """Formatting the template does not drop the notes rules."""
+        service, mock_client = recipe_service
+        mock_client.models.generate_content.return_value = _make_gemini_response(
+            _full_recipe_json()
+        )
+
+        await service.generate(_make_request())
+
+        prompt_text = mock_client.models.generate_content.call_args[1]["contents"][0]["parts"][0]["text"]
+        assert "1 to 3 sentences" in prompt_text
+        assert "No URLs" in prompt_text
+        assert "Do not mention AI" in prompt_text
+        assert "not kitchen-tested" in prompt_text
+        assert str(GENERATED_NOTES_MAX_LENGTH) in prompt_text
+
+    def test_long_notes_are_clipped_to_the_schema_limit(self):
+        """A wall of disclaimer text is cut to the notes max instead of failing the recipe."""
+        notes = "Let the stuffing rest so the slices hold together. " * 30
+        recipe = parse_recipe_dict({
+            "recipe_name": "Cornbread Stuffing",
+            "ingredients": [_INGREDIENT],
+            "directions": "Bake until the center is set.",
+            "notes": notes,
+        })
+
+        assert recipe.notes is not None
+        assert len(recipe.notes) <= GENERATED_NOTES_MAX_LENGTH
+        assert recipe.notes.startswith("Let the stuffing rest")
+        assert not recipe.notes.endswith(" ")
+
+    def test_short_notes_are_unchanged(self):
+        """Tips already within the limit pass through exactly."""
+        recipe = parse_recipe_dict({
+            "recipe_name": "Cornbread Stuffing",
+            "ingredients": [_INGREDIENT],
+            "directions": "Bake until the center is set.",
+            "notes": "Rest it 10 minutes before slicing.",
+        })
+        assert recipe.notes == "Rest it 10 minutes before slicing."

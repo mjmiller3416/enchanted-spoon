@@ -8,9 +8,12 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .nutrition_dtos import NutritionFactsDTO
+
+# 1 to 3 cooking-tip sentences. Longer model output is clipped, not rejected.
+GENERATED_NOTES_MAX_LENGTH = 400
 
 
 # ── Shared DTOs ──────────────────────────────────────────────────────────────
@@ -64,8 +67,19 @@ class RecipeGeneratedDTO(BaseModel):
     difficulty: Optional[str] = None
     servings: Optional[int] = None
     directions: Optional[str] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=GENERATED_NOTES_MAX_LENGTH)
     ingredients: List[GeneratedIngredientDTO] = []
+
+    @field_validator("notes", mode="before")
+    @classmethod
+    def cap_notes(cls, value: object) -> object:
+        """Clip oversized generated notes so one long field cannot fail the recipe."""
+        if not isinstance(value, str) or len(value) <= GENERATED_NOTES_MAX_LENGTH:
+            return value
+        clipped = value[:GENERATED_NOTES_MAX_LENGTH]
+        if " " in clipped:
+            clipped = clipped.rsplit(" ", 1)[0]
+        return clipped.rstrip() or None
 
 
 class RecipeGenerationResponseDTO(BaseModel):

@@ -4,7 +4,7 @@ import { QueryError } from "@/components/common/QueryError";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Beaker, BookOpen, Lightbulb, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft, Beaker, BookOpen, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ import { IngredientItem, DirectionStep } from "./ingredients-directions";
 import { AddToMealPlanDialog } from "./AddToMealPlanDialog";
 import { ManageGroupsDialog } from "./ManageGroupsDialog";
 import { PrintPreviewDialog, RecipePrintLayout, usePrintRecipe } from "./print";
+import { ChefNotesCard } from "./ChefNotesCard";
 
 // ============================================================================
 // Nutrition Facts Card (local — only used in this view)
@@ -349,26 +350,7 @@ export function FullRecipeView() {
                 </CardContent>
               </Card>
 
-              {/* Notes Section */}
-              {recipe.notes && (
-                <Card className="mt-8 border-warning/30 bg-warning/5 print:mt-4 print:border print:border-gray-300 print:bg-gray-50 print:shadow-none">
-                  <CardContent className="p-6 print:p-4">
-                    <div className="flex items-start gap-4 print:gap-2">
-                      <div className="flex-shrink-0 p-2 rounded-lg bg-warning/20 print:hidden">
-                        <Lightbulb className="w-5 h-5 text-warning" />
-                      </div>
-                      <div>
-                        <h3 className="mb-2 text-lg font-bold text-foreground print:text-base print:text-black print:mb-1">
-                          Chef&apos;s Notes
-                        </h3>
-                        <p className="leading-relaxed text-foreground/80 print:text-sm print:text-black">
-                          {recipe.notes}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              <ChefNotesCard notes={recipe.notes} />
 
               {/* Nutrition Facts - full-width horizontal strip */}
               {recipe.nutrition_facts && (

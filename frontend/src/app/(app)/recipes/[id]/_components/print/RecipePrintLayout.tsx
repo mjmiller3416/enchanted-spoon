@@ -142,7 +142,7 @@ export function RecipePrintLayout({
         {printOptions.showNotes && recipe.notes && (
           <div className="p-3 mt-3 border border-gray-200 rounded-lg bg-gray-50">
             <h3 className="mb-1 text-sm font-bold text-black">Chef&apos;s Notes</h3>
-            <p className="text-xs text-gray-800">{recipe.notes}</p>
+            <p className="break-words text-xs text-gray-800 [overflow-wrap:anywhere]">{recipe.notes}</p>
           </div>
         )}
 
