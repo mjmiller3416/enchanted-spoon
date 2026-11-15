@@ -99,3 +99,14 @@ api_router.include_router(nutrition_estimation_router, prefix="/api/ai/nutrition
 # TODO: rename URL prefix to /api/ai/recipe-generation (requires frontend changes)
 api_router.include_router(recipe_generation_router, prefix="/api/ai/wizard-generation", tags=["ai", "recipe-generation"], dependencies=_writes)
 api_router.include_router(recipe_import_router, prefix="/api/ai/recipe-import", tags=["ai", "recipe-import"], dependencies=_writes)
+
+# ── ChatGPT connector (MCP server + OAuth), on the public app only ───────
+# Kept out of api_router: the MCP tools call api_router's routes in process
+# (app/api/mcp/dispatch.py), and the connector must not be reachable from there.
+from app.api import mcp as mcp_api  # noqa: E402
+from app.api import oauth  # noqa: E402
+
+connector_router = APIRouter()
+connector_router.include_router(oauth.well_known_router, tags=["oauth"])
+connector_router.include_router(oauth.router, prefix="/api/oauth", tags=["oauth"])
+connector_router.include_router(mcp_api.router, tags=["mcp"])

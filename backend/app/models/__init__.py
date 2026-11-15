@@ -9,6 +9,7 @@ from .household import (
 )
 from .ingredient import Ingredient
 from .meal import Meal
+from .oauth import OAuthAuthorizationCode, OAuthClient, OAuthToken
 from .nutrition_facts import NutritionFacts
 from .planner_entry import PlannerEntry
 from .recipe import Recipe
@@ -41,6 +42,9 @@ __all__ = [
     "Ingredient",
     "Meal",
     "NutritionFacts",
+    "OAuthAuthorizationCode",
+    "OAuthClient",
+    "OAuthToken",
     "PlannerEntry",
     "ShoppingItem",
     "ShoppingItemContribution",

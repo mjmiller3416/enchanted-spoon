@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeader } from "../SectionHeader";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConnectedAppsCard } from "../ConnectedAppsCard";
 import { DeleteAccountCard } from "../DeleteAccountCard";
 
 // Account deletion runs through the app (it must cancel billing and remove app
@@ -171,6 +172,10 @@ export function ProfileSection() {
               </p>
             </div>
           </div>
+
+          <Separator />
+
+          <ConnectedAppsCard />
 
           <Separator />
 

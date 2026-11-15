@@ -95,6 +95,7 @@ pytest tests/test_file.py -v
 - `NEXT_PUBLIC_APP_URL` - Public site URL for `metadataBase`/OG tags (default: `http://localhost:3000`; set to prod URL on Railway)
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk auth (frontend)
 - `CLERK_SECRET_KEY` - Clerk auth (frontend middleware)
+- `BACKEND_URL` - Build-time target of the connector proxies (`/api/mcp`, `/api/oauth/*`, `/.well-known/oauth-*`); defaults to `NEXT_PUBLIC_API_URL`
 
 **Backend:**
 - `SQLALCHEMY_DATABASE_URL` - Backend DB URL (default: SQLite)
@@ -114,7 +115,8 @@ pytest tests/test_file.py -v
 - `STRIPE_SECRET_KEY` - Stripe API secret key (sk_xxx) for checkout/portal/customer calls
 - `STRIPE_WEBHOOK_SECRET` - Signing secret (whsec_xxx) for verifying `/api/webhooks/stripe` payloads
 - `STRIPE_PRICE_ID_PRO` - Price ID for the Pro subscription plan
-- `FRONTEND_URL` - Base URL for Stripe checkout/portal redirects (default: `http://localhost:3000`)
+- `FRONTEND_URL` - Base URL for Stripe checkout/portal redirects and the ChatGPT connector's OAuth issuer (default: `http://localhost:3000`)
+- `MCP_ENABLED` - ChatGPT connector kill switch (default `true`); `MCP_PUBLIC_URL` / `MCP_AUTHORIZE_URL` override its origin and consent page
 
 ## Architecture
 
@@ -139,6 +141,15 @@ Models (app/models/)    # SQLAlchemy ORM
 - **Database** (`app/database/`): Connection setup and Alembic migrations (32+ migration files)
 - **Router** (`app/router.py`): Centralized route registration (27 routers across 29 tags)
 - **Services** use two patterns: flat files for simple services, modular packages (Core + Mixins) for complex ones (`meal/`, `planner/`, `shopping/`, `data_management/`)
+
+#### ChatGPT connector (MCP server + OAuth 2.1)
+
+Maryann's ChatGPT (Settings → Apps → Developer mode → custom MCP server, OAuth) reaches the app at **`https://enchantedspoon.app/api/mcp`**. One URL: the frontend proxies `/api/mcp`, `/api/oauth/*` and `/.well-known/oauth-*` to the backend (`rewrites` in `frontend/next.config.ts`, destination `BACKEND_URL` or `NEXT_PUBLIC_API_URL` at build time), and Clerk's middleware skips those paths (`proxy.ts` matcher). The issuer/origin is `MCP_PUBLIC_URL`, else `FRONTEND_URL` (`core/mcp_config.py`), never the Host header.
+
+- **Auth:** OAuth 2.1 with DCR, PKCE S256 and RFC 9207 `iss` (`api/oauth.py` → `services/oauth_service.py` → `repositories/oauth_repo.py`, tables `oauth_clients`, `oauth_authorization_codes`, `oauth_tokens`; codes and tokens stored only as SHA-256). The authorization endpoint is the frontend page `/oauth/authorize` (behind Clerk; signed-out → `/sign-in?redirect_url=…` → back with the query). It calls `GET /api/oauth/authorize/check` and then `POST /api/oauth/authorize` with the Clerk JWT; the header is the CSRF protection. Tokens map to `users.id` from that Clerk session, so ChatGPT acts as the same account. Access 1 h, refresh 90 days sliding and rotated; a replayed code or rotated refresh token revokes the whole grant. No `openid-configuration` on purpose (ChatGPT would request every OIDC scope).
+- **Kill switch:** `MCP_ENABLED=false` on the backend 404s everything. Per person: Settings → Account & Profile → Connected Apps → Disconnect (`DELETE /api/oauth/connections`).
+- **Tools** (`api/mcp/tools.py`, ~125): one per user action. A tool names a route; its input schema is built from that route's OpenAPI, and `api/mcp/dispatch.py` calls the route in process on an internal copy of `api_router` whose `get_current_user` returns the token's user. So validation, read-only, usage limits and services match the app exactly. Never write SQL or duplicate service logic in a tool. **A new user-facing route needs a tool or an `EXCLUDED` reason** (`tests/test_mcp_server.py::test_every_user_route_has_a_tool` fails otherwise). AI tools say "Calls AI generation" and are marked writes so ChatGPT confirms; base64 image payloads are stripped from results (`photo_omitted`). The JSON-RPC server is hand-rolled (`api/mcp/server.py`: initialize, ping, tools/list, tools/call; stateless, JSON only), not the `mcp` SDK.
+- The connector's routers are registered as `connector_router` on the public app only, outside `api_router`, so the internal dispatch app can't reach them.
 
 #### First-party integrations (X-API-Key, not Clerk)
 

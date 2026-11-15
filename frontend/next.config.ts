@@ -19,10 +19,28 @@ const securityHeaders = [
   },
 ];
 
+// The ChatGPT connector (MCP server + OAuth) lives in the backend, but its URL
+// is this site's: https://<site>/api/mcp. These paths are proxied to the
+// backend so the one URL people paste, the OAuth issuer and the discovery
+// documents all share this origin. Read at build time, like NEXT_PUBLIC_*.
+const backendUrl = (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001").replace(/\/+$/, "");
+
+const connectorRewrites = [
+  "/api/mcp",
+  "/api/oauth/:path*",
+  "/.well-known/oauth-protected-resource",
+  "/.well-known/oauth-protected-resource/:path*",
+  "/.well-known/oauth-authorization-server",
+].map((source) => ({ source, destination: `${backendUrl}${source}` }));
+
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployments
   output: "standalone",
   outputFileTracingRoot: process.cwd(),
+
+  async rewrites() {
+    return connectorRewrites;
+  },
 
   async headers() {
     return [

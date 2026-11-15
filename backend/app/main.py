@@ -18,7 +18,7 @@ from app.core.rate_limit import limiter
 from app.core.startup import validate_config
 from app.database.db import SessionLocal
 from app.services.free_tier_sunset import apply_free_tier_sunset
-from app.router import api_router
+from app.router import api_router, connector_router
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +94,7 @@ app.add_middleware(
 
 # Register all routes
 app.include_router(api_router)
+app.include_router(connector_router)
 
 
 @app.get("/")

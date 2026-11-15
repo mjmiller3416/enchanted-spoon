@@ -29,10 +29,13 @@ export default clerkMiddleware(async (auth, request) => {
 
 export const config = {
   matcher: [
-    // Skip Next.js internals, the Sentry tunnel (next.config.ts), and all
-    // static files, unless found in search params
-    "/((?!_next|monitoring|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
-    "/(api|trpc)(.*)",
+    // Skip Next.js internals, the Sentry tunnel (next.config.ts), the ChatGPT
+    // connector's endpoints proxied to the backend (MCP, OAuth, discovery:
+    // they carry their own bearer tokens, which Clerk must not try to read),
+    // and all static files, unless found in search params
+    "/((?!_next|monitoring|api/mcp|api/oauth|\\.well-known|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // The app has no Next.js API routes of its own; /api/* paths are the
+    // connector proxies above, so the old "always run for /api" entry is gone.
+    "/trpc(.*)",
   ],
 };
