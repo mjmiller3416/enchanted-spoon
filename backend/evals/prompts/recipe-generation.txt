@@ -18,7 +18,7 @@ Return ONLY valid JSON with this exact structure:
     {"ingredient_name": "Ingredient Name", "ingredient_category": "<category>", "quantity": <float>, "unit": "<unit>"}
   ],
   "directions": "<Step one.\nStep two.\nStep three.>",
-  "notes": "<optional tips or serving suggestions>"{{nutrition_schema}}
+  "notes": "<1 to 3 sentences of practical cooking tips, at most 400 characters>"{{nutrition_schema}}
 }
 
 Rules:
@@ -28,4 +28,5 @@ Rules:
 - unit must be one of: tbs|tsp|cup|oz|lbs|stick|bag|box|can|jar|package|piece|slice|whole|pinch|dash|to-taste
 - diet_pref: use "none" unless the recipe is specifically dietary (never null)
 - Be realistic with quantities and cooking times
-- Base nutrition estimates on standard USDA data if included
+- Base nutrition estimates on standard USDA data if included. Put those numbers only in nutrition_facts, never in notes.
+- notes: 1 to 3 sentences of practical cooking tips only (technique, timing, texture, make-ahead, or a substitution). At most 400 characters. No URLs. No legal-style disclaimers. No allergy or medical warnings. Do not mention AI. Do not say the recipe is untested or not kitchen-tested.
