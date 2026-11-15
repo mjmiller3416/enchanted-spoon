@@ -385,7 +385,7 @@ export function AdminUsersSection() {
         title={usageExemptTarget?.usage_exempt ? "Apply launch Pro caps" : "Keep previous Pro allowances"}
         description={
           usageExemptTarget?.usage_exempt
-            ? `Move ${usageExemptTarget?.name || usageExemptTarget?.email || "this user"} to the launch Pro caps (20 photos, 300 chats, 200 suggestions, 50 imports)?`
+            ? `Move ${usageExemptTarget?.name || usageExemptTarget?.email || "this user"} to the launch Pro caps (20 photos, 100 chats, 50 suggestions, 25 imports)?`
             : `Keep ${usageExemptTarget?.name || usageExemptTarget?.email || "this user"} on the previous Pro allowances (150 photos, 500 chats, 300 suggestions, 100 imports)? This does not grant Pro.`
         }
         confirmLabel={usageExemptTarget?.usage_exempt ? "Apply launch caps" : "Keep previous caps"}

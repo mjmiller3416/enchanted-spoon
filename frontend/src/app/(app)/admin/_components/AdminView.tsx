@@ -36,9 +36,9 @@ const TABS: TabConfig[] = [
   },
   {
     id: "usage",
-    label: "AI Usage",
+    label: "Usage",
     icon: Activity,
-    description: "AI usage and limits by user",
+    description: "Allowances and limits by user",
   },
   {
     id: "database",

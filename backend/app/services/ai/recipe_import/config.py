@@ -66,3 +66,49 @@ Rules:
 - diet_pref: use "none" unless the recipe is clearly dietary
 - difficulty: estimate from the number of steps and techniques
 - If the content contains NO recipe at all, return exactly: {{"no_recipe_found": true}}"""
+
+# ── Photo import ─────────────────────────────────────────────────────────────
+# Pinned literal. URL import follows GEMINI_LITE_MODEL (env-overridable).
+# Photo import does not, so another lite-model override cannot change this path.
+PHOTO_IMPORT_MODEL = "gemini-3.1-flash-lite"
+# One request, one recipe, however many pages were attached.
+MAX_PHOTO_COUNT = 4
+# Per-photo cap before compression. Matches the URL-import download cap.
+MAX_PHOTO_UPLOAD_BYTES = MAX_IMAGE_BYTES
+MAX_PHOTO_EDGE_PX = 1600
+MAX_PHOTO_PIXELS = 20_000_000
+# Re-encoded JPEG sent to the model. Quality steps down if the first pass is bigger.
+MAX_PHOTO_SENT_BYTES = 1_500_000
+
+# Same JSON keys as PROMPT_TEMPLATE / parse_recipe_dict. {photo_count} and
+# {photo_noun} describe the attachment; {allowed_categories} is the user's list.
+PHOTO_PROMPT_TEMPLATE = """You are a data normalizer for a recipe app. The attached {photo_count} {photo_noun} show ONE recipe card or cookbook page, in order. Convert ONLY what is visible into the app's JSON format. Do not invent, add, or omit ingredients or steps. If a word is unclear, transcribe the best reading of the marks on the page and do not fill gaps from general knowledge. If the pages disagree, prefer the later page when it is clearly a correction.
+
+Return ONLY valid JSON with this exact structure:
+{{
+  "recipe_name": "<the recipe's name as written>",
+  "description": "<1-2 sentence description, from the page if available>",
+  "recipe_category": "<one of: {allowed_categories}>",
+  "meal_type": "<one of: appetizer|breakfast|lunch|dinner|dessert|side|snack|sauce|other>",
+  "diet_pref": "<one of: none|vegetarian|vegan|gluten-free|dairy-free|keto|paleo>",
+  "prep_time": <integer minutes or null>,
+  "cook_time": <integer minutes or null>,
+  "difficulty": "<one of: Easy|Medium|Hard>",
+  "servings": <integer or null>,
+  "ingredients": [
+    {{"ingredient_name": "Ingredient Name", "ingredient_category": "<category>", "quantity": <float or null>, "unit": "<unit or null>"}}
+  ],
+  "directions": "<Step one.\\nStep two.\\nStep three.>",
+  "notes": "<optional tips from the page, or null>"
+}}
+
+Rules:
+- Include EVERY ingredient that is visible, names in Title Case, preparation hints (e.g. "sifted", "chopped") dropped from the name
+- Split each ingredient line into quantity (float, e.g. 0.5), unit, and name; if an amount has no clean unit match, pick the closest allowed unit or null
+- ingredient_category must be one of: produce|dairy|deli|meat|condiments|oils-and-vinegars|seafood|pantry|spices|frozen|bakery|baking|beverages|other
+- unit must be one of: tbs|tsp|cup|oz|lbs|stick|bag|box|can|jar|package|piece|slice|whole|pinch|dash|to-taste
+- Keep every direction step that is visible, separated by \\n (no step numbers)
+- If only a total time is given, put it in cook_time and leave prep_time null
+- diet_pref: use "none" unless the recipe is clearly dietary
+- difficulty: estimate from the number of steps and techniques
+- If the photos contain NO recipe at all, return exactly: {{"no_recipe_found": true}}"""

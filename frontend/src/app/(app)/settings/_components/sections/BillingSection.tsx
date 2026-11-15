@@ -42,8 +42,8 @@ const USAGE_ROWS: {
   label: string;
 }[] = [
   { field: "recipes_imported", label: "Recipe imports" },
-  { field: "ai_suggestions_requested", label: "AI suggestions" },
-  { field: "ai_images_generated", label: "AI photo sets" },
+  { field: "ai_suggestions_requested", label: "Suggestions" },
+  { field: "ai_images_generated", label: "Photos" },
   { field: "ai_assistant_messages", label: "Assistant messages" },
 ];
 
@@ -71,10 +71,10 @@ function planDetail(user: CurrentUserDTO): string {
     return "You're in a 7-day Pro trial. Your card is charged when the trial ends unless you cancel.";
   }
   if (user.access_reason === "read_only") {
-    return "This account is read-only. You can view and export. Creating, planning, and AI need Pro.";
+    return "This account is read-only. You can view and export. Creating, planning, photos, chat, suggestions, and imports need Pro.";
   }
   if (user.access_reason === "household") {
-    return "Pro is included with your household. The owner pays, and AI usage draws from the owner's shared allowance.";
+    return "Pro is included with your household. The owner pays, and usage draws from the owner's shared allowance.";
   }
   if (user.access_reason === "subscription") {
     if (user.subscription_status === "past_due") {
@@ -104,7 +104,7 @@ function planDetail(user: CurrentUserDTO): string {
     return "You have complimentary Pro access.";
   }
   if (user.access_reason === "trial_required") {
-    return "Recipes, browsing, and your grocery list are free. Start a 7-day trial to use AI.";
+    return "Recipes, browsing, and your grocery list are free. Start a 7-day trial to use photos, chat, suggestions, and imports.";
   }
   return "Recipes, browsing, and your grocery list are included.";
 }
@@ -188,7 +188,7 @@ export function BillingSection() {
         <SectionHeader
           icon={CreditCard}
           title="Plan & Billing"
-          description="Your subscription and monthly AI usage"
+          description="Your subscription and monthly allowance"
         />
 
         <div className="space-y-6">
@@ -303,20 +303,20 @@ export function BillingSection() {
             <div>
               <h3 className="text-sm font-medium text-foreground">
                 {usage?.resets === "trial"
-                  ? "AI usage this trial"
+                  ? "Allowance this trial"
                   : usage?.resets === "none"
-                    ? "AI usage"
-                    : "AI usage this month"}
+                    ? "Allowance"
+                    : "Allowance this month"}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {usage?.shared_with_household
-                  ? "Shared household allowance on the owner's account. Everyone's AI use counts here, and it resets at the start of each month."
+                  ? "Shared household allowance on the owner's account. Everyone's photos, chat, suggestions, and imports count here, and the counters reset at the start of each month."
                   : usage?.usage_tier === "none"
                     ? "Start a 7-day trial to use photos, chat, suggestions, and imports."
                     : usage?.resets === "trial"
                       ? "Trial allowances cover the whole trial and do not reset mid-trial."
                       : usage?.resets === "none"
-                        ? "AI is unavailable on this plan."
+                        ? "Photos, chat, suggestions, and imports are unavailable on this plan."
                         : "Counters reset at the start of each month."}
               </p>
             </div>

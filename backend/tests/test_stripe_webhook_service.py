@@ -4,6 +4,7 @@ import hmac
 import json
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -71,7 +72,14 @@ def test_paused_subscription_is_expired_not_pro(billing):
 
 def test_trialing_subscription_records_the_trial_window(billing):
     service, user = billing
-    trial = subscription("trialing", paid=False, trial_start=1_900_000_000, trial_end=1_900_604_800)
+    # usage_tier treats a trialing plan as expired once trial_end is in the past.
+    started = datetime.now(timezone.utc)
+    trial = subscription(
+        "trialing",
+        paid=False,
+        trial_start=int(started.timestamp()),
+        trial_end=int((started + timedelta(days=7)).timestamp()),
+    )
     with patch("stripe.Subscription.list", return_value=current(trial)):
         service.handle_event(snapshot("customer.subscription.updated", event_id="evt_trial"))
     assert user.subscription_status == "trialing"

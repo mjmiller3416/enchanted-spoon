@@ -107,8 +107,8 @@ export function AdminUsageSection() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <SectionHeader
             icon={Activity}
-            title="AI Usage"
-            description="AI feature usage and limits per user, by month."
+            title="Usage"
+            description="Photos, suggestions, assistant messages, and imports per user, by month."
           />
 
           {/* Month navigation */}

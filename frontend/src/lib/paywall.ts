@@ -41,8 +41,8 @@ export function openPaywall(event: PaywallEvent): void {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  ai_images_generated: "AI photos",
-  ai_suggestions_requested: "AI suggestions",
+  ai_images_generated: "photos",
+  ai_suggestions_requested: "suggestions",
   ai_assistant_messages: "assistant messages",
   recipes_imported: "recipe imports",
 };
@@ -62,7 +62,7 @@ export function classifyAiGateError(error: unknown): PaywallEvent | null {
 
   // Error code first. A non-403 response with this code still opens trial checkout.
   if (gateErrorCode(error) === "trial_required") {
-    return { reason: "trial_required", featureLabel: "AI features" };
+    return { reason: "trial_required", featureLabel: "photos, chat, suggestions, and imports" };
   }
 
   if (error.status === 403) {
@@ -79,7 +79,7 @@ export function classifyAiGateError(error: unknown): PaywallEvent | null {
     }
     const message = typeof detail === "string" ? detail : error.message;
     if (typeof message === "string" && message.includes("Pro subscription required")) {
-      return { reason: "pro_required", featureLabel: "this AI feature" };
+      return { reason: "pro_required", featureLabel: "this feature" };
     }
     return null;
   }
@@ -95,7 +95,7 @@ export function classifyAiGateError(error: unknown): PaywallEvent | null {
       const d = detail as { field?: string; current?: number; limit?: number };
       return {
         reason: "limit_reached",
-        featureLabel: FIELD_LABELS[d.field ?? ""] ?? "this AI feature",
+        featureLabel: FIELD_LABELS[d.field ?? ""] ?? "this feature",
         current: d.current,
         limit: d.limit,
       };
@@ -121,6 +121,6 @@ export function maybeHandleAiGateError(error: unknown): boolean {
 export function aiGateChatReply(error: unknown): string {
   const event = classifyAiGateError(error);
   if (!event) return "Sorry, something went wrong. Please try again.";
-  if (event.reason === "trial_required") return "Start your 7-day trial to use AI.";
+  if (event.reason === "trial_required") return "Start your 7-day trial to use photos, chat, suggestions, and imports.";
   return "You've used this month's assistant allowance — see the upgrade options to keep chatting.";
 }

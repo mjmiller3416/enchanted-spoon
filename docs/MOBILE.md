@@ -130,6 +130,8 @@ The latest shopping list is stored in `localStorage`. When the device is offline
 
 In the native shell, Continue with Google opens the system browser (Safari View Controller or Chrome Custom Tabs), not the WebView. Clerk must allow the redirect `enchantedspoon://sso-callback`. The app loads that callback into `/sso-callback` on the hosted origin so the existing Clerk handoff can finish. The website still uses the in-page redirect.
 
+On iOS the Google button is hidden until Sign in with Apple is live. Web and Android are unchanged. The runbook is [SIGN_IN_WITH_APPLE.md](SIGN_IN_WITH_APPLE.md).
+
 ## Release builds
 
 iOS is built in GitHub Actions on a macOS runner. No local Mac. The runbook is [IOS_RELEASE.md](IOS_RELEASE.md). Android is [ANDROID_RELEASE.md](ANDROID_RELEASE.md). This repo does not contain signing keys or store listings.
@@ -207,7 +209,7 @@ Not in this change:
 ## Known risks
 
 - **Guideline 4.2.** Push, share-in, and the offline grocery list are the native surface. They still need a device pass before submission.
-- **Google sign-in** uses the system browser and `enchantedspoon://sso-callback`. It fails until that URL is on the Clerk redirect allowlist, and until the dashboard's Google provider is enabled.
+- **Google sign-in** uses the system browser and `enchantedspoon://sso-callback`. It fails until that URL is on the Clerk redirect allowlist, and until the dashboard's Google provider is enabled. The iOS shell hides it until `NEXT_PUBLIC_IOS_GOOGLE_SIGN_IN=true` ([SIGN_IN_WITH_APPLE.md](SIGN_IN_WITH_APPLE.md)).
 - **Push delivery** stays queued until `APNS_*` and `FCM_SERVER_KEY` are set. FCM's legacy server key is what this sender uses; a project that only has HTTP v1 needs that key or a follow-up sender.
 - **Share extension** needs its own provisioning profile (`com.enchantedspoon.app.share`) the first time you archive.
 - **Cookies and ITP.** First-party cookies on the hosted origin are the intended session. If Clerk is ever served from a different site inside the WebView, the session will not stick.

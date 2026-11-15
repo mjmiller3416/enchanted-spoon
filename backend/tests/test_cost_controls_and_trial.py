@@ -77,9 +77,9 @@ def _settings(**overrides) -> StripeSettings:
 def test_launch_trial_and_expired_caps():
     pro = _user(subscription_tier="pro", subscription_status="active")
     assert get_user_monthly_limit(pro, "ai_images_generated") == 20
-    assert get_user_monthly_limit(pro, "ai_assistant_messages") == 300
-    assert get_user_monthly_limit(pro, "ai_suggestions_requested") == 200
-    assert get_user_monthly_limit(pro, "recipes_imported") == 50
+    assert get_user_monthly_limit(pro, "ai_assistant_messages") == 100
+    assert get_user_monthly_limit(pro, "ai_suggestions_requested") == 50
+    assert get_user_monthly_limit(pro, "recipes_imported") == 25
 
     trial = _user(subscription_tier="pro", subscription_status="trialing")
     assert trial.usage_tier == "trial"
@@ -464,7 +464,7 @@ def test_household_hook_scales_pro_caps_and_can_meter_the_owner():
         assert subject.id == 7
         assert images == 30
         _, chats = limits.usage_meter(member, "ai_assistant_messages")
-        assert chats == 450
+        assert chats == 150
         owner.usage_exempt = True
         _, exempt_images = limits.usage_meter(member, "ai_images_generated")
         _, exempt_chats = limits.usage_meter(member, "ai_assistant_messages")

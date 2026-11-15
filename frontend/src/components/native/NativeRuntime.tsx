@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { useCurrentUser } from "@/hooks/api";
 import { mayMentionWebFoundingOffer } from "@/lib/native/founding-offer";
 import { isNativeApp, nativePlatform } from "@/lib/native/platform";
 import { importUrlFromDeepLink, isOAuthCallback } from "@/lib/native/share-link";
 
 const STOREFRONT_CLASS = "ios-storefront-us";
+
+function reportNativeLoadError(message: string, reason: unknown): void {
+  Sentry.captureException(reason instanceof Error ? reason : new Error(message));
+}
 
 /**
  * Behavior that only applies inside the Capacitor shell: system browser for
@@ -82,7 +87,9 @@ export function NativeRuntime() {
       removeUrl = () => {
         void handle.remove();
       };
-    })();
+    })().catch((reason: unknown) => {
+      reportNativeLoadError("Failed to load the native app runtime", reason);
+    });
 
     return () => {
       cancelled = true;
@@ -94,13 +101,17 @@ export function NativeRuntime() {
   useEffect(() => {
     if (nativePlatform() !== "ios") return;
     let cancelled = false;
-    void import("@/lib/native/purchases").then(({ loadAppleStorefrontCountry }) =>
-      loadAppleStorefrontCountry().then((country) => {
-        if (cancelled) return;
-        const allowed = mayMentionWebFoundingOffer("ios", country);
-        document.documentElement.classList.toggle(STOREFRONT_CLASS, allowed);
-      }),
-    );
+    void import("@/lib/native/purchases")
+      .then(({ loadAppleStorefrontCountry }) =>
+        loadAppleStorefrontCountry().then((country) => {
+          if (cancelled) return;
+          const allowed = mayMentionWebFoundingOffer("ios", country);
+          document.documentElement.classList.toggle(STOREFRONT_CLASS, allowed);
+        }),
+      )
+      .catch((reason: unknown) => {
+        reportNativeLoadError("Failed to load the native storefront", reason);
+      });
     return () => {
       cancelled = true;
       document.documentElement.classList.remove(STOREFRONT_CLASS);
@@ -121,9 +132,13 @@ export function IdentifyStoreAccount() {
   useEffect(() => {
     if (!isNativeApp() || userId == null) return;
     let cancelled = false;
-    void import("@/lib/native/purchases").then(({ identifyStoreCustomer }) => {
-      if (!cancelled) return identifyStoreCustomer(userId).catch(() => undefined);
-    });
+    void import("@/lib/native/purchases")
+      .then(({ identifyStoreCustomer }) => {
+        if (!cancelled) return identifyStoreCustomer(userId).catch(() => undefined);
+      })
+      .catch((reason: unknown) => {
+        reportNativeLoadError("Failed to load the native purchases module", reason);
+      });
     return () => {
       cancelled = true;
     };

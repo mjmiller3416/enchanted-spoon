@@ -73,14 +73,14 @@ export function PaywallDialog() {
   const description = isReadOnly
     ? "You can still view and export your recipes. Subscribe to Pro to add and edit again."
     : isTrialGate
-      ? "Recipes, browsing, and your grocery list stay free. AI — photos, chat, suggestions, and imports — starts with a 7-day trial."
+      ? "Recipes, browsing, and your grocery list stay free. Photos, chat, suggestions, and imports start with a 7-day trial."
       : !isLimit
-        ? `AI features are part of ${appConfig.appName} Pro. In the app, the first one starts a 7-day trial. Recipes, planning, and shopping stay free.`
+        ? `Photos, chat, suggestions, and imports are part of ${appConfig.appName} Pro. In the app, the first one starts a 7-day trial. Recipes, planning, and shopping stay free.`
         : isPro
           ? `You've hit this month's cap for ${event?.featureLabel}. It resets at the start of next month.`
           : legacyFreeAllowance
             ? `You've used this month's free allowance for ${event?.featureLabel}. It resets at the start of next month, or you can start a 7-day trial.`
-            : `This account doesn't include a free AI allowance. A 7-day trial unlocks ${event?.featureLabel}. Recipes, planning, and shopping stay free.`;
+            : `This account doesn't include a free allowance for that. A 7-day trial unlocks ${event?.featureLabel}. Recipes, planning, and shopping stay free.`;
 
   return (
     <Dialog open={event !== null} onOpenChange={(open) => !open && setEvent(null)}>

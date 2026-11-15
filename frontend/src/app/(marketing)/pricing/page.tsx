@@ -25,7 +25,7 @@ const PRO_FEATURES = [
   "Draft a complete recipe from a short description",
   "Food photos on demand (banners are cropped from the square photo)",
   "Kitchen assistant",
-  "Monthly: 20 photos, 200 suggestions, 300 assistant messages, 50 imports",
+  "Monthly: 20 photos, 50 suggestions, 100 assistant messages, 25 imports",
 ];
 
 function FeatureList({ features }: { features: string[] }) {

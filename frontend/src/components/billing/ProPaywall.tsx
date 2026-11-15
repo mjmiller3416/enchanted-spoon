@@ -117,9 +117,9 @@ export function ProPaywall({
           {appConfig.appName} Pro
         </h2>
         <p className="text-sm text-muted-foreground">
-          Recipes, planning, and shopping stay free. AI — import, generation,
-          photos, and Genie — starts with a 7-day trial. There is no free AI
-          allowance on accounts created at or after the release.
+          Recipes, planning, and shopping stay free. Import, generation,
+          photos, and Genie start with a 7-day trial. There is no free
+          allowance for those tools on accounts created at or after the release.
         </p>
       </div>
 
