@@ -1,4 +1,5 @@
 import type {
+  AlexaLinkResultDTO,
   AuthorizeCheckDTO,
   AuthorizeParams,
   AuthorizeResultDTO,
@@ -41,6 +42,18 @@ export const oauthApi = {
    */
   listConnections: (token: string | null): Promise<ConnectionsDTO> =>
     fetchApi<ConnectionsDTO>("/api/oauth/connections", undefined, token),
+
+  /**
+   * Link the Alexa account that read out this code to the signed-in person
+   * @param code - The six-digit code Alexa spoke ("Alexa, open Enchanted Spoon")
+   * @param token - Auth token for authenticated requests
+   */
+  linkAlexa: (code: string, token: string | null): Promise<AlexaLinkResultDTO> =>
+    fetchApi<AlexaLinkResultDTO>(
+      "/api/alexa/link",
+      { method: "POST", body: JSON.stringify({ code }) },
+      token
+    ),
 
   /**
    * Disconnect every connected app

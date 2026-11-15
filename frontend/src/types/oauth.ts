@@ -39,6 +39,11 @@ export interface ConnectionsDTO {
   connections: ConnectionDTO[];
 }
 
+/** Alexa linked by the six-digit code it read out. */
+export interface AlexaLinkResultDTO {
+  linked: boolean;
+}
+
 export interface DisconnectResultDTO {
   revoked: number;
 }

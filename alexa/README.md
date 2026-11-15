@@ -33,6 +33,17 @@ from an Amazon redirect always get scope `alexa`, which works only at
 `/api/alexa` and never at `/api/mcp`. Settings → Connected Apps lists Alexa
 and can disconnect it.
 
+**Voice pairing (the way to link today).** The current Alexa app may never
+show the account-linking card, and dev skills can be hard to find in it. So
+when the skill doesn't recognize an Alexa account, Alexa reads out a
+six-digit code (10 minutes, single use). The person enters it in Enchanted
+Spoon under Settings → Connected Apps → Connect Alexa (`POST /api/alexa/link`,
+Clerk JWT, 10/min). That links the Alexa `userId` from Amazon's signed
+requests to their account (`alexa_links`, `services/alexa/link_service.py`;
+the userId and code are stored only as SHA-256). An account-linking token,
+when Alexa sends one, takes precedence. Disconnect in Connected Apps deletes
+the pairing too.
+
 Items go to the linker's kitchen: the household owner's list for a member.
 They are added through `ShoppingService.add_named_item`, the deduped,
 library-categorized add that Hearth uses. An item already needed isn't added

@@ -2,7 +2,8 @@
 
 The Enchanted Spoon Alexa skill's HTTPS endpoint.
 
-    POST /api/alexa
+    POST /api/alexa         the skill's requests (Amazon-signed)
+    POST /api/alexa/link    link Alexa by the code it read out (Clerk JWT)
 
 Alexa signs every request; the signature, cert chain, timestamp and skill ID
 are checked before anything is read (``services/alexa/verification.py``),
@@ -15,14 +16,19 @@ import json
 import logging
 from typing import Callable
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.api.auth import get_current_user
 from app.core.alexa_config import ALEXA_PATH, alexa_skill_ids
+from app.core.rate_limit import limiter
 from app.database.db import get_session
+from app.dtos.alexa_dtos import AlexaLinkRequestDTO, AlexaLinkResultDTO
+from app.models.user import User
 from app.services.alexa import AlexaSkillService, AlexaVerificationError, SignatureVerifier, default_verifier
+from app.services.alexa.link_service import AlexaLinkService, AlexaPairingError
 from app.services.alexa.verification import check_application, check_timestamp
 
 logger = logging.getLogger(__name__)
@@ -71,3 +77,21 @@ async def alexa_endpoint(
 
     reply = await run_in_threadpool(AlexaSkillService(session).handle, envelope)
     return JSONResponse(reply)
+
+
+@router.post(f"{ALEXA_PATH}/link", response_model=AlexaLinkResultDTO, tags=["alexa"])
+@limiter.limit("10/minute")
+def link_alexa(
+    request: Request,
+    body: AlexaLinkRequestDTO,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> AlexaLinkResultDTO:
+    """Link the Alexa account that was read this code to the signed-in person."""
+    if not alexa_skill_ids():
+        raise HTTPException(status_code=404, detail="Not Found")
+    try:
+        AlexaLinkService(session).redeem(body.code, current_user.id)
+    except AlexaPairingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return AlexaLinkResultDTO()

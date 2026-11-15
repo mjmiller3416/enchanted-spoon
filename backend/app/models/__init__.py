@@ -1,5 +1,6 @@
 # app/core/models/__init__.py
 
+from .alexa_link import AlexaLink
 from .billing_event import BillingEvent
 from .household import (
     Household,
@@ -30,6 +31,7 @@ from .user_settings import UserSettings
 from .user_usage import UserUsage
 
 __all__ = [
+    "AlexaLink",
     "BillingEvent",
     "Household",
     "HouseholdInvite",

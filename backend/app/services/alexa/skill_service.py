@@ -5,8 +5,10 @@ What the Enchanted Spoon Alexa skill says and does, given a verified request.
     "Alexa, tell Enchanted Spoon to add a gallon of milk"
     "Alexa, ask Enchanted Spoon what's on my shopping list"
 
-The access token comes from Alexa account linking (OAuth scope ``alexa``,
-see ``oauth_service.granted_scope``) and maps to the account that linked.
+Who's asking: the access token from Alexa account linking (OAuth scope
+``alexa``, see ``oauth_service.granted_scope``) when there is one, else a
+voice-pairing link on the Alexa ``userId`` (``link_service.py``). An unknown
+Alexa account is read a six-digit code to enter in Settings.
 Writes go to that person's kitchen (the household owner's list when they
 are a member), through ``ShoppingService.add_named_item``: the same deduped,
 library-categorised add the Hearth wall uses. Read-only accounts can read
@@ -30,6 +32,7 @@ from ..household.scope import kitchen_user_id
 from ..oauth_service import OAuthService
 from ..shopping import ShoppingService
 from ..user_service import UserService
+from .link_service import CODE_TTL, AlexaLinkService
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +52,18 @@ LINK_TEXT = (
     "To add to your Enchanted Spoon shopping list, link your account first. "
     "I've sent a card to the Alexa app to get you started."
 )
+PAIR_CARD_TITLE = "Connect Enchanted Spoon"
+
+
+def pairing_text(code: str) -> str:
+    """What Alexa says to an unknown Alexa account: the code, twice, digit by digit."""
+    spoken = ", ".join(code)
+    minutes = int(CODE_TTL.total_seconds() // 60)
+    return (
+        "To connect Enchanted Spoon, open the Enchanted Spoon app, go to Settings, then Connected Apps, "
+        f"choose Connect Alexa, and enter this code: {spoken}. Again, that's {spoken}. "
+        f"The code works for {minutes} minutes."
+    )
 READ_ONLY_TEXT = (
     "Your Enchanted Spoon account is read only right now, so I can't add to the list. "
     "Open the app to pick a plan."
@@ -91,6 +106,14 @@ def join_words(words: List[str]) -> str:
     return f"{', '.join(words[:-1])} and {words[-1]}"
 
 
+def alexa_user_id(envelope: Dict[str, Any]) -> Optional[str]:
+    """The skill-scoped Alexa account id Amazon signed into the request."""
+    system_user = (((envelope.get("context") or {}).get("System") or {}).get("user") or {})
+    session_user = ((envelope.get("session") or {}).get("user") or {})
+    value = system_user.get("userId") or session_user.get("userId")
+    return value if isinstance(value, str) and value else None
+
+
 def access_token(envelope: Dict[str, Any]) -> Optional[str]:
     """The linked account's token, if the person has linked."""
     system_user = (((envelope.get("context") or {}).get("System") or {}).get("user") or {})
@@ -116,11 +139,12 @@ class AlexaSkillService:
         """The response for a request envelope."""
         request = envelope.get("request") or {}
         kind = request.get("type")
+        logger.info("alexa %s %s", kind, (request.get("intent") or {}).get("name") or "")
         if kind == "SessionEndedRequest":
             return build_response()
         if kind == "LaunchRequest":
             if self._linked_user(envelope) is None:
-                return build_response(LINK_TEXT, link_account=True)
+                return self._link_prompt(envelope)
             return _ask(LAUNCH_TEXT)
         if kind != "IntentRequest":
             return build_response()
@@ -136,19 +160,31 @@ class AlexaSkillService:
 
         user = self._linked_user(envelope)
         if user is None:
-            return build_response(LINK_TEXT, link_account=True)
+            return self._link_prompt(envelope)
         if name == ADD_INTENT:
             return self.add_items(user, slot_value(intent, ITEM_SLOT))
         if name == READ_INTENT:
             return self.read_list(user)
         return _ask("Sorry, I can't do that yet. " + HELP_TEXT)
 
+    def _link_prompt(self, envelope: Dict[str, Any]) -> Dict[str, Any]:
+        """Tell an unknown Alexa account how to connect: a pairing code (and Amazon's link card)."""
+        alexa_id = alexa_user_id(envelope)
+        if alexa_id is None:
+            return build_response(LINK_TEXT, link_account=True)
+        text = pairing_text(AlexaLinkService(self.session).issue_code(alexa_id))
+        return build_response(text, card_title=PAIR_CARD_TITLE)
+
     def _linked_user(self, envelope: Dict[str, Any]) -> Optional[User]:
-        """The account behind the linked token; None when unlinked, expired or revoked."""
+        """The account behind an account-linking token or a voice-pairing link; None when neither."""
+        user_id: Optional[int] = None
         token = access_token(envelope)
-        if token is None:
-            return None
-        user_id = OAuthService(self.session).user_for_access_token(token, ALEXA_SCOPE)
+        if token is not None:
+            user_id = OAuthService(self.session).user_for_access_token(token, ALEXA_SCOPE)
+        if user_id is None:
+            alexa_id = alexa_user_id(envelope)
+            if alexa_id is not None:
+                user_id = AlexaLinkService(self.session).user_for_alexa_user(alexa_id)
         if user_id is None:
             return None
         user = UserService(self.session).get_by_id(user_id)

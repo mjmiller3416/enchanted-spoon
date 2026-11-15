@@ -56,6 +56,7 @@ from app.dtos.oauth_dtos import (
     DisconnectResultDTO,
 )
 from app.models.user import User
+from app.services.alexa.link_service import AlexaLinkService
 from app.services.oauth_service import (
     AUTH_METHODS,
     AuthorizeRedirectError,
@@ -360,13 +361,17 @@ def list_connections(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> ConnectionsDTO:
-    """The apps (ChatGPT) the signed-in person has connected."""
-    connections = OAuthService(session).list_connections(current_user.id)
-    return ConnectionsDTO(
-        connections=[
-            ConnectionDTO(client_name=c.client_name, connected_at=c.connected_at, scope=c.scope) for c in connections
-        ]
-    )
+    """The apps the signed-in person has connected: OAuth grants (ChatGPT, Alexa) and Alexa voice pairings."""
+    connections = [
+        ConnectionDTO(client_name=c.client_name, connected_at=c.connected_at, scope=c.scope)
+        for c in OAuthService(session).list_connections(current_user.id)
+    ]
+    connections += [
+        ConnectionDTO(client_name="Amazon Alexa", connected_at=c.connected_at, scope=ALEXA_SCOPE)
+        for c in AlexaLinkService(session).connections(current_user.id)
+    ]
+    connections.sort(key=lambda c: c.connected_at, reverse=True)
+    return ConnectionsDTO(connections=connections)
 
 
 @router.delete("/connections", response_model=DisconnectResultDTO)
@@ -374,5 +379,7 @@ def disconnect_all(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> DisconnectResultDTO:
-    """Disconnect every connected app: all of the person's tokens stop working at once."""
-    return DisconnectResultDTO(revoked=OAuthService(session).disconnect_all(current_user.id))
+    """Disconnect every connected app: all of the person's tokens and Alexa pairings stop working at once."""
+    revoked = OAuthService(session).disconnect_all(current_user.id)
+    revoked += AlexaLinkService(session).disconnect_all(current_user.id)
+    return DisconnectResultDTO(revoked=revoked)

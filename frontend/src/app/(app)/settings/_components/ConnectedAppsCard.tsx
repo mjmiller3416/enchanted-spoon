@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, PlugZap, Unplug } from "lucide-react";
+import { Link2, Loader2, PlugZap, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { oauthApi } from "@/lib/api";
 import { getErrorMessage } from "@/lib/utils";
 import type { ConnectionDTO } from "@/types/oauth";
@@ -50,6 +52,18 @@ export function ConnectedAppsCard() {
     onError: (error) => toast.error(getErrorMessage(error, "Couldn't disconnect")),
   });
 
+  const [alexaCode, setAlexaCode] = useState("");
+  const linkAlexa = useMutation({
+    mutationFn: async (code: string) => oauthApi.linkAlexa(code, await getToken()),
+    onSuccess: () => {
+      toast.success("Alexa is connected. Try: “Alexa, tell Enchanted Spoon to add milk.”");
+      setAlexaCode("");
+      queryClient.invalidateQueries({ queryKey: CONNECTIONS_KEY });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, "That code didn't work")),
+  });
+  const codeDigits = alexaCode.replace(/\D/g, "");
+
   const connections = data?.connections ?? [];
   const names = Array.from(new Set(connections.map((c) => c.client_name)));
 
@@ -82,6 +96,46 @@ export function ConnectedAppsCard() {
           Disconnect {names.length === 1 ? names[0] : "all"}
         </Button>
       )}
+      <form
+        className="space-y-2 pt-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (codeDigits.length === 6) linkAlexa.mutate(codeDigits);
+        }}
+      >
+        <label htmlFor="alexa-code" className="text-xs font-medium text-foreground">
+          Connect Alexa
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Say “Alexa, open Enchanted Spoon” and enter the six-digit code it reads out.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            id="alexa-code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="123456"
+            maxLength={9}
+            value={alexaCode}
+            onChange={(event) => setAlexaCode(event.target.value)}
+            className="max-w-40"
+          />
+          <Button
+            type="submit"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={codeDigits.length !== 6 || linkAlexa.isPending}
+          >
+            {linkAlexa.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+            ) : (
+              <Link2 strokeWidth={1.5} className="h-4 w-4" />
+            )}
+            Connect
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

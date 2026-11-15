@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -29,6 +30,7 @@ from app.api.alexa import get_verifier
 from app.api.auth import get_current_user
 from app.database.db import get_session
 from app.main import app
+from app.models.alexa_link import AlexaLink
 from app.models.shopping_item import ShoppingItem
 from app.models.user import User
 from app.services.alexa.verification import (
@@ -373,7 +375,7 @@ def test_alexa_links_with_the_narrow_scope_even_when_asking_for_more(client, ama
     chatgpt = link_account(client, redirect=CHATGPT_REDIRECT, scope="mcp")
     assert chatgpt["scope"] == "mcp"
     reply = send(client, amazon, envelope(add_intent("milk"), chatgpt["access_token"]))
-    assert reply.json()["response"]["card"] == {"type": "LinkAccount"}
+    assert "enter this code" in speech(reply)
 
 
 def test_refreshed_alexa_tokens_keep_the_scope(client, amazon):
@@ -388,14 +390,49 @@ def test_refreshed_alexa_tokens_keep_the_scope(client, amazon):
     assert speech(send(client, amazon, envelope(add_intent("milk"), r.json()["access_token"]))).startswith("Added milk")
 
 
-def test_unlinked_gets_a_link_account_card(client, amazon):
+def spoken_code(response) -> str:
+    match = re.search(r"enter this code: ((?:\d, ){5}\d)\.", speech(response))
+    assert match, speech(response)
+    return match.group(1).replace(", ", "")
+
+
+def test_unknown_alexa_accounts_are_read_a_pairing_code(client, amazon):
     for request in ({"type": "LaunchRequest"}, add_intent("milk")):
         r = send(client, amazon, envelope(request))
-        body = r.json()["response"]
-        assert body["card"] == {"type": "LinkAccount"}
-        assert "link your account" in body["outputSpeech"]["text"]
+        assert len(spoken_code(r)) == 6
+        assert r.json()["response"]["card"]["title"] == "Connect Enchanted Spoon"
     r = send(client, amazon, envelope(add_intent("milk"), token="not-a-real-token"))
-    assert r.json()["response"]["card"] == {"type": "LinkAccount"}
+    assert len(spoken_code(r)) == 6
+
+
+def test_voice_pairing_links_alexa_without_the_alexa_app(client, amazon, factory):
+    code = spoken_code(send(client, amazon, envelope({"type": "LaunchRequest"})))
+    assert client.post("/api/alexa/link", json={"code": "000000" if code != "000000" else "111111"}).status_code == 400
+    assert client.post("/api/alexa/link", json={"code": "12"}).status_code == 400
+    r = client.post("/api/alexa/link", json={"code": f"{code[:3]} {code[3:]}"})
+    assert r.status_code == 200, r.text
+    assert client.post("/api/alexa/link", json={"code": code}).status_code == 400  # one use
+
+    assert speech(send(client, amazon, envelope(add_intent("a gallon of milk")))) == "Added a gallon of milk to your shopping list."
+    assert needed_items(factory) == {"milk": (1.0, "gallon")}
+    assert {"client_name": "Amazon Alexa", "scope": "alexa"}.items() <= client.get("/api/oauth/connections").json()["connections"][0].items()
+
+    assert client.delete("/api/oauth/connections").json()["revoked"] == 1
+    assert client.get("/api/oauth/connections").json()["connections"] == []
+    assert len(spoken_code(send(client, amazon, envelope(add_intent("eggs"))))) == 6
+    assert needed_items(factory) == {"milk": (1.0, "gallon")}
+
+
+def test_a_new_code_replaces_the_old_one_and_codes_expire(client, amazon, factory):
+    first = spoken_code(send(client, amazon, envelope({"type": "LaunchRequest"})))
+    second = spoken_code(send(client, amazon, envelope({"type": "LaunchRequest"})))
+    if first != second:
+        assert client.post("/api/alexa/link", json={"code": first}).status_code == 400
+    with factory() as session:
+        row = session.query(AlexaLink).one()
+        row.code_expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        session.commit()
+    assert client.post("/api/alexa/link", json={"code": second}).status_code == 400
 
 
 def test_add_items(client, amazon, factory):
