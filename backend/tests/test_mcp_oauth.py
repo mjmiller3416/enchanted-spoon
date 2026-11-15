@@ -200,7 +200,7 @@ def test_consent_page_check(client):
     client_id = register(client)["client_id"]
     _, challenge = pkce()
     ok = client.get("/api/oauth/authorize/check", params=authorize_params(client_id, challenge)).json()
-    assert ok == {"status": "ok", "client_name": "ChatGPT", "redirect_to": None, "message": None}
+    assert ok == {"status": "ok", "client_name": "ChatGPT", "scope": "mcp", "redirect_to": None, "message": None}
 
     unknown = client.get("/api/oauth/authorize/check", params=authorize_params("nope", challenge)).json()
     assert unknown["status"] == "error" and unknown["redirect_to"] is None

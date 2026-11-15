@@ -15,6 +15,9 @@ import os
 
 MCP_PATH = "/api/mcp"
 MCP_SCOPE = "mcp"
+# The Alexa skill's narrower grant: its token works only at /api/alexa
+# (add to and read the shopping list), never at /api/mcp.
+ALEXA_SCOPE = "alexa"
 
 # Lifetimes (seconds). Refresh tokens slide: each use issues a new one with a
 # fresh 90 days.

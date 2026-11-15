@@ -1,0 +1,90 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "enchanted spoon",
+      "intents": [
+        {
+          "name": "AddItemIntent",
+          "slots": [
+            {
+              "name": "item",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "add {item}",
+            "add {item} to my list",
+            "add {item} to the list",
+            "add {item} to my shopping list",
+            "add {item} to the shopping list",
+            "add {item} to our shopping list",
+            "add {item} to my grocery list",
+            "add {item} to the grocery list",
+            "put {item} on my list",
+            "put {item} on the list",
+            "put {item} on my shopping list",
+            "put {item} on the shopping list",
+            "put {item} on the grocery list",
+            "we need {item}",
+            "we're out of {item}",
+            "we are out of {item}",
+            "we ran out of {item}",
+            "I need {item}",
+            "I need to buy {item}",
+            "we need to buy {item}",
+            "buy {item}",
+            "pick up {item}",
+            "remember {item}",
+            "remember to buy {item}",
+            "don't forget {item}",
+            "add some {item}",
+            "add more {item}"
+          ]
+        },
+        {
+          "name": "ReadListIntent",
+          "slots": [],
+          "samples": [
+            "what's on my list",
+            "what's on the list",
+            "what's on my shopping list",
+            "what is on my shopping list",
+            "what's on the shopping list",
+            "what's on my grocery list",
+            "read my list",
+            "read my shopping list",
+            "read me my shopping list",
+            "read the shopping list",
+            "what do I need",
+            "what do we need",
+            "what do I need to buy",
+            "what do we need to buy",
+            "what's left on my list",
+            "check my shopping list"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}

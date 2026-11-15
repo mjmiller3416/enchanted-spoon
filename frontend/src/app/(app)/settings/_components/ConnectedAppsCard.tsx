@@ -7,12 +7,30 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { oauthApi } from "@/lib/api";
 import { getErrorMessage } from "@/lib/utils";
+import type { ConnectionDTO } from "@/types/oauth";
 
 const CONNECTIONS_KEY = ["oauth-connections"] as const;
 
+/** "ChatGPT", "ChatGPT and Amazon Alexa". */
+const joinNames = (list: string[]) =>
+  list.length > 1 ? `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}` : list.join("");
+
+/** What each connected app can do, one sentence per kind of access. */
+export function describeConnections(connections: ConnectionDTO[]): string {
+  const unique = (scope: "mcp" | "alexa") =>
+    Array.from(new Set(connections.filter((c) => (c.scope ?? "mcp") === scope).map((c) => c.client_name)));
+  const full = unique("mcp");
+  const shopping = unique("alexa");
+  const sentences: string[] = [];
+  if (full.length) sentences.push(`${joinNames(full)} can see and change your recipes, meal plan and shopping list.`);
+  if (shopping.length) sentences.push(`${joinNames(shopping)} can add to and read your shopping list.`);
+  return sentences.join(" ");
+}
+
 /**
- * ConnectedAppsCard — the apps (ChatGPT) connected to this account through
- * the MCP connector, with one button that disconnects them all at once.
+ * ConnectedAppsCard — the apps connected to this account (ChatGPT through the
+ * MCP connector, Alexa through account linking), with one button that
+ * disconnects them all at once.
  */
 export function ConnectedAppsCard() {
   const { getToken } = useAuth();
@@ -45,8 +63,8 @@ export function ConnectedAppsCard() {
         {isLoading
           ? "Checking for connected apps…"
           : names.length
-            ? `${names.join(", ")} can see and change your recipes, meal plan and shopping list.`
-            : "No apps are connected. You can connect ChatGPT from its Apps settings."}
+            ? describeConnections(connections)
+            : "No apps are connected. You can connect ChatGPT from its Apps settings, or Alexa from the Enchanted Spoon skill."}
       </p>
       {names.length > 0 && (
         <Button

@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.core.mcp_config import (
+    ALEXA_SCOPE,
     MCP_PATH,
     MCP_SCOPE,
     authorization_page_url,
@@ -103,7 +104,7 @@ def authorization_server_metadata() -> Dict[str, Any]:
         "code_challenge_methods_supported": ["S256"],
         "token_endpoint_auth_methods_supported": list(AUTH_METHODS),
         "revocation_endpoint_auth_methods_supported": list(AUTH_METHODS),
-        "scopes_supported": [MCP_SCOPE],
+        "scopes_supported": [MCP_SCOPE, ALEXA_SCOPE],
         "authorization_response_iss_parameter_supported": True,
     }
 
@@ -255,7 +256,7 @@ def check_authorize_request(
         return AuthorizeCheckDTO(status="error", message=str(exc))
     except AuthorizeRedirectError as exc:
         return AuthorizeCheckDTO(status="redirect", redirect_to=error_redirect(exc))
-    return AuthorizeCheckDTO(status="ok", client_name=request.client_name)
+    return AuthorizeCheckDTO(status="ok", client_name=request.client_name, scope=request.scope)
 
 
 @router.post("/authorize", response_model=AuthorizeResultDTO)
@@ -362,7 +363,9 @@ def list_connections(
     """The apps (ChatGPT) the signed-in person has connected."""
     connections = OAuthService(session).list_connections(current_user.id)
     return ConnectionsDTO(
-        connections=[ConnectionDTO(client_name=c.client_name, connected_at=c.connected_at) for c in connections]
+        connections=[
+            ConnectionDTO(client_name=c.client_name, connected_at=c.connected_at, scope=c.scope) for c in connections
+        ]
     )
 
 

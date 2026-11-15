@@ -41,6 +41,13 @@ describe("OAuth consent page", () => {
     expect(decide).toHaveBeenCalledWith(expect.objectContaining({ client_id: "abc" }), "allow", "clerk-token");
   });
 
+  it("words Alexa's request as shopping-list only", async () => {
+    check.mockResolvedValue({ status: "ok", client_name: "Amazon Alexa", scope: "alexa", redirect_to: null, message: null });
+    render(<ConsentCard navigate={vi.fn()} />);
+    expect(await screen.findByText(/Amazon Alexa wants to add items to your Enchanted Spoon shopping list/)).toBeTruthy();
+    expect(screen.queryByText(/see and change everything you can/)).toBeNull();
+  });
+
   it("sends Cancel as a denial", async () => {
     check.mockResolvedValue({ status: "ok", client_name: "ChatGPT", redirect_to: null, message: null });
     decide.mockResolvedValue({ redirect_to: "https://chatgpt.com/cb?error=access_denied" });

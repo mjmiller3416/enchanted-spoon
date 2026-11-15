@@ -105,8 +105,9 @@ export function ConsentCard({
         </CardTitle>
         {!failed && check && (
           <CardDescription>
-            {appName} wants to use {appConfig.appName} as you. It will be able to see and change
-            everything you can.
+            {check.scope === "alexa"
+              ? `${appName} wants to add items to your ${appConfig.appName} shopping list and read it back to you. It can't see or change anything else.`
+              : `${appName} wants to use ${appConfig.appName} as you. It will be able to see and change everything you can.`}
           </CardDescription>
         )}
       </CardHeader>

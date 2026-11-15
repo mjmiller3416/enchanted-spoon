@@ -33,13 +33,15 @@ class AuthorizeDecisionDTO(AuthorizeParamsDTO):
 class AuthorizeCheckDTO(BaseModel):
     """How the consent page should treat a request.
 
-    ``ok``: show consent for ``client_name``. ``redirect``: the request is
-    malformed but safe to send back; go to ``redirect_to``. ``error``: show
-    ``message`` and don't redirect anywhere.
+    ``ok``: show consent for ``client_name``, worded for ``scope`` (``mcp``:
+    everything you can do; ``alexa``: add to and read the shopping list).
+    ``redirect``: the request is malformed but safe to send back; go to
+    ``redirect_to``. ``error``: show ``message`` and don't redirect anywhere.
     """
 
     status: Literal["ok", "redirect", "error"]
     client_name: Optional[str] = None
+    scope: Optional[str] = None
     redirect_to: Optional[str] = None
     message: Optional[str] = None
 
@@ -55,6 +57,7 @@ class ConnectionDTO(BaseModel):
 
     client_name: str
     connected_at: datetime
+    scope: str = "mcp"  # "mcp": everything; "alexa": add to and read the shopping list
 
 
 class ConnectionsDTO(BaseModel):

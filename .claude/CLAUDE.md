@@ -117,6 +117,7 @@ pytest tests/test_file.py -v
 - `STRIPE_PRICE_ID_PRO` - Price ID for the Pro subscription plan
 - `FRONTEND_URL` - Base URL for Stripe checkout/portal redirects and the ChatGPT connector's OAuth issuer (default: `http://localhost:3000`)
 - `MCP_ENABLED` - ChatGPT connector kill switch (default `true`); `MCP_PUBLIC_URL` / `MCP_AUTHORIZE_URL` override its origin and consent page
+- `ALEXA_SKILL_ID` - Alexa skill ID(s), comma-separated; `/api/alexa` answers 404 until it's set
 
 ## Architecture
 
@@ -150,6 +151,10 @@ Maryann's ChatGPT (Settings → Apps → Developer mode → custom MCP server, O
 - **Kill switch:** `MCP_ENABLED=false` on the backend 404s everything. Per person: Settings → Account & Profile → Connected Apps → Disconnect (`DELETE /api/oauth/connections`).
 - **Tools** (`api/mcp/tools.py`, ~125): one per user action. A tool names a route; its input schema is built from that route's OpenAPI, and `api/mcp/dispatch.py` calls the route in process on an internal copy of `api_router` whose `get_current_user` returns the token's user. So validation, read-only, usage limits and services match the app exactly. Never write SQL or duplicate service logic in a tool. **A new user-facing route needs a tool or an `EXCLUDED` reason** (`tests/test_mcp_server.py::test_every_user_route_has_a_tool` fails otherwise). AI tools say "Calls AI generation" and are marked writes so ChatGPT confirms; base64 image payloads are stripped from results (`photo_omitted`). The JSON-RPC server is hand-rolled (`api/mcp/server.py`: initialize, ping, tools/list, tools/call; stateless, JSON only), not the `mcp` SDK.
 - The connector's routers are registered as `connector_router` on the public app only, outside `api_router`, so the internal dispatch app can't reach them.
+
+#### Alexa skill ("Alexa, tell Enchanted Spoon to add a gallon of milk")
+
+Custom skill; package and setup steps in `alexa/` (README). Amazon removed third-party access to Alexa's own shopping list in 2024, so the skill needs its invocation name. Endpoint `POST /api/alexa` on the backend's own Railway domain (not proxied, so the signed body arrives byte-for-byte), on `connector_router`. Every request is checked before it's read (`services/alexa/verification.py`): cert URL rules, the chain validated to certifi roots for `echo-api.amazon.com`, the `Signature-256` over the raw body, a timestamp within 150 s, and `ALEXA_SKILL_ID`. A failure gets a bare 400. Account linking reuses the OAuth server above. An Amazon link redirect URI (`*.amazon.com/api/skill/link/...`) is allowed in DCR, and its grants always get scope **`alexa`**. `user_for_access_token(token, scope)` keeps `alexa` tokens out of `/api/mcp` and `mcp` tokens out of `/api/alexa`. The consent page and Connected Apps word each scope. Adds go through `ShoppingService.add_named_item` on `kitchen_user_id` (household-shared, deduped, library category). `utils/spoken_items.py` parses quantities, units and "and"-separated items, and keeps "mac and cheese" or a known library ingredient whole. Read-only accounts can read but not add.
 
 #### First-party integrations (X-API-Key, not Clerk)
 

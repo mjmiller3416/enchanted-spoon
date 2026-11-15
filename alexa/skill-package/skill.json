@@ -1,0 +1,46 @@
+{
+  "manifest": {
+    "manifestVersion": "1.0",
+    "publishingInformation": {
+      "locales": {
+        "en-US": {
+          "name": "Enchanted Spoon",
+          "summary": "Add to your Enchanted Spoon shopping list by voice.",
+          "description": "Add groceries to your Enchanted Spoon shopping list hands-free, and hear what's on it. Link your Enchanted Spoon account, then say: Alexa, tell Enchanted Spoon to add a gallon of milk. Items are filed under the same categories as the rest of your list, and anything already on it isn't added twice.",
+          "examplePhrases": [
+            "Alexa, tell Enchanted Spoon to add a gallon of milk",
+            "Alexa, ask Enchanted Spoon to add eggs and bread",
+            "Alexa, ask Enchanted Spoon what's on my shopping list"
+          ],
+          "keywords": ["shopping list", "grocery list", "groceries", "meal planning", "recipes"]
+        }
+      },
+      "isAvailableWorldwide": false,
+      "distributionCountries": ["US"],
+      "distributionMode": "PUBLIC",
+      "category": "COOKING_AND_RECIPE",
+      "testingInstructions": "Link an Enchanted Spoon account (https://enchantedspoon.app), then say: tell Enchanted Spoon to add a gallon of milk. The item appears on the account's shopping list in the app."
+    },
+    "privacyAndCompliance": {
+      "allowsPurchases": false,
+      "usesPersonalInfo": false,
+      "isChildDirected": false,
+      "isExportCompliant": true,
+      "containsAds": false,
+      "locales": {
+        "en-US": {
+          "privacyPolicyUrl": "https://enchantedspoon.app/privacy",
+          "termsOfUseUrl": "https://enchantedspoon.app/terms"
+        }
+      }
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "https://backend-production-043e.up.railway.app/api/alexa",
+          "sslCertificateType": "Wildcard"
+        }
+      }
+    }
+  }
+}

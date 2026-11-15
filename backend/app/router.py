@@ -106,9 +106,12 @@ api_router.include_router(photo_import_router, prefix="/api/ai/recipe-import", t
 # Kept out of api_router: the MCP tools call api_router's routes in process
 # (app/api/mcp/dispatch.py), and the connector must not be reachable from there.
 from app.api import mcp as mcp_api  # noqa: E402
+from app.api import alexa  # noqa: E402
 from app.api import oauth  # noqa: E402
 
 connector_router = APIRouter()
 connector_router.include_router(oauth.well_known_router, tags=["oauth"])
 connector_router.include_router(oauth.router, prefix="/api/oauth", tags=["oauth"])
 connector_router.include_router(mcp_api.router, tags=["mcp"])
+# The Alexa skill's endpoint (verified by Amazon's request signature; account linking uses the OAuth server above)
+connector_router.include_router(alexa.router, tags=["alexa"])

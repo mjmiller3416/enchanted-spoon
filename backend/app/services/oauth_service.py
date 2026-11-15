@@ -1,9 +1,10 @@
 """app/services/oauth_service.py
 
 The OAuth 2.1 authorization server behind the MCP connector (ChatGPT custom
-connectors): dynamic client registration (RFC 7591), authorization codes
-with PKCE S256, token issue and refresh rotation, revocation (RFC 7009), and
-access-token checks for ``/api/mcp``.
+connectors) and the Alexa skill's account linking: dynamic client
+registration (RFC 7591), authorization codes with PKCE S256, token issue and
+refresh rotation, revocation (RFC 7009), and access-token checks for
+``/api/mcp`` (scope ``mcp``) and ``/api/alexa`` (scope ``alexa``).
 
 Clients, codes and tokens are random url-safe strings of 32+ bytes, stored
 only as SHA-256 digests. Each consent is a *grant*: the code and every token
@@ -32,6 +33,7 @@ from sqlalchemy.orm import Session
 
 from ..core.mcp_config import (
     ACCESS_TOKEN_TTL,
+    ALEXA_SCOPE,
     AUTHORIZATION_CODE_TTL,
     MCP_SCOPE,
     REFRESH_TOKEN_TTL,
@@ -45,6 +47,9 @@ logger = logging.getLogger(__name__)
 AUTH_METHODS = ("none", "client_secret_post", "client_secret_basic")
 SUPPORTED_GRANTS = ("authorization_code", "refresh_token")
 ALLOWED_REDIRECT_HOSTS = ("chatgpt.com", "chat.openai.com")
+# Alexa account linking returns to Amazon, per region, under the skill vendor's path.
+AMAZON_LINK_HOSTS = ("layla.amazon.com", "pitangui.amazon.com", "alexa.amazon.co.jp")
+AMAZON_LINK_PATH = "/api/skill/link/"
 LOCAL_REDIRECT_HOSTS = ("localhost", "127.0.0.1")
 _CHALLENGE_RE = re.compile(r"^[A-Za-z0-9_-]{43,128}$")
 _VERIFIER_RE = re.compile(r"^[A-Za-z0-9._~-]{43,128}$")
@@ -124,6 +129,7 @@ class Connection:
 
     client_name: str
     connected_at: datetime
+    scope: str = MCP_SCOPE
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -158,8 +164,24 @@ def resource_matches(value: Optional[str]) -> bool:
     return value.rstrip("/") == resource_url().rstrip("/")
 
 
+def is_amazon_link_uri(uri: str) -> bool:
+    """Whether a redirect URI is Alexa account linking's (https, Amazon's link host, its link path)."""
+    try:
+        parts = urlsplit(uri)
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "https"
+        and (parts.hostname or "").lower() in AMAZON_LINK_HOSTS
+        and parts.port is None
+        and parts.path.startswith(AMAZON_LINK_PATH)
+        and len(parts.path) > len(AMAZON_LINK_PATH)
+        and not parts.fragment
+    )
+
+
 def redirect_uri_allowed(uri: str) -> bool:
-    """ChatGPT's https callbacks, or http://localhost / 127.0.0.1 on any port for local tests."""
+    """ChatGPT's or Alexa account linking's https callbacks, or http://localhost / 127.0.0.1 for local tests."""
     try:
         parts = urlsplit(uri)
     except ValueError:
@@ -169,7 +191,23 @@ def redirect_uri_allowed(uri: str) -> bool:
     host = parts.hostname.lower()
     if parts.scheme == "https" and host in ALLOWED_REDIRECT_HOSTS:
         return True
+    if is_amazon_link_uri(uri):
+        return True
     return parts.scheme == "http" and host in LOCAL_REDIRECT_HOSTS
+
+
+def granted_scope(requested: Optional[str], redirect_uri: str) -> str:
+    """The one scope a grant gets.
+
+    Alexa account linking (an Amazon redirect URI) always gets ``alexa``,
+    whatever it asks for, so a token that Amazon holds can never reach the
+    full MCP connector. Anyone else gets ``alexa`` only by asking for it;
+    otherwise ``mcp`` (an empty scope means it, unknown scopes are ignored).
+    """
+    if is_amazon_link_uri(redirect_uri):
+        return ALEXA_SCOPE
+    words = (requested or "").split()
+    return ALEXA_SCOPE if ALEXA_SCOPE in words and MCP_SCOPE not in words else MCP_SCOPE
 
 
 class OAuthService:
@@ -200,8 +238,8 @@ class OAuthService:
             if not isinstance(uri, str) or len(uri) > 2048 or not redirect_uri_allowed(uri):
                 raise OAuthError(
                     "invalid_redirect_uri",
-                    "Redirect URIs must be https on chatgpt.com or chat.openai.com "
-                    "(or http://localhost for local testing).",
+                    "Redirect URIs must be https on chatgpt.com or chat.openai.com, Alexa "
+                    "account linking's Amazon URLs, or http://localhost for local testing.",
                 )
         method = token_endpoint_auth_method or "client_secret_basic"
         if method not in AUTH_METHODS:
@@ -273,14 +311,13 @@ class OAuthService:
             raise fail("invalid_request", "code_challenge_method must be S256.")
         if not resource_matches(resource):
             raise fail("invalid_target", "Unknown resource.")
-        # Only "mcp" exists; an empty scope means it, unknown scopes are ignored.
         return AuthorizeRequest(
             client_id=client.client_id,
             client_name=client.client_name or "An app",
             redirect_uri=redirect_uri,
             code_challenge=code_challenge,
             state=state,
-            scope=MCP_SCOPE,
+            scope=granted_scope(scope, redirect_uri),
             resource=resource.rstrip("/") if resource else None,
         )
 
@@ -448,10 +485,15 @@ class OAuthService:
         self.repo.revoke_grant(row.grant_id, _now())
         self.session.commit()
 
-    def user_for_access_token(self, token: str) -> Optional[int]:
-        """The user an MCP request acts as, or None if the token is unknown, expired or revoked."""
+    def user_for_access_token(self, token: str, scope: str = MCP_SCOPE) -> Optional[int]:
+        """The user a request acts as, or None if the token is unknown, expired, revoked or for another scope.
+
+        ``/api/mcp`` asks for ``mcp`` (the default), ``/api/alexa`` for ``alexa``.
+        """
         row = self.repo.get_token(digest(token))
         if row is None or row.kind != "access" or row.revoked_at is not None:
+            return None
+        if row.scope != scope:
             return None
         if _aware(row.expires_at) <= _now():
             return None
@@ -469,7 +511,11 @@ class OAuthService:
                 continue
             seen.add(token.grant_id)
             connections.append(
-                Connection(client_name=names.get(token.client_id) or "An app", connected_at=_aware(token.created_at))
+                Connection(
+                    client_name=names.get(token.client_id) or "An app",
+                    connected_at=_aware(token.created_at),
+                    scope=token.scope,
+                )
             )
         return connections
 
