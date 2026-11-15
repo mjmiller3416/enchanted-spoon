@@ -69,7 +69,7 @@ describe("auth screen on short viewports", () => {
     expect(document.querySelector("[data-auth-logo]")?.className).toContain(
       "[@media(max-height:500px)]:hidden",
     );
-    expect(screen.getByRole("button", { name: "Continue", exact: true })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
     cleanup();
 
     render(<SignUpForm />);
