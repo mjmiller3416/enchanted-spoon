@@ -12,11 +12,19 @@
             "Alexa, ask Enchanted Spoon to add eggs and bread",
             "Alexa, ask Enchanted Spoon what's on my shopping list"
           ],
-          "keywords": ["shopping list", "grocery list", "groceries", "meal planning", "recipes"]
+          "keywords": [
+            "shopping list",
+            "grocery list",
+            "groceries",
+            "meal planning",
+            "recipes"
+          ]
         }
       },
       "isAvailableWorldwide": false,
-      "distributionCountries": ["US"],
+      "distributionCountries": [
+        "US"
+      ],
       "distributionMode": "PUBLIC",
       "category": "COOKING_AND_RECIPE",
       "testingInstructions": "Link an Enchanted Spoon account (https://enchantedspoon.app), then say: tell Enchanted Spoon to add a gallon of milk. The item appears on the account's shopping list in the app."
@@ -39,6 +47,14 @@
         "endpoint": {
           "uri": "https://backend-production-043e.up.railway.app/api/alexa",
           "sslCertificateType": "Wildcard"
+        },
+        "regions": {
+          "NA": {
+            "endpoint": {
+              "uri": "https://backend-production-043e.up.railway.app/api/alexa",
+              "sslCertificateType": "Wildcard"
+            }
+          }
         }
       }
     }

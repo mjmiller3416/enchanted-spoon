@@ -39,6 +39,21 @@ library-categorized add that Hearth uses. An item already needed isn't added
 twice, and a checked-off one moves back to "need". Read-only accounts can
 hear the list but can't add to it.
 
+## Live skill
+
+| | |
+|---|---|
+| Skill ID | `amzn1.ask.skill.2b318b55-4267-4c91-9696-e03aeeb48cf4` (set as `ALEXA_SKILL_ID` on the Railway backend) |
+| Vendor ID | `MK8FQMYZHDFL3` (Mitchell's developer account, mj.miller3416@gmail.com) |
+| Stage | development, testing enabled |
+| OAuth client | "Amazon Alexa", registered by DCR on 2026-11-15; its secret lives only in the skill's account-linking config |
+
+The manifest needs the `regions.NA` endpoint as well as the default one.
+Without it, SMAPI's invoke API (`/v2/skills/{id}/stages/development/invocations`)
+refuses with "No endpoint was found for the specified region". A signed
+invoke through that API was verified end to end on 2026-11-15: the endpoint
+accepted Amazon's signature and asked an unlinked user to link.
+
 ## Setup (one time)
 
 1. **ASK CLI.** Install with `npm install -g ask-cli` (Windows npm; call it as
