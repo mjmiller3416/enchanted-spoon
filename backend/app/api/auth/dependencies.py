@@ -5,6 +5,7 @@ Provides get_current_user and related dependencies for protecting routes.
 """
 
 import logging
+import threading
 from typing import Generator, Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -36,6 +37,42 @@ logger = logging.getLogger(__name__)
 # Security scheme for Bearer tokens
 security = HTTPBearer(auto_error=False)
 
+# One error per process. A production process that still has AUTH_DISABLED
+# must not run the dev bypass, and repeating that on every request would
+# bury the rest of the log. The message is static: no tokens, keys, or ids.
+_production_auth_bypass_logged = False
+_production_auth_bypass_lock = threading.Lock()
+
+
+def _dev_auth_bypass_active(settings: AuthSettings) -> bool:
+    """Return True only when local development should skip JWT validation.
+
+    ``AUTH_DISABLED`` is a local switch. In production the request falls
+    through to normal JWT checks, so a missing token is rejected instead of
+    becoming the configured dev user. Startup validation is the first guard;
+    this covers a process that started anyway.
+    """
+    if not settings.auth_disabled:
+        return False
+
+    # Lazy import: startup pulls in config and the database URL, and must
+    # not cycle back through the auth dependencies while this module loads.
+    from ...core.startup import is_production
+
+    if not is_production():
+        return True
+
+    global _production_auth_bypass_logged
+    if not _production_auth_bypass_logged:
+        with _production_auth_bypass_lock:
+            if not _production_auth_bypass_logged:
+                logger.error(
+                    "AUTH_DISABLED is set in a production environment; "
+                    "ignoring the development authentication bypass and requiring a JWT."
+                )
+                _production_auth_bypass_logged = True
+    return False
+
 
 def _email_from_claims(payload: dict) -> Optional[str]:
     """First usable email claim; tolerant of missing/empty/malformed fields."""
@@ -63,7 +100,7 @@ async def get_current_user(
     Dependency to get the currently authenticated user.
 
     Flow:
-    1. If auth_disabled, return dev user (for local development)
+    1. If auth_disabled and this is not production, return the dev user
     2. Extract and validate Bearer token
     3. Decode JWT using Clerk's JWKS
     4. Look up or create user from token claims
@@ -83,8 +120,9 @@ async def get_current_user(
     # Debug: Print auth state
     logger.debug(f"Auth disabled={settings.auth_disabled}, has credentials={credentials is not None}")
 
-    # Dev mode bypass - return configured dev user
-    if settings.auth_disabled:
+    # Local development only. Production validates the JWT even if the
+    # startup guard was skipped and AUTH_DISABLED is still set.
+    if _dev_auth_bypass_active(settings):
         logger.debug("Dev mode - bypassing authentication")
         user_service = UserService(session)
         dev_user = user_service.get_by_id(settings.dev_user_id)
@@ -98,7 +136,7 @@ async def get_current_user(
         set_error_reporting_user(dev_user.id)
         return dev_user
 
-    # Require token in production mode
+    # Bypass did not apply: a missing token is unauthenticated.
     if not credentials:
         logger.debug("No credentials provided - returning 401")
         raise HTTPException(
@@ -220,7 +258,7 @@ async def get_current_user_optional(
     Returns:
         User if authenticated, None otherwise.
     """
-    if not credentials and not settings.auth_disabled:
+    if not credentials and not _dev_auth_bypass_active(settings):
         return None
 
     try:

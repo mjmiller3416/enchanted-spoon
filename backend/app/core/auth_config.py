@@ -22,7 +22,7 @@ class AuthSettings(BaseSettings):
         clerk_secret_key: Clerk secret key for API calls (sk_xxx)
         CLERK_PUBLISHABLE_KEY: Clerk publishable key (pk_xxx)
         clerk_jwks_url: Optional explicit JWKS URL override (derived from publishable key if not set)
-        auth_disabled: When True, bypasses JWT validation (for local dev)
+        auth_disabled: When True, bypasses JWT validation outside production (local dev)
         dev_user_id: User ID to use when auth_disabled is True
         integration_api_key: Shared secret for trusted first-party app-to-app calls
             (checked against the X-API-Key header on integration endpoints)
