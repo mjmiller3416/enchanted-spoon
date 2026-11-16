@@ -31,6 +31,7 @@ from ...models.user import User
 from ...services.ai.chat_usage import (
     ChatUsageLedger,
     bind_chat_usage_ledger,
+    release_open_additional_billed_calls,
     reset_chat_usage_ledger,
 )
 from ...services.usage_service import UsageLimitExceededError, UsageService
@@ -370,6 +371,17 @@ def require_within_usage_limit(
             try:
                 yield user
             except Exception:
+                # Extras still open failed with the request. A call that
+                # already succeeded, or a unit already refunded, is not in
+                # this list, so it is released at most once.
+                try:
+                    release_open_additional_billed_calls()
+                except Exception:
+                    logger.exception(
+                        "Failed to refund additional %s usage for user %s",
+                        field,
+                        user.id,
+                    )
                 try:
                     usage_service.release(field)
                 except Exception:

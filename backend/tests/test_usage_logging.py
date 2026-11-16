@@ -11,13 +11,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 
+from app.api.auth.dependencies import require_within_usage_limit
 from app.core.request_context import (
     RequestIdMiddleware,
     current_request_id,
     request_id_var,
     user_id_var,
 )
+from app.models.user import User
 from app.dtos.assistant_dtos import AssistantMessageDTO
 from app.dtos.recipe_generation_dtos import (
     GeneratedIngredientDTO,
@@ -29,7 +32,14 @@ from app.models.user_usage import UserUsage
 from app.services.ai.assistant import AssistantService
 from app.services.ai.assistant.prompts import BASE_SYSTEM_PROMPT
 from app.services.ai.assistant.service import CHAT_HISTORY_MAX_TURNS, limit_chat_history
-from app.services.ai.chat_usage import ChatUsageLedger, bind_chat_usage_ledger, reset_chat_usage_ledger
+from app.services.ai.chat_usage import (
+    ChatUsageLedger,
+    bind_chat_usage_ledger,
+    charge_additional_billed_call,
+    keep_additional_billed_call,
+    release_additional_billed_call,
+    reset_chat_usage_ledger,
+)
 from app.services.ai.usage_logging import log_usage_metadata
 from app.services.usage_service import UsageService
 
@@ -375,6 +385,202 @@ async def test_recipe_retry_counts_each_billed_attempt(file_db):
     assert result.recipe_name == "Tacos"
     assert get_service.return_value.generate.await_count == 2
     assert _message_count(file_db) == 2
+
+
+def _bind(file_db, limit: int = 100):
+    session_cm = file_db()
+    session = session_cm.__enter__()
+    token = bind_chat_usage_ledger(
+        ChatUsageLedger(
+            session=session,
+            user_id=1,
+            field="ai_assistant_messages",
+            limit=limit,
+            window=None,
+        )
+    )
+    return session_cm, token
+
+
+def _unbind(session_cm, token) -> None:
+    reset_chat_usage_ledger(token)
+    session_cm.__exit__(None, None, None)
+
+
+_PLAN_CATALOG = [
+    {
+        "id": 1,
+        "name": "Soup",
+        "category": "soup",
+        "meal_type": "dinner",
+        "total_time": 10,
+        "is_favorite": False,
+        "ingredients": ["broth"],
+    }
+]
+
+
+@pytest.mark.anyio
+async def test_failed_followup_is_refunded(file_db, caplog):
+    caplog.set_level(logging.INFO, logger="app.ai.usage")
+    _reserve_first_call(file_db)
+    client = MagicMock()
+    client.models.generate_content.side_effect = [
+        _response([_function_call_part("suggest_recipes", {"mood_or_vibe": "cozy"})]),
+        RuntimeError("follow-up down"),
+    ]
+    service = AssistantService.__new__(AssistantService)
+    session_cm, token = _bind(file_db)
+    try:
+        with (
+            patch("app.services.ai.assistant.service.get_gemini_client", return_value=client),
+            patch("app.services.ai.assistant.generators.get_gemini_client", return_value=client),
+        ):
+            result = await service.chat(message="something cozy")
+    finally:
+        _unbind(session_cm, token)
+
+    assert result["type"] == "error"
+    assert client.models.generate_content.call_count == 2
+    assert _message_count(file_db) == 1
+    assert "feature=assistant_followup" not in caplog.text
+
+
+@pytest.mark.parametrize("failure", ["provider", "bad-json"])
+def test_failed_planning_call_is_refunded(file_db, failure):
+    client = MagicMock()
+    if failure == "provider":
+        client.models.generate_content.side_effect = RuntimeError("provider down")
+    else:
+        client.models.generate_content.return_value = _response([_text_part("not json")])
+    service = AssistantService.__new__(AssistantService)
+    session_cm, token = _bind(file_db)
+    try:
+        with patch(
+            "app.services.ai.assistant.planning.get_gemini_client", return_value=client
+        ):
+            result = service._request_meal_plan("2 dinners", 1, _PLAN_CATALOG, [])
+    finally:
+        _unbind(session_cm, token)
+
+    assert result is None
+    assert client.models.generate_content.call_count == 1
+    assert _message_count(file_db) == 0
+
+
+@pytest.mark.anyio
+async def test_failed_recipe_retries_are_refunded_and_first_unit_stays(file_db):
+    """Every retry failed, so those units come back.
+
+    The first unit stays charged: it was the tool-selection call, which
+    succeeded. A failure of that first call is refunded by the request
+    error path, the same as any other failed first call.
+    """
+    from app.services.ai.recipe_generation.service import RecipeParseError
+
+    _reserve_first_call(file_db)
+    service = AssistantService.__new__(AssistantService)
+    session_cm, token = _bind(file_db)
+    try:
+        with patch(
+            "app.services.ai.assistant.generators.get_recipe_generation_service"
+        ) as get_service:
+            get_service.return_value.generate = AsyncMock(
+                side_effect=RecipeParseError("truncated")
+            )
+            result = await service._generate_recipe_from_args({"recipe_name": "Tacos"})
+    finally:
+        _unbind(session_cm, token)
+
+    assert result is None
+    assert get_service.return_value.generate.await_count == 3
+    assert _message_count(file_db) == 1
+
+
+@pytest.mark.anyio
+async def test_cap_skips_extra_model_call_without_a_billed_log(file_db, caplog):
+    caplog.set_level(logging.INFO, logger="app.ai.usage")
+    _reserve_first_call(file_db, limit=1)
+    client = MagicMock()
+    client.models.generate_content.return_value = _response(
+        [_function_call_part("suggest_recipes", {"mood_or_vibe": "cozy"})]
+    )
+    service = AssistantService.__new__(AssistantService)
+    session_cm, token = _bind(file_db, limit=1)
+    try:
+        with (
+            patch("app.services.ai.assistant.service.get_gemini_client", return_value=client),
+            patch("app.services.ai.assistant.generators.get_gemini_client", return_value=client),
+        ):
+            result = await service.chat(message="something cozy")
+    finally:
+        _unbind(session_cm, token)
+
+    assert result["type"] == "suggestions"
+    assert client.models.generate_content.call_count == 1
+    assert caplog.text.count("gemini_usage") == 1
+    assert "feature=assistant_followup" not in caplog.text
+    assert _message_count(file_db) == 1
+
+
+def _pro_user(file_db) -> None:
+    with file_db() as session:
+        user = session.get(User, 1)
+        user.subscription_tier = "pro"
+        user.subscription_status = "active"
+        user.is_admin = False
+        session.commit()
+        UsageService(session, user_id=1).increment("ai_assistant_messages", 5)
+
+
+def _http_request() -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/chat",
+            "headers": [],
+            "query_string": b"",
+            "client": ("127.0.0.1", 1234),
+            "scheme": "http",
+            "server": ("test", 80),
+        }
+    )
+
+
+def _fail_request_after(file_db, during_request) -> None:
+    _pro_user(file_db)
+    with file_db() as session:
+        user = session.get(User, 1)
+        dependency = require_within_usage_limit("ai_assistant_messages")
+        generator = dependency(_http_request(), user, session)
+        next(generator)
+        try:
+            during_request()
+            generator.throw(RuntimeError("handler failed"))
+        except RuntimeError:
+            pass
+
+
+def test_request_exception_releases_open_extra_once(file_db):
+    _fail_request_after(file_db, charge_additional_billed_call)
+    assert _message_count(file_db) == 5
+
+
+def test_request_exception_keeps_a_succeeded_extra_call(file_db):
+    def during_request() -> None:
+        keep_additional_billed_call(charge_additional_billed_call())
+
+    _fail_request_after(file_db, during_request)
+    assert _message_count(file_db) == 6
+
+
+def test_request_exception_does_not_release_an_extra_twice(file_db):
+    def during_request() -> None:
+        release_additional_billed_call(charge_additional_billed_call())
+
+    _fail_request_after(file_db, during_request)
+    assert _message_count(file_db) == 5
 
 
 def test_history_is_truncated_to_ten_turns_and_keeps_system_prompt():
