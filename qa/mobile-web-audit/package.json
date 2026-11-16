@@ -1,0 +1,12 @@
+{
+  "name": "enchanted-spoon-mobile-web-audit",
+  "private": true,
+  "type": "module",
+  "description": "Device-emulated functional and responsive audit of the public Enchanted Spoon site. Not a physical-device lab.",
+  "scripts": {
+    "audit": "node audit.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.56.1"
+  }
+}
