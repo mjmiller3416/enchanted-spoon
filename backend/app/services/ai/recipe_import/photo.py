@@ -199,7 +199,12 @@ class PhotoImportService:
             logger.error("[PhotoImport] Model call failed: %s", exc)
             raise RecipeImportError("Recipe photo import failed.") from exc
 
-        log_usage_metadata("photo_import", PHOTO_IMPORT_MODEL, response)
+        log_usage_metadata(
+            "photo_import",
+            PHOTO_IMPORT_MODEL,
+            response,
+            photo_count=len(images),
+        )
         data = _parse_model_json(response)
         if data.get("no_recipe_found"):
             raise RecipeImportNotFoundError(

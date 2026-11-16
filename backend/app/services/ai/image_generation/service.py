@@ -76,7 +76,12 @@ class ImageGenerationService:
             last_error = "No image data in response"
             for index, model_name in enumerate(models):
                 outcome, image_data, error = await self._one_image_attempt(
-                    client, model_name, prompt, aspect_ratio, size
+                    client,
+                    model_name,
+                    prompt,
+                    aspect_ratio,
+                    size,
+                    fallback=index > 0,
                 )
                 logger.info(
                     "image_attempt model=%s size=%s outcome=%s",
@@ -139,6 +144,13 @@ class ImageGenerationService:
             )
 
             image_data = extract_image_data(response)
+            log_usage_metadata(
+                "image_generation",
+                MODEL_NAME,
+                response,
+                photo_count=1,
+                image_count=1 if image_data else 0,
+            )
             if image_data:
                 return {
                     "success": True,
@@ -193,6 +205,8 @@ class ImageGenerationService:
         prompt: str,
         aspect_ratio: str,
         image_size: str,
+        *,
+        fallback: bool = False,
     ) -> tuple[str, Optional[str], Optional[str]]:
         """One provider call. Returns outcome, image bytes, and a safe error."""
         try:
@@ -211,10 +225,23 @@ class ImageGenerationService:
             outcome = _fallback_outcome(exc)
             return outcome, None, safe_ai_error(exc, "ImageGeneration")
 
-        log_usage_metadata("image_generation", model_name, response)
         if _safety_blocked(response):
+            log_usage_metadata(
+                "image_generation",
+                model_name,
+                response,
+                image_count=0,
+                fallback=fallback,
+            )
             return "safety_blocked", None, "Image generation was blocked"
         image_data = extract_image_data(response)
+        log_usage_metadata(
+            "image_generation",
+            model_name,
+            response,
+            image_count=1 if image_data else 0,
+            fallback=fallback,
+        )
         if image_data:
             return "success", image_data, None
         return "empty", None, "No image data in response"

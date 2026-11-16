@@ -12,10 +12,12 @@ from typing import List, Optional
 
 from app.dtos.meal_dtos import MealCreateDTO
 from app.repositories.planner import MAX_PLANNER_ENTRIES
+from app.services.ai.chat_usage import charge_additional_billed_call
 from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.parse_utils import safe_int
 from app.services.ai.response_utils import extract_text_from_response
 from app.services.ai.usage_logging import log_usage_metadata
+from app.services.usage_service import UsageLimitExceededError
 from app.services.ai.config import MINIMAL_THINKING, PLANNING_MAX_OUTPUT_TOKENS
 
 from .prompts import API_KEY_ENV_VAR, MODEL_NAME
@@ -237,6 +239,10 @@ class MealPlanningMixin:
 
         try:
             client = get_gemini_client(API_KEY_ENV_VAR)
+            try:
+                charge_additional_billed_call()
+            except UsageLimitExceededError:
+                return None
             response = client.models.generate_content(
                 model=MODEL_NAME,
                 contents=[{"role": "user", "parts": [{"text": prompt}]}],

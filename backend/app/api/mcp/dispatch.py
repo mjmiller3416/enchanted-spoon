@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.core.observability import set_user as set_error_reporting_user
+from app.core.request_context import bind_usage_user_id
 from app.core.rate_limit import limiter
 from app.database.db import get_session
 from app.models.user import User
@@ -48,6 +49,7 @@ async def _mcp_user(request: Request, session: Session = Depends(get_session)) -
         raise HTTPException(status_code=401, detail="This connection's Enchanted Spoon account no longer exists.")
     UserService(session).touch_last_active(user)
     set_error_reporting_user(user.id)
+    bind_usage_user_id(user.id)
     return user
 
 
