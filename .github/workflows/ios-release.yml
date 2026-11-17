@@ -39,7 +39,9 @@ jobs:
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # Team IDs are not secrets. FVTC8T7SB2 is Mitchell's individual team,
+      # also DEVELOPMENT_TEAM on the App target. The secret overrides it.
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID || 'FVTC8T7SB2' }}
       MARKETING_VERSION: ${{ inputs.marketing_version }}
       # The shell loads the hosted site. Do not bake a LAN or cleartext URL.
       CAPACITOR_SERVER_URL: https://enchantedspoon.app
@@ -56,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          for name in APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_API_KEY_P8 APPLE_TEAM_ID; do
+          for name in APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_ISSUER_ID APP_STORE_CONNECT_API_KEY_P8; do
             if [[ -z "${!name}" ]]; then
               echo "Missing GitHub Actions secret: ${name}"
               missing=1
@@ -66,6 +68,8 @@ jobs:
             echo "Add the secrets listed in docs/IOS_RELEASE.md. No archive was started."
             exit 1
           fi
+          # APPLE_TEAM_ID is optional. The env default above is used when the secret is unset.
+          echo "Apple Team ID: ${APPLE_TEAM_ID}"
 
       - uses: ruby/setup-ruby@v1
         with:
