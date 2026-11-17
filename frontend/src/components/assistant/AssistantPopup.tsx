@@ -15,7 +15,9 @@ interface AssistantPopupProps {
 export function AssistantPopup({ open, onOpenChange }: AssistantPopupProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const { restoreFocus } = useAssistantDialog();
-  const isMobile = useMediaQuery("(max-width: 767px)");
+  // Portrait phones, and landscape phones short enough that the floating
+  // panel would cover the top nav and clip the suggestions (S26 Ultra ~915x412).
+  const isMobile = useMediaQuery("(max-width: 767px), (max-height: 32rem)");
   const [expanded, setExpanded] = useState(false);
   const modal = isMobile || expanded;
   const close = () => { setExpanded(false); onOpenChange(false); };
@@ -25,7 +27,7 @@ export function AssistantPopup({ open, onOpenChange }: AssistantPopupProps) {
         ref={contentRef}
         showCloseButton={false}
         className={cn("assistant-dialog flex flex-col gap-0 overflow-hidden p-0 bg-elevated", isMobile
-          ? "inset-0 max-w-full translate-x-0 translate-y-0 rounded-none h-dvh w-full"
+          ? "inset-0 h-dvh w-full max-w-full translate-x-0 translate-y-0 rounded-none sm:max-w-full"
           : expanded ? "w-full max-w-2xl sm:max-w-2xl h-160" : "left-auto top-auto bottom-6 right-6 w-96 max-w-sm translate-x-0 translate-y-0 h-128")}
         onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }}
         onInteractOutside={event => { if (!modal) event.preventDefault(); }}

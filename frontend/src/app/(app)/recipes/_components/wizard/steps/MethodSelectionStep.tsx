@@ -63,7 +63,7 @@ export function MethodSelectionStep({
         Choose a method to get started. More options coming soon.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 [@media(max-height:32rem)]:grid-cols-1">
         {METHOD_OPTIONS.map((option) => {
           const isSelected = selectedMethod === option.method;
           const isDisabled = !option.isAvailable;
@@ -102,7 +102,7 @@ export function MethodSelectionStep({
                   </div>
                 )}
 
-                <CardContent className="flex flex-col items-center text-center gap-3 pt-8 pb-6">
+                <CardContent className="flex flex-col items-center gap-3 pt-8 pb-6 text-center [@media(max-height:32rem)]:flex-row [@media(max-height:32rem)]:py-4 [@media(max-height:32rem)]:text-left">
                   <div
                     className={cn(
                       "rounded-full p-3",

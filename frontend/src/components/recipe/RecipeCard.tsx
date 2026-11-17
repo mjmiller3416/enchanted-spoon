@@ -209,7 +209,7 @@ function RecipeCardMedium({
     <Card
       interactive
       className={cn(
-        "group overflow-hidden",
+        "group @container overflow-hidden",
         "hover:-translate-y-2",
         "pb-0 pt-0 gap-0",
         isSelected && "outline outline-2 outline-primary",
@@ -300,18 +300,18 @@ function RecipeCardMedium({
         </h3>
 
         {/* Metadata Row */}
-        <div className="flex items-center gap-6 text-base text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground @[20rem]:gap-x-6 @[20rem]:text-base">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-lg">
               <Users className="size-5 text-primary flex-shrink-0" strokeWidth={1.5} />
             </div>
             <div>
               <span className="font-semibold text-foreground">{recipe.servings}</span>
-              <span className="text-sm ml-1">serving{recipe.servings !== 1 ? "s" : ""}</span>
+              <span className="ml-1">serving{recipe.servings !== 1 ? "s" : ""}</span>
             </div>
           </div>
 
-          <div className="h-8 w-px bg-border" />
+          <div className="hidden h-8 w-px bg-border @[20rem]:block" />
 
           <div className="flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-lg">
@@ -520,7 +520,7 @@ interface RecipeCardGridProps {
 export function RecipeCardGrid({ children, className, size = "medium" }: RecipeCardGridProps) {
   const gridClasses = {
     small: "grid grid-cols-1 gap-3",
-    medium: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6",
+    medium: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6",
     large: "grid grid-cols-1 gap-3 md:gap-6",
   };
 
