@@ -5,3 +5,4 @@ export { DirectionsNotesStep } from "./DirectionsNotesStep";
 export { NutritionStep } from "./NutritionStep";
 export { AIGenerateStep } from "./AIGenerateStep";
 export { UrlImportStep } from "./UrlImportStep";
+export { PhotoImportStep } from "./PhotoImportStep";

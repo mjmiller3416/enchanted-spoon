@@ -233,6 +233,23 @@ class TestPhotoPreparation:
         with pytest.raises(PhotoImportImageError, match="JPEG"):
             prepare_recipe_photo(b"not a photo")
 
+    def test_heic_names_the_format(self):
+        payload = b"ftyp" + b"heic" + b"\x00\x00\x00\x00"
+        data = (len(payload) + 4).to_bytes(4, "big") + payload
+        with pytest.raises(PhotoImportImageError, match="HEIC") as caught:
+            prepare_recipe_photo(data)
+        assert _BANNED.search(str(caught.value)) is None
+
+    def test_exif_orientation_is_applied_and_dropped(self):
+        buffer = io.BytesIO()
+        exif = Image.Exif()
+        exif[274] = 6
+        Image.new("RGB", (40, 20), (255, 0, 0)).save(buffer, format="JPEG", exif=exif)
+        encoded = prepare_recipe_photo(buffer.getvalue())
+        with Image.open(io.BytesIO(encoded)) as image:
+            assert image.size == (20, 40)
+            assert image.getexif().get(274) in (None, 1)
+
     def test_oversize_upload_is_rejected_before_decode(self):
         with pytest.raises(PhotoImportTooLargeError, match="10 MB"):
             prepare_recipe_photo(b"x" * (import_config.MAX_PHOTO_UPLOAD_BYTES + 1))
