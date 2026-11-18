@@ -11,6 +11,10 @@ Railway's own ``RAILWAY_ENVIRONMENT_NAME`` (injected into every
 deployment, so the guard can't be skipped by forgetting to set a variable).
 Anything else is treated as a dev/test environment, where the same problems
 are logged as informational notices instead of aborting startup.
+
+Request handling applies the same production check to ``AUTH_DISABLED``
+(see ``app.api.auth.dependencies``). A process that started anyway still
+validates JWTs instead of accepting the development user.
 """
 
 import logging
