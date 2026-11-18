@@ -3,17 +3,24 @@
 @utility editor-dialog {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 100%;
+  /* Beat DialogContent's w-full / sm:max-w-* so the inset actually applies.
+     100vw is wider than the layout viewport once a scrollbar exists, which
+     pushed this dialog flush to the screen on tablets. */
+  width: 100% !important;
+  max-width: 100% !important;
   height: 100dvh;
   max-height: 100dvh;
   border-radius: 0;
   padding: 0;
   gap: 0;
   overflow: hidden;
-  @media (min-width: 40rem) {
-    width: calc(100vw - 3rem);
-    height: 85dvh;
+  /* Inset on tablet and desktop, but stay full-screen on a short landscape
+     phone (Galaxy S26 Ultra is ~915x412). 32rem is below a tablet's height. */
+  @media (min-width: 40rem) and (min-height: 32rem) {
+    width: min(72rem, calc(100% - 3rem)) !important;
+    max-width: min(72rem, calc(100% - 3rem)) !important;
+    height: min(85dvh, calc(100dvh - 3rem));
+    max-height: min(85dvh, calc(100dvh - 3rem));
     border-radius: var(--radius-xl);
   }
 }
@@ -1778,8 +1785,11 @@ html.native-ios .ios-google-sign-in {
 }
 
 @utility assistant-dialog {
-  max-height: calc(100dvh - 3rem);
-  @media (width < 48rem) {
+  /* Floating panel sits below the fixed top nav (h-16) plus its 1.5rem gap.
+     A max-height of 100dvh - 3rem left the panel overlapping that nav on
+     short landscape phones. */
+  max-height: calc(100dvh - 4rem - 1.5rem);
+  @media (width < 48rem), (height < 32rem) {
     max-height: 100dvh;
   }
 }
