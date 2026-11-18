@@ -13,6 +13,11 @@ from app.dtos.recipe_generation_dtos import (
     RecipeGenerationRequestDTO,
 )
 from app.dtos.shopping_dtos import ManualItemCreateDTO
+from app.services.ai.chat_usage import (
+    charge_additional_billed_call,
+    keep_additional_billed_call,
+    release_additional_billed_call,
+)
 from app.services.ai.gemini_client import get_gemini_client
 from app.services.ai.recipe_generation import get_recipe_generation_service
 from app.services.ai.recipe_generation.service import (
@@ -21,6 +26,7 @@ from app.services.ai.recipe_generation.service import (
 )
 from app.services.ai.response_utils import extract_text_from_response
 from app.services.ai.usage_logging import log_usage_metadata
+from app.services.usage_service import UsageLimitExceededError
 from app.services.ai.config import ASSISTANT_MAX_OUTPUT_TOKENS, MINIMAL_THINKING
 
 from .prompts import MODEL_NAME, API_KEY_ENV_VAR
@@ -165,16 +171,28 @@ class GeneratorsMixin:
                 {"role": "user", "parts": [{"text": instruction}]}
             )
 
-        gen_response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=follow_contents,
-            config={
-                "tools": [{"function_declarations": TOOL_DEFINITIONS}],
-                "tool_config": {"function_calling_config": {"mode": "NONE"}},
-                "max_output_tokens": ASSISTANT_MAX_OUTPUT_TOKENS,
-                "thinking_config": MINIMAL_THINKING,
-            },
-        )
+        try:
+            charged = charge_additional_billed_call()
+        except UsageLimitExceededError:
+            return fallback
+        try:
+            gen_response = client.models.generate_content(
+                model=MODEL_NAME,
+                contents=follow_contents,
+                config={
+                    "tools": [{"function_declarations": TOOL_DEFINITIONS}],
+                    "tool_config": {"function_calling_config": {"mode": "NONE"}},
+                    "max_output_tokens": ASSISTANT_MAX_OUTPUT_TOKENS,
+                    "thinking_config": MINIMAL_THINKING,
+                },
+            )
+        except Exception:
+            # The provider call failed. Refund this unit here. The route
+            # refunds the first unit if the request then errors, and will
+            # not refund this one a second time.
+            release_additional_billed_call(charged)
+            raise
+        keep_additional_billed_call(charged)
         log_usage_metadata("assistant_followup", MODEL_NAME, gen_response)
 
         return extract_text_from_response(gen_response) or fallback
@@ -406,10 +424,21 @@ Use your friendly Genie personality."""
         # entry) shouldn't sink the whole request — retry a couple of times
         # before telling the user generation failed.
         max_attempts = 3
+        charged_attempts: list = []
         for attempt in range(1, max_attempts + 1):
+            # Each attempt is its own billed call. The tool-selection call was
+            # already reserved by the route, so only these are extra.
+            try:
+                charged_attempts.append(charge_additional_billed_call())
+            except UsageLimitExceededError:
+                break
             try:
                 result = await service.generate(request)
                 if result.success and result.recipe and result.recipe.ingredients:
+                    # A recipe came back, so every attempt that ran stays
+                    # charged, including ones that had to be retried.
+                    for charged in charged_attempts:
+                        keep_additional_billed_call(charged)
                     return result.recipe
                 logger.warning(
                     f"[Assistant] Recipe generation for '{recipe_name}' produced no "
@@ -426,6 +455,9 @@ Use your friendly Genie personality."""
                 logger.warning(f"[Assistant] Recipe generation via service failed: {e}")
                 break
 
-        # Let the caller know generation failed instead of handing back a
-        # recipe that looks complete but has no ingredients/directions.
+        # No recipe. Refund the retry units. The first unit, reserved for the
+        # tool-selection call that already succeeded, is left charged. A
+        # failure of that first call is refunded by the request error path.
+        for charged in charged_attempts:
+            release_additional_billed_call(charged)
         return None

@@ -15,12 +15,48 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.core.observability import init_sentry
 from app.core.rate_limit import limiter
+from app.core.request_context import RequestIdMiddleware
 from app.core.startup import validate_config
 from app.database.db import SessionLocal
 from app.services.free_tier_sunset import apply_free_tier_sunset
 from app.router import api_router, connector_router
 
 logger = logging.getLogger(__name__)
+
+
+def _log_level_from_env() -> int:
+    """``LOG_LEVEL`` when it names a logging level, otherwise INFO."""
+    name = os.environ.get("LOG_LEVEL", "INFO").strip().upper()
+    level = getattr(logging, name, None)
+    if isinstance(level, int):
+        return level
+    return logging.INFO
+
+
+def configure_logging() -> None:
+    """Emit INFO usage logs under uvicorn and Railway.
+
+    Uvicorn may already have installed handlers before the app is imported.
+    ``basicConfig`` is a no-op in that case and would add a second handler,
+    so it runs only when the root logger has none. The usage logger is pinned
+    to INFO and left propagating so ``gemini_usage`` lines reach those handlers
+    even when the process level is stricter.
+    """
+    root = logging.getLogger()
+    if not root.handlers:
+        logging.basicConfig(
+            level=_log_level_from_env(),
+            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        )
+    usage_logger = logging.getLogger("app.ai.usage")
+    # Alembic's fileConfig and uvicorn's dictConfig can mark loggers that
+    # already existed as disabled. Usage lines have to keep flowing.
+    usage_logger.disabled = False
+    usage_logger.setLevel(logging.INFO)
+    usage_logger.propagate = True
+
+
+configure_logging()
 
 # Before the app is built so Sentry's FastAPI integration can hook it
 init_sentry()
@@ -115,6 +151,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Outermost: the request id is set before the route runs and echoed on the
+# way out, including when an inner middleware builds the response.
+app.add_middleware(RequestIdMiddleware)
 
 # Register all routes
 app.include_router(api_router)

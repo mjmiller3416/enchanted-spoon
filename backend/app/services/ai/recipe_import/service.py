@@ -224,7 +224,11 @@ class RecipeImportService:
             )
             image_url = self._find_og_image(html)
 
-        recipe = await self._normalize_with_ai(source_block, request.allowed_categories)
+        recipe = await self._normalize_with_ai(
+            source_block,
+            request.allowed_categories,
+            fallback=extracted is None,
+        )
 
         reference_image_data: Optional[str] = None
         if request.include_source_image and image_url:
@@ -593,7 +597,11 @@ class RecipeImportService:
     # ── AI normalization ─────────────────────────────────────────────────────
 
     async def _normalize_with_ai(
-        self, source_block: str, allowed_categories: list[str]
+        self,
+        source_block: str,
+        allowed_categories: list[str],
+        *,
+        fallback: bool = False,
     ) -> RecipeGeneratedDTO:
         """Normalize scraped content into the app's recipe shape via Gemini."""
         client = get_gemini_client(API_KEY_ENV_VAR)
@@ -614,7 +622,9 @@ class RecipeImportService:
                     "thinking_config": {"thinking_level": "minimal"},
                 },
             )
-            log_usage_metadata("recipe_import", MODEL_NAME, response)
+            log_usage_metadata(
+                "recipe_import", MODEL_NAME, response, fallback=fallback
+            )
         except Exception as e:
             logger.error(f"[RecipeImport] Gemini call failed: {e}")
             raise RecipeImportError(f"Recipe import failed: {str(e)}") from e

@@ -15,13 +15,17 @@ from app.services.ai.provider_errors import safe_ai_error
 from app.services.ai.usage_logging import log_usage_metadata
 from app.services.ai.config import ASSISTANT_MAX_OUTPUT_TOKENS, MINIMAL_THINKING, PLANNING_MAX_OUTPUT_TOKENS
 
-from .prompts import BASE_SYSTEM_PROMPT, MODEL_NAME, API_KEY_ENV_VAR
-from .tools import TOOL_DEFINITIONS
 from .context import (
     build_user_context_prompt,
     should_include_ingredients,
     should_include_shopping_list,
 )
+from .prompts import BASE_SYSTEM_PROMPT, MODEL_NAME, API_KEY_ENV_VAR
+from .tools import TOOL_DEFINITIONS
+
+# One turn is a user message plus the assistant reply that follows it.
+# The system prompt is added separately and is not part of this cap.
+CHAT_HISTORY_MAX_TURNS = 10
 
 # Persists a batch of shopping items for the current user; None means the write failed
 ShoppingItemAdder = Callable[
@@ -33,6 +37,25 @@ RecipeCatalogLoader = Callable[[], List[dict]]
 
 # Creates the planned meals and adds them to the user's planner; raises on failure
 PlannerMealAdder = Callable[[List[MealCreateDTO]], List[PlannerEntryResponseDTO]]
+
+
+def limit_chat_history(
+    history: Optional[List[AssistantMessageDTO]],
+    max_turns: int = CHAT_HISTORY_MAX_TURNS,
+) -> Optional[List[AssistantMessageDTO]]:
+    """Keep the last ``max_turns`` turns sent to the model.
+
+    A turn starts at a user message and includes the assistant replies that
+    follow it. The system prompt is not in this list.
+    """
+    if not history or max_turns < 1:
+        return history
+    user_indexes = [index for index, message in enumerate(history) if message.role == "user"]
+    if not user_indexes:
+        return list(history[-max_turns:])
+    if len(user_indexes) <= max_turns:
+        return list(history)
+    return list(history[user_indexes[-max_turns]:])
 
 
 class AssistantServiceCore:
@@ -77,6 +100,9 @@ class AssistantServiceCore:
         """
         try:
             client = get_gemini_client(API_KEY_ENV_VAR)
+
+            # Older turns stay on the client. The model only sees the tail.
+            conversation_history = limit_chat_history(conversation_history)
 
             # Build context based on message content
             user_context = self._build_context(
@@ -181,6 +207,7 @@ class AssistantServiceCore:
                 }
             )
 
+        history = limit_chat_history(history)
         if history:
             for msg in history:
                 role = "user" if msg.role == "user" else "model"

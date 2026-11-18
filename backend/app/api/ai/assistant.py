@@ -19,6 +19,7 @@ from app.dtos.assistant_dtos import (
     AssistantRecipeResponseDTO,
 )
 from app.services.ai.assistant import get_assistant_service
+from app.services.ai.assistant.service import limit_chat_history
 from app.services.ai.assistant.context import (
     should_include_ingredients,
     should_include_shopping_list,
@@ -65,12 +66,14 @@ async def chat_with_assistant(
     shopping_service = ShoppingService(session, kitchen_id)
     planner_service = PlannerService(session, kitchen_id)
     try:
-        # Convert history to dict format for keyword detection
+        # The model only sees the last few turns. Context loading uses the
+        # same window so an old message cannot pull extra kitchen data in.
+        history = limit_chat_history(body.conversation_history)
         history_dicts = None
-        if body.conversation_history:
+        if history:
             history_dicts = [
                 {"role": m.role, "content": m.content}
-                for m in body.conversation_history
+                for m in history
             ]
 
         # Determine what context to load based on message content
@@ -90,7 +93,7 @@ async def chat_with_assistant(
         service = get_assistant_service()
         result = await service.chat(
             message=body.message,
-            conversation_history=body.conversation_history,
+            conversation_history=history,
             user_context_data=context_data,
             add_shopping_items=shopping_service.add_manual_items,
             load_recipe_catalog=context_builder.build_recipe_catalog,
@@ -107,11 +110,10 @@ async def chat_with_assistant(
 
         # Chat creates recipe text only. Photos are an explicit recipe action.
 
-        # Track usage (silent fail - don't break AI feature for tracking issues)
+        # The first model call was reserved before this handler. A follow-up,
+        # planning call, or retry reserves its own unit inside the assistant.
         try:
-            # The assistant message itself was counted by require_within_usage_limit
             usage_service = UsageService(session, current_user.id)
-            # Track recipe creation if a recipe was generated
             if recipe:
                 usage_service.increment("recipes_created")
         except Exception:
@@ -168,12 +170,12 @@ async def generate_recipe(
     Consider using /chat instead, which handles recipe generation automatically.
     """
     try:
-        # Convert history to dict format for keyword detection
+        history = limit_chat_history(body.conversation_history)
         history_dicts = None
-        if body.conversation_history:
+        if history:
             history_dicts = [
                 {"role": m.role, "content": m.content}
-                for m in body.conversation_history
+                for m in history
             ]
 
         # Determine what context to load
@@ -195,7 +197,7 @@ async def generate_recipe(
         service = get_assistant_service()
         result = await service.chat(
             message=body.message,
-            conversation_history=body.conversation_history,
+            conversation_history=history,
             user_context_data=context_data,
         )
 
@@ -224,11 +226,10 @@ async def generate_recipe(
         reference_image_data = None
         banner_image_data = None
 
-        # Track usage (silent fail - don't break AI feature for tracking issues)
+        # The first model call was reserved before this handler. Further
+        # billed calls in the turn reserve their own units.
         try:
-            # The assistant message itself was counted by require_within_usage_limit
             usage_service = UsageService(session, current_user.id)
-            # Track recipe creation if a recipe was generated
             if recipe:
                 usage_service.increment("recipes_created")
         except Exception:

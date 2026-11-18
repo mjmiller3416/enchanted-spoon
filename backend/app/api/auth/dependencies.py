@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from ...core.auth_config import AuthSettings, get_auth_settings
 from ...core.observability import set_user as set_error_reporting_user
 from ...core.rate_limit import enforce_pre_quota_limits
+from ...core.request_context import bind_usage_user_id
 from ...core.usage_limits import (
     admin_exempt_emails,
     can_mutate_admin,
@@ -28,6 +29,12 @@ from ...services.household.scope import effective_access
 from ...services.household.usage_meter import bind_household_meter
 from ...database.db import get_session
 from ...models.user import User
+from ...services.ai.chat_usage import (
+    ChatUsageLedger,
+    bind_chat_usage_ledger,
+    release_open_additional_billed_calls,
+    reset_chat_usage_ledger,
+)
 from ...services.usage_service import UsageLimitExceededError, UsageService
 from ...services.user_service import AccountLinkError, UserService
 from .jwks import get_clerk_jwks, _get_signing_key
@@ -134,6 +141,7 @@ async def get_current_user(
             )
         user_service.touch_last_active(dev_user)
         set_error_reporting_user(dev_user.id)
+        bind_usage_user_id(dev_user.id)
         return dev_user
 
     # Bypass did not apply: a missing token is unauthenticated.
@@ -230,6 +238,7 @@ async def get_current_user(
 
     user_service.touch_last_active(user)
     set_error_reporting_user(user.id)
+    bind_usage_user_id(user.id)
     return user
 
 
@@ -352,7 +361,11 @@ def require_within_usage_limit(
         with bind_household_meter(session):
             subject, limit = usage_meter(user, field)
         tier = subject.usage_tier
-        usage_service = UsageService(session, subject.id, window=usage_window_for(subject))
+        # Cost logs name the account that is charged. For a shared household
+        # that is the owner; otherwise it is the person making the request.
+        bind_usage_user_id(subject.id)
+        usage_window = usage_window_for(subject)
+        usage_service = UsageService(session, subject.id, window=usage_window)
         try:
             usage_service.reserve(field, limit)
         except UsageLimitExceededError as e:
@@ -379,14 +392,42 @@ def require_within_usage_limit(
                 },
             )
 
+        # The reserve above is the first billed call. Chat follow-ups, planning
+        # calls, and retries reserve another unit on this same row.
+        ledger_token = None
+        if field == "ai_assistant_messages":
+            ledger_token = bind_chat_usage_ledger(
+                ChatUsageLedger(
+                    session=session,
+                    user_id=subject.id,
+                    field=field,
+                    limit=limit,
+                    window=usage_window,
+                )
+            )
         try:
-            yield user
-        except Exception:
             try:
-                usage_service.release(field)
+                yield user
             except Exception:
-                logger.exception("Failed to refund %s usage for user %s", field, user.id)
-            raise
+                # Extras still open failed with the request. A call that
+                # already succeeded, or a unit already refunded, is not in
+                # this list, so it is released at most once.
+                try:
+                    release_open_additional_billed_calls()
+                except Exception:
+                    logger.exception(
+                        "Failed to refund additional %s usage for user %s",
+                        field,
+                        user.id,
+                    )
+                try:
+                    usage_service.release(field)
+                except Exception:
+                    logger.exception("Failed to refund %s usage for user %s", field, user.id)
+                raise
+        finally:
+            if ledger_token is not None:
+                reset_chat_usage_ledger(ledger_token)
 
     return _reserve_usage
 
