@@ -154,6 +154,16 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # R8 mapping for the same release. Download this and upload it in Play
+      # Console as the deobfuscation file for this versionCode. This workflow
+      # does not send it to Play.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: enchanted-spoon-${{ inputs.track }}-mapping
+          path: frontend/android/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Upload to the Play testing track
         if: ${{ inputs.upload }}
         uses: r0adkll/upload-google-play@v1.1.5

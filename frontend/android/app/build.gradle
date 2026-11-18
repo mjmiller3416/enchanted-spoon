@@ -86,12 +86,19 @@ android {
         }
     }
     buildTypes {
+        debug {
+            minifyEnabled false
+        }
         release {
             if (signingReady) {
                 signingConfig signingConfigs.release
             }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 writes app/build/outputs/mapping/release/mapping.txt.
+            // The Android release workflow uploads that file as an artifact.
+            // Upload it to Play with the AAB; this project does not do that.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     // Play releases are Android App Bundles from `bundleRelease`
