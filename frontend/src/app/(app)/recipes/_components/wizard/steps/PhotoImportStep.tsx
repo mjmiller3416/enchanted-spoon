@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Camera, Images, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,18 +13,6 @@ export interface PhotoImportDraft {
 }
 
 function ImportProgress({ onCancel }: { onCancel: () => void }) {
-  const [progress, setProgress] = useState(8);
-
-  useEffect(() => {
-    const started = performance.now();
-    const timer = window.setInterval(() => {
-      const elapsed = performance.now() - started;
-      const next = Math.min(90, Math.round(8 + (1 - Math.exp(-elapsed / 8000)) * 82));
-      setProgress(next);
-    }, 200);
-    return () => window.clearInterval(timer);
-  }, []);
-
   return (
     <Card role="status" aria-live="polite">
       <CardContent className="space-y-3 py-4">
@@ -32,7 +20,7 @@ function ImportProgress({ onCancel }: { onCancel: () => void }) {
           <Loader2 className="size-4 animate-spin text-primary" strokeWidth={1.5} />
           <p className="text-sm font-medium text-foreground">Reading the recipe…</p>
         </div>
-        <Progress value={progress} aria-label="Import progress" />
+        <Progress value={40} aria-label="Import progress" />
         <p className="text-sm text-muted-foreground">
           This usually takes a few seconds. You can cancel and your photos stay here.
         </p>
