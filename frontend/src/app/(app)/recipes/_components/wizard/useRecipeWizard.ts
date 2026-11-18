@@ -11,6 +11,13 @@ import { v4 as uuidv4 } from "uuid";
 
 import { recipeApi, ingredientApi, recipeGenerationApi, recipeImportApi, ApiError } from "@/lib/api";
 import { maybeHandleAiGateError } from "@/lib/paywall";
+import {
+  MAX_PHOTO_COUNT,
+  photoImportErrorMessage,
+  photoImportMessages,
+  prepareRecipePhoto,
+  PhotoImportClientError,
+} from "@/lib/photo-import";
 import { invalidateRecipeDependents } from "@/hooks/api/invalidateRecipeDependents";
 import { RecipeCreateUncertainError, saveRecipeDraft, type RecipeSaveCheckpoint } from "@/lib/recipe-save";
 import { setNavigationBypass } from "@/hooks/ui/useUnsavedChanges";
@@ -157,6 +164,27 @@ export function useRecipeWizard({
   const [importedSourceUrl, setImportedSourceUrl] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
+  // Photo import state. Previews stay local and are not uploaded on save.
+  // ---------------------------------------------------------------------------
+  interface ImportPhoto {
+    id: string;
+    name: string;
+    previewUrl: string;
+    file: File;
+  }
+  const [importPhotos, setImportPhotos] = useState<ImportPhoto[]>([]);
+  const importPhotosRef = useRef<ImportPhoto[]>([]);
+  importPhotosRef.current = importPhotos;
+  const [isPreparingPhotos, setIsPreparingPhotos] = useState(false);
+  const [isImportingPhoto, setIsImportingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoCanRetry, setPhotoCanRetry] = useState(false);
+  const photoInFlightRef = useRef(false);
+  const photoPreparingRef = useRef(false);
+  const photoAbortRef = useRef<AbortController | null>(null);
+  const photoRequestRef = useRef(0);
+
+  // ---------------------------------------------------------------------------
   // Available ingredients (autocomplete)
   // ---------------------------------------------------------------------------
   const [availableIngredients, setAvailableIngredients] = useState<AutocompleteIngredient[]>([]);
@@ -213,7 +241,7 @@ export function useRecipeWizard({
       }
 
       // Step 2 AI/import modes: no form validation
-      if (step === 2 && (creationMethod === "ai-generate" || creationMethod === "url-import")) {
+      if (step === 2 && (creationMethod === "ai-generate" || creationMethod === "url-import" || creationMethod === "photo-import")) {
         return true;
       }
 
@@ -269,7 +297,7 @@ export function useRecipeWizard({
         }
         // Import replaces "Next" with its own footer button until it succeeds
         // (success flips the method to "manual", showing the basics form).
-        if (creationMethod === "url-import") {
+        if (creationMethod === "url-import" || creationMethod === "photo-import") {
           return false;
         }
         return (
@@ -681,6 +709,125 @@ export function useRecipeWizard({
     }
   }, [importUrl, importCaption, isImporting, getToken, populateFromGeneration]);
 
+  const releaseImportPhotos = useCallback((photos: ImportPhoto[]) => {
+    for (const photo of photos) URL.revokeObjectURL(photo.previewUrl);
+  }, []);
+
+  const cancelPhotoImport = useCallback(() => {
+    photoRequestRef.current += 1;
+    photoAbortRef.current?.abort();
+    photoAbortRef.current = null;
+    photoInFlightRef.current = false;
+    setIsImportingPhoto(false);
+  }, []);
+
+  const handleAddImportPhotos = useCallback(async (files: File[]): Promise<void> => {
+    if (files.length === 0 || photoInFlightRef.current || photoPreparingRef.current) return;
+    photoPreparingRef.current = true;
+    const requestId = photoRequestRef.current;
+    setIsPreparingPhotos(true);
+    setPhotoError(null);
+    setPhotoCanRetry(false);
+    const accepted: ImportPhoto[] = [];
+    let problem: string | null = null;
+    try {
+      for (const file of files) {
+        if (importPhotosRef.current.length + accepted.length >= MAX_PHOTO_COUNT) {
+          problem = photoImportMessages.limit;
+          break;
+        }
+        try {
+          const prepared = await prepareRecipePhoto(file);
+          accepted.push({
+            id: uuidv4(),
+            name: file.name || "Photo",
+            previewUrl: URL.createObjectURL(prepared.file),
+            file: prepared.file,
+          });
+        } catch (error) {
+          problem = error instanceof PhotoImportClientError
+            ? error.message
+            : photoImportMessages.unreadable;
+        }
+      }
+      if (photoRequestRef.current !== requestId) {
+        releaseImportPhotos(accepted);
+        return;
+      }
+      if (accepted.length > 0) {
+        setImportPhotos((current) => [...current, ...accepted].slice(0, MAX_PHOTO_COUNT));
+      }
+      if (problem) setPhotoError(problem);
+    } finally {
+      if (photoRequestRef.current === requestId) {
+        photoPreparingRef.current = false;
+        setIsPreparingPhotos(false);
+      }
+    }
+  }, [releaseImportPhotos]);
+
+  const removeImportPhoto = useCallback((id: string) => {
+    if (photoInFlightRef.current) return;
+    setImportPhotos((current) => {
+      const target = current.find((photo) => photo.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return current.filter((photo) => photo.id !== id);
+    });
+    setPhotoError(null);
+    setPhotoCanRetry(false);
+  }, []);
+
+  const handlePhotoImport = useCallback(async (allowedCategories: string[] = []): Promise<void> => {
+    if (photoInFlightRef.current || photoPreparingRef.current) return;
+    const photos = importPhotosRef.current;
+    if (photos.length === 0) return;
+
+    photoInFlightRef.current = true;
+    const requestId = ++photoRequestRef.current;
+    const controller = new AbortController();
+    photoAbortRef.current = controller;
+    setIsImportingPhoto(true);
+    setPhotoError(null);
+    setPhotoCanRetry(false);
+
+    try {
+      const token = await getToken();
+      if (photoRequestRef.current !== requestId) return;
+      const response = await recipeImportApi.importFromPhotos(
+        photos.map((photo) => photo.file),
+        allowedCategories,
+        token,
+        controller.signal,
+      );
+      if (photoRequestRef.current !== requestId) return;
+      if (!response.success || !response.recipe) {
+        const failure = new PhotoImportClientError(response.error || photoImportMessages.generic);
+        setPhotoError(photoImportErrorMessage(failure) ?? photoImportMessages.generic);
+        setPhotoCanRetry(true);
+        return;
+      }
+      populateFromGeneration(response, { imagesAreAiGenerated: false });
+      setRecipeIsAiGenerated(false);
+      setExtrasDirty(true);
+      setCreationMethod("manual");
+      setCurrentStep(2);
+      toast.success(`"${response.recipe.recipe_name}" imported — review and edit below.`);
+    } catch (error) {
+      if (photoRequestRef.current !== requestId) return;
+      const message = photoImportErrorMessage(error);
+      if (!message) return;
+      maybeHandleAiGateError(error);
+      setPhotoError(message);
+      setPhotoCanRetry(true);
+    } finally {
+      if (photoRequestRef.current === requestId) {
+        photoInFlightRef.current = false;
+        photoAbortRef.current = null;
+        setIsImportingPhoto(false);
+      }
+    }
+  }, [getToken, populateFromGeneration]);
+
   const shareImportStarted = useRef(false);
   useEffect(() => {
     if (!initialImportUrl || shareImportStarted.current) return;
@@ -722,9 +869,10 @@ export function useRecipeWizard({
       generatedRecipe ||
       importUrl.trim() ||
       importCaption.trim() ||
-      importedSourceUrl
+      importedSourceUrl ||
+      importPhotos.length > 0
     );
-  }, [isEditMode, formIsDirty, extrasDirty, watchedRecipeName, watchedDescription, watchedIngredients, watchedDirections, imagePreview, nutritionFacts, aiPrompt, generatedRecipe, importUrl, importCaption, importedSourceUrl]);
+  }, [isEditMode, formIsDirty, extrasDirty, watchedRecipeName, watchedDescription, watchedIngredients, watchedDirections, imagePreview, nutritionFacts, aiPrompt, generatedRecipe, importUrl, importCaption, importedSourceUrl, importPhotos.length]);
 
   // ---------------------------------------------------------------------------
   // Reset wizard to initial state
@@ -755,10 +903,22 @@ export function useRecipeWizard({
     setIsImporting(false);
     setImportError(null);
     setImportedSourceUrl(null);
+    photoRequestRef.current += 1;
+    photoAbortRef.current?.abort();
+    photoAbortRef.current = null;
+    photoInFlightRef.current = false;
+    photoPreparingRef.current = false;
+    releaseImportPhotos(importPhotosRef.current);
+    importPhotosRef.current = [];
+    setImportPhotos([]);
+    setIsPreparingPhotos(false);
+    setIsImportingPhoto(false);
+    setPhotoError(null);
+    setPhotoCanRetry(false);
     setOriginalImagePath(null);
     setOriginalBannerPath(null);
     setExtrasDirty(false);
-  }, [form]);
+  }, [form, releaseImportPhotos]);
 
   // ---------------------------------------------------------------------------
   // Submit
@@ -1005,6 +1165,17 @@ export function useRecipeWizard({
     isImporting,
     importError,
     handleWizardImport,
+
+    // Photo import
+    importPhotos,
+    isPreparingPhotos,
+    isImportingPhoto,
+    photoError,
+    photoCanRetry,
+    handleAddImportPhotos,
+    removeImportPhoto,
+    handlePhotoImport,
+    cancelPhotoImport,
 
     // Autocomplete data
     availableIngredients,

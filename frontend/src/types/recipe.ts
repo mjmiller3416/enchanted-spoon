@@ -290,7 +290,7 @@ export interface CookingStreakDTO {
 // Recipe Wizard Types
 // ============================================================================
 
-export type WizardCreationMethod = "manual" | "ai-generate" | "url-import" | "file-import";
+export type WizardCreationMethod = "manual" | "ai-generate" | "url-import" | "photo-import" | "file-import";
 
 export type WizardStep = 1 | 2 | 3 | 4 | 5;
 

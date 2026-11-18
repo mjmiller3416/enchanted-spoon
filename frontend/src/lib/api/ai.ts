@@ -14,6 +14,7 @@ import type {
   RecipeImportRequestDTO,
   RecipeImportResponseDTO,
 } from "@/types/ai";
+import { postPhotoImport } from "@/lib/photo-import";
 import { AI_TIMEOUT_MS, fetchApi } from "./base";
 
 export const imageGenerationApi = {
@@ -160,6 +161,18 @@ export const recipeImportApi = {
       token,
       AI_TIMEOUT_MS
     ),
+
+  /**
+   * Import one recipe from 1–4 photos. Nothing is saved until the wizard saves.
+   * Pass an AbortSignal to cancel. The chosen files stay with the caller.
+   */
+  importFromPhotos: (
+    images: File[],
+    allowedCategories: string[] = [],
+    token?: string | null,
+    signal?: AbortSignal,
+  ): Promise<RecipeImportResponseDTO> =>
+    postPhotoImport(images, allowedCategories, token, signal),
 };
 
 export const AssistantApi = {

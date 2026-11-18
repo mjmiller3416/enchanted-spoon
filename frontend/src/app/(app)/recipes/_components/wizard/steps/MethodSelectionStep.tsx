@@ -1,6 +1,6 @@
 "use client";
 
-import { PenLine, Upload, Link, Sparkles } from "lucide-react";
+import { PenLine, Upload, Link, Sparkles, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import type { WizardCreationMethod } from "@/types/recipe";
 interface MethodSelectionStepProps {
   selectedMethod: WizardCreationMethod | null;
   onSelect: (method: WizardCreationMethod) => void;
+  /** Off unless NEXT_PUBLIC_PHOTO_IMPORT_ENABLED is true. */
+  photoImportEnabled?: boolean;
 }
 
 interface MethodOption {
@@ -19,6 +21,15 @@ interface MethodOption {
   isAvailable: boolean;
   isNew?: boolean;
 }
+
+const PHOTO_IMPORT_OPTION: MethodOption = {
+  method: "photo-import",
+  icon: <Camera className="size-6" strokeWidth={1.5} />,
+  title: "Import from photo",
+  description: "Snap a recipe card or cookbook page. You can review and edit everything before saving.",
+  isAvailable: true,
+  isNew: true,
+};
 
 const METHOD_OPTIONS: MethodOption[] = [
   {
@@ -55,7 +66,12 @@ const METHOD_OPTIONS: MethodOption[] = [
 export function MethodSelectionStep({
   selectedMethod,
   onSelect,
+  photoImportEnabled = false,
 }: MethodSelectionStepProps) {
+  const options = photoImportEnabled
+    ? [METHOD_OPTIONS[0], PHOTO_IMPORT_OPTION, ...METHOD_OPTIONS.slice(1)]
+    : METHOD_OPTIONS;
+
   return (
     <div className="space-y-6">
       {/* Subtitle only — title comes from the wizard header */}
@@ -64,7 +80,7 @@ export function MethodSelectionStep({
       </p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 [@media(max-height:32rem)]:grid-cols-1">
-        {METHOD_OPTIONS.map((option) => {
+        {options.map((option) => {
           const isSelected = selectedMethod === option.method;
           const isDisabled = !option.isAvailable;
 

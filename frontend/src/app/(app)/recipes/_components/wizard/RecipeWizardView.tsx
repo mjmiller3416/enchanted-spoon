@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Link, Loader2, RotateCcw, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, Link, Loader2, RotateCcw, Save, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Form } from "@/components/ui/form";
 import { useCategories } from "@/hooks/api/useCategories";
+import { isPhotoImportEnabled, MAX_PHOTO_COUNT } from "@/lib/photo-import";
 import type { RecipeGenerationResponseDTO } from "@/types/ai";
 import { useRecipeWizard } from "./useRecipeWizard";
 import { useUnsavedChanges } from "@/hooks/ui/useUnsavedChanges";
@@ -35,6 +36,7 @@ import {
   NutritionStep,
   AIGenerateStep,
   UrlImportStep,
+  PhotoImportStep,
 } from "./steps";
 
 // ============================================================================
@@ -203,7 +205,9 @@ export function RecipeWizardView({
                 ? "AI Recipe Generator"
                 : wizard.currentStep === 2 && wizard.creationMethod === "url-import"
                   ? "Import from URL"
-                  : STEP_TITLES[wizard.currentStep - 1]}
+                  : wizard.currentStep === 2 && wizard.creationMethod === "photo-import"
+                    ? "Snap a recipe"
+                    : STEP_TITLES[wizard.currentStep - 1]}
             </DialogTitle>
             <DialogDescription>
               Step {displayStep} of {totalVisibleSteps}
@@ -242,6 +246,7 @@ export function RecipeWizardView({
           {!isLoadingRecipe && wizard.currentStep === 1 && (
             <MethodSelectionStep
               selectedMethod={wizard.creationMethod}
+              photoImportEnabled={isPhotoImportEnabled()}
               onSelect={(method) => {
                 wizard.setCreationMethod(method);
                 wizard.goToStep(2);
@@ -276,6 +281,19 @@ export function RecipeWizardView({
                 setCaption={wizard.setImportCaption}
                 onSubmit={wizard.handleWizardImport}
               />
+            ) : wizard.creationMethod === "photo-import" ? (
+              <PhotoImportStep
+                photos={wizard.importPhotos}
+                maxPhotos={MAX_PHOTO_COUNT}
+                isPreparing={wizard.isPreparingPhotos}
+                isImporting={wizard.isImportingPhoto}
+                error={wizard.photoError}
+                canRetry={wizard.photoCanRetry}
+                onAddFiles={(files) => { void wizard.handleAddImportPhotos(files); }}
+                onRemove={wizard.removeImportPhoto}
+                onRetry={() => { void wizard.handlePhotoImport(categories.map((category) => category.value)); }}
+                onCancel={wizard.cancelPhotoImport}
+              />
             ) : (
               <RecipeBasicsStep
                 imagePreview={wizard.imagePreview}
@@ -283,6 +301,7 @@ export function RecipeWizardView({
                 onImageUpload={wizard.handleImageUpload}
                 onGeneratedImageAccept={wizard.handleGeneratedImageAccept}
                 onBannerOnlyAccept={wizard.handleBannerOnlyAccept}
+                importedPhotos={wizard.importPhotos}
               />
             )
           )}
@@ -406,8 +425,30 @@ export function RecipeWizardView({
                 </Button>
               )}
 
-              {/* Steps 2-4: Next Step (not shown for AI generate / URL import steps) */}
-              {currentStep > 1 && currentStep < TOTAL_STEPS && !(currentStep === 2 && (wizard.creationMethod === "ai-generate" || wizard.creationMethod === "url-import")) && (
+              {/* Step 2 photo import */}
+              {currentStep === 2 && wizard.creationMethod === "photo-import" && (
+                <Button
+                  type="button"
+                  onClick={() => { void wizard.handlePhotoImport(categories.map((category) => category.value)); }}
+                  disabled={wizard.importPhotos.length === 0 || wizard.isImportingPhoto || wizard.isPreparingPhotos}
+                  aria-busy={wizard.isImportingPhoto}
+                >
+                  {wizard.isImportingPhoto ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" strokeWidth={1.5} />
+                      Reading…
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="size-4" strokeWidth={1.5} />
+                      Read recipe
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {/* Steps 2-4: Next Step (not shown for generate / import steps) */}
+              {currentStep > 1 && currentStep < TOTAL_STEPS && !(currentStep === 2 && (wizard.creationMethod === "ai-generate" || wizard.creationMethod === "url-import" || wizard.creationMethod === "photo-import")) && (
                 <Button
                   type="button"
                   onClick={wizard.nextStep}

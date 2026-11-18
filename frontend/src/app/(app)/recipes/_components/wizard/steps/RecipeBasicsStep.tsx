@@ -28,6 +28,11 @@ import type { WizardFormValues } from "../wizardSchema";
 // Props (image handlers only — form data via useFormContext)
 // ============================================================================
 
+interface ImportedPhotoPreview {
+  id: string;
+  previewUrl: string;
+}
+
 interface RecipeBasicsStepProps {
   imagePreview: string | null;
   isAiGenerated: boolean;
@@ -38,6 +43,8 @@ interface RecipeBasicsStepProps {
     bannerBase64?: string
   ) => void;
   onBannerOnlyAccept: (bannerBase64: string) => void;
+  /** Local photos from an import. They are not uploaded when the recipe is saved. */
+  importedPhotos?: ImportedPhotoPreview[];
 }
 
 // ============================================================================
@@ -50,6 +57,7 @@ export function RecipeBasicsStep({
   onImageUpload,
   onGeneratedImageAccept,
   onBannerOnlyAccept,
+  importedPhotos = [],
 }: RecipeBasicsStepProps) {
   const form = useFormContext<WizardFormValues>();
   const { formOptions: categoryOptions } = useCategoryOptions();
@@ -61,6 +69,26 @@ export function RecipeBasicsStep({
       Layout: flex row with fixed-width image column + fluid form column.
       On mobile (<md), stacks vertically with image centered.
     */
+    <div className="space-y-4">
+    {importedPhotos.length > 0 && (
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-foreground">Photos from this import</p>
+        <ul className="flex gap-2 overflow-x-auto">
+          {importedPhotos.map((photo, index) => (
+            <li key={photo.id} className="shrink-0">
+              <img
+                src={photo.previewUrl}
+                alt={`Imported photo ${index + 1}`}
+                className="h-20 w-16 rounded-md bg-muted object-contain"
+              />
+            </li>
+          ))}
+        </ul>
+        <p className="text-sm text-muted-foreground">
+          These stay on this device and are not saved with the recipe.
+        </p>
+      </div>
+    )}
     <div className="flex flex-col md:flex-row gap-6">
       {/* ── Left column — Image (fixed width, 1:1 aspect ratio) ───── */}
       <div className="w-full md:w-60 shrink-0 overflow-hidden">
@@ -290,6 +318,7 @@ export function RecipeBasicsStep({
           />
         </div>
       </div>
+    </div>
     </div>
   );
 }

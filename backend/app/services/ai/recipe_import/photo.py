@@ -46,6 +46,27 @@ logger = logging.getLogger(__name__)
 
 _ACCEPTED_FORMATS = {"JPEG", "PNG", "WEBP", "MPO"}
 _JPEG_QUALITIES = (85, 70, 55)
+# Brands in an ISO BMFF `ftyp` box. iPhone libraries still hand these out.
+_HEIC_BRANDS = {
+    b"heic",
+    b"heix",
+    b"hevc",
+    b"hevx",
+    b"heim",
+    b"heis",
+    b"heif",
+    b"mif1",
+    b"msf1",
+}
+
+
+def _looks_like_heic(data: bytes) -> bool:
+    """True when the bytes are a HEIC/HEIF container, which this import cannot read."""
+    window = data[:64]
+    index = window.find(b"ftyp")
+    if index < 0 or index + 8 > len(window):
+        return False
+    return window[index + 4 : index + 8] in _HEIC_BRANDS
 
 
 class PhotoImportImageError(RecipeImportError):
@@ -71,6 +92,10 @@ def prepare_recipe_photo(data: bytes) -> bytes:
         raise PhotoImportImageError("That photo is empty.")
     if len(data) > MAX_PHOTO_UPLOAD_BYTES:
         raise PhotoImportTooLargeError("That photo is too large (10 MB max).")
+    if _looks_like_heic(data):
+        raise PhotoImportImageError(
+            "This photo is HEIC. Use a JPEG, PNG, or WebP photo."
+        )
 
     try:
         with Image.open(io.BytesIO(data)) as opened:
