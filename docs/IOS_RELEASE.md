@@ -1,6 +1,6 @@
 # iOS TestFlight release (no Mac)
 
-The iOS app is the Capacitor shell `com.enchantedspoon.app` under `frontend/ios/`. It loads the hosted site. This is the owner runbook for the one App Store Connect API key, the four GitHub secrets, the App Store Connect app record, and the manual TestFlight workflow.
+The iOS app is the Capacitor shell `com.enchantedspoon.app` under `frontend/ios/`. It loads the hosted site. This is the owner runbook for the one App Store Connect API key, the GitHub secrets, the App Store Connect app record, and the manual TestFlight workflow.
 
 There is no local Mac in this setup. Signing happens on a GitHub-hosted `macos-latest` runner. Do not create a second certificate repo, and do not commit a `.p8`, a `.p12`, or a provisioning profile.
 
@@ -44,7 +44,9 @@ Xcode automatic signing with Apple's cloud-managed distribution certificate.
 
 The archive uses automatic signing for `com.enchantedspoon.app` and the share extension `com.enchantedspoon.app.share`. The export step re-signs for App Store distribution. Apple holds the distribution private key. It is not a GitHub secret and it is not in the repo.
 
-**fastlane match is the option that was not taken.** Match stores the distribution private key in a private git repo. That adds a second repository, a git credential, and `MATCH_PASSWORD`, and it still needs this same API key. The owner has no Mac to babysit that repo. Cloud signing needs the four secrets below and nothing else.
+The App target's Debug and Release configurations in `frontend/ios/App/App.xcodeproj/project.pbxproj` set `DEVELOPMENT_TEAM` to `FVTC8T7SB2` and keep `CODE_SIGN_STYLE = Automatic`. `FVTC8T7SB2` is Mitchell's individual Apple Developer team. A Team ID is not a secret and it is not a signing key. The release lane writes that same team onto the share extension in the CI checkout. When the `APPLE_TEAM_ID` secret is set, it overrides `FVTC8T7SB2` for that run. When the secret is unset, fastlane and `.github/workflows/ios-release.yml` use `FVTC8T7SB2`.
+
+**fastlane match is the option that was not taken.** Match stores the distribution private key in a private git repo. That adds a second repository, a git credential, and `MATCH_PASSWORD`, and it still needs this same API key. The owner has no Mac to babysit that repo. Cloud signing needs the API key secrets below. The team id does not need a secret.
 
 One caveat: the archive can still create an Apple Development certificate on that runner so the archive has a signature. The private key for that development certificate dies with the runner. Export then uses the cloud distribution certificate, which is reused. If the account later hits Apple's development-certificate cap, revoke old **Apple Development** certificates in [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/certificates/list). Do not revoke the cloud **Apple Distribution** certificate unless you intend to.
 
@@ -65,7 +67,7 @@ The account holder needs an active Apple Developer Program membership. This is d
 
 Also copy the **Key ID** from the keys table (10 characters). That is `APP_STORE_CONNECT_API_KEY_ID`.
 
-## 2. Add the four GitHub secrets
+## 2. Add the GitHub secrets
 
 Repository → **Settings → Secrets and variables → Actions → New repository secret**.
 
@@ -74,7 +76,7 @@ Repository → **Settings → Secrets and variables → Actions → New reposito
 | `APP_STORE_CONNECT_API_KEY_ID` | Key ID from the keys table. 10 characters. |
 | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID from the top of the App Store Connect API page. |
 | `APP_STORE_CONNECT_API_KEY_P8` | Base64 of the `.p8` file. One line, no quotes. |
-| `APPLE_TEAM_ID` | Team ID from [developer.apple.com/account](https://developer.apple.com/account) → Membership details. 10 characters. It is not the Issuer ID. |
+| `APPLE_TEAM_ID` | Optional. When unset, the workflow and fastlane use `FVTC8T7SB2` (Mitchell's individual team, the same value as `DEVELOPMENT_TEAM` on the App target). Set this secret only to override that default. 10 characters from [developer.apple.com/account](https://developer.apple.com/account) → Membership details. It is not the Issuer ID. |
 
 No other secrets. There is no Apple ID password, no app-specific password, no `.p12`, and no match password.
 
@@ -138,7 +140,7 @@ The account holder also has to open **Business → Agreements** and accept the P
 
 What the job does:
 
-1. Fails immediately if any of the four secrets is missing.
+1. Fails immediately if any of the three API key secrets is missing. `APPLE_TEAM_ID` may be unset; the job then uses `FVTC8T7SB2`.
 2. Installs fastlane and checks the API key against App Store Connect (this fails before the Xcode archive if the app record or the key is wrong).
 3. `npm ci` in `frontend/`.
 4. Checks the web asset `frontend/mobile/www/index.html`, then `npx cap sync ios` with `CAPACITOR_SERVER_URL=https://enchantedspoon.app`. The Next.js production build is not inside the IPA. The WebView loads the hosted site. `frontend/mobile/www` is the fallback page Capacitor copies in.
@@ -154,7 +156,7 @@ The job stops when the upload is accepted. Apple still processes the binary for 
 
 | What you see | What to do |
 | --- | --- |
-| `Missing GitHub Actions secret` | Add the four secrets in section 2. The archive does not start. |
+| `Missing GitHub Actions secret` | Add the API key secrets in section 2. `APPLE_TEAM_ID` may be left unset. The archive does not start. |
 | `APP_STORE_CONNECT_API_KEY_P8 is not a base64-encoded .p8` | The secret is not the base64 of the file. Re-run the PowerShell line in section 2. Do not base64 the text twice. |
 | `401`, `403`, `not authorized`, `Invalid JWT` | Key ID, Issuer ID, and `.p8` are not a matching set, or the key was revoked. Create one new Team key and replace all three secrets together. |
 | `No Accounts` or `No profiles for 'com.enchantedspoon.app'` | The API key did not reach `xcodebuild`. Confirm the key role is Admin (not App Manager) and `APPLE_TEAM_ID` is the team that owns the bundle id. |

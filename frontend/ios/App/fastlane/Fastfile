@@ -7,7 +7,8 @@
 #
 # fastlane match is not used. Match needs a private certificate repo, a git
 # credential, and MATCH_PASSWORD on top of this same API key. This lane needs
-# only the four GitHub Actions secrets named in docs/IOS_RELEASE.md.
+# the API key secrets named in docs/IOS_RELEASE.md. APPLE_TEAM_ID is optional
+# and overrides EnchantedSpoon::DEFAULT_APPLE_TEAM_ID when it is set.
 #
 # Run from frontend/ios/App:
 #   bundle exec fastlane ios preflight
@@ -224,7 +225,8 @@ def validated_issuer_id
 end
 
 def validated_team_id
-  value = ENV.fetch("APPLE_TEAM_ID").strip
+  value = ENV["APPLE_TEAM_ID"].to_s.strip
+  value = EnchantedSpoon::DEFAULT_APPLE_TEAM_ID if value.empty?
   UI.user_error!("APPLE_TEAM_ID must be the 10-character Team ID from developer.apple.com → Membership details") unless value.match?(/\A[A-Za-z0-9]{10}\z/)
   value
 end

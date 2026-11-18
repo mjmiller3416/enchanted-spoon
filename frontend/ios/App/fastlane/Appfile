@@ -3,7 +3,10 @@
 # archive; it is not a separate App Store Connect app.
 app_identifier("com.enchantedspoon.app")
 
-# Developer Team ID from the APPLE_TEAM_ID GitHub Actions secret.
-# Do not hard-code it. An empty value is normal when listing lanes locally.
+# Mitchell's individual team (EnchantedSpoon::DEFAULT_APPLE_TEAM_ID).
+# APPLE_TEAM_ID overrides it when the GitHub Actions secret is set.
+# Team IDs are not secrets. Do not put a .p8 or a certificate here.
+require_relative "signing_project"
 apple_team = ENV["APPLE_TEAM_ID"].to_s.strip
-team_id(apple_team) unless apple_team.empty?
+apple_team = EnchantedSpoon::DEFAULT_APPLE_TEAM_ID if apple_team.empty?
+team_id(apple_team)

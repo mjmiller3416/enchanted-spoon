@@ -18,7 +18,7 @@ Nothing in this repo, and no change made from here, turns Apple on. A production
 - **Website:** Clerk redirects in the page to `/sso-callback`, the same handoff Google already uses.
 - **iOS and Android shells:** the provider page opens in the system browser (`@capacitor/browser`), then Clerk returns to `enchantedspoon://sso-callback`. `NativeRuntime` loads that into `/sso-callback` on `https://enchantedspoon.app`. Google already works this way because Google rejects embedded WebViews, and Apple's web flow is built for Safari.
 
-That is Clerk's web strategy `oauth_apple`. The client id is an Apple **Services ID**, not the app bundle id. The app does not contain a Team ID, Key ID, Services ID, or the `.p8` private key, and it must not.
+That is Clerk's web strategy `oauth_apple`. The client id is an Apple **Services ID**, not the app bundle id. The app must not contain the Sign in with Apple Key ID, Services ID, or the `.p8` private key. `DEVELOPMENT_TEAM` in the Xcode project (`FVTC8T7SB2`) is only the signing team. It is not these credentials.
 
 No Capacitor Apple plugin and no `com.apple.developer.applesignin` entitlement were added. This flow does not call AuthenticationServices. Putting that entitlement in `App.entitlements` would make the next TestFlight archive fail code signing until the App ID capability is on the provisioning profile, and it would not make sign-in work any sooner. The system-browser button starts working on the current shell as soon as Clerk has the connection and this frontend is deployed.
 
