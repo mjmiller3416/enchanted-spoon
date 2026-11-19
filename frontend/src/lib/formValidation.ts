@@ -467,11 +467,23 @@ export function collectErrors<T>(
 // Unit Categorization (Matches backend app/utils/unit_conversion.py)
 // ============================================================================
 
-/** Mass units that require a quantity value */
-export const MASS_UNITS = new Set(["oz", "lbs"]);
+/** Mass units that require a quantity value, including spellings the list knows how to add. */
+export const MASS_UNITS = new Set([
+  "oz", "ounce", "ounces",
+  "lb", "lbs", "pound", "pounds", "pound(s)",
+  "g", "gram", "grams",
+  "kg", "kilogram", "kilograms",
+]);
 
-/** Volume units that require a quantity value */
-export const VOLUME_UNITS = new Set(["tsp", "tbs", "cup"]);
+/** Volume units that require a quantity value, including spellings the list knows how to add. */
+export const VOLUME_UNITS = new Set([
+  "tsp", "t", "teaspoon", "teaspoons",
+  "tbs", "tbsp", "tablespoon", "tablespoons",
+  "cup", "cups",
+  "ml", "milliliter", "milliliters", "millilitre", "millilitres",
+  "l", "liter", "liters", "litre", "litres",
+  "fl oz", "floz", "fluid ounce", "fluid ounces",
+]);
 
 /** Count units where quantity is optional */
 export const COUNT_UNITS = new Set([
@@ -485,7 +497,15 @@ export const COUNT_UNITS = new Set([
  * Count units (and unknown units) do not require quantity.
  */
 export function unitRequiresQuantity(unit: string | null | undefined): boolean {
-  const normalized = (unit ?? "").trim().toLowerCase();
+  const raw = (unit ?? "").trim();
+  // A capital T is a tablespoon. Lowercasing would make it look like a teaspoon.
+  if (raw === "T" || raw === "T.") return true;
+  const normalized = raw
+    .toLowerCase()
+    .replace(/\./g, " ")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return MASS_UNITS.has(normalized) || VOLUME_UNITS.has(normalized);
 }
 

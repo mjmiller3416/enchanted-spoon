@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn, formatQuantity } from "@/lib/utils";
+import { cn, formatShoppingAmount } from "@/lib/utils";
 import type { ShoppingItemResponseDTO } from "@/types/shopping";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,10 +39,8 @@ export function ShoppingItem({ item, pending = false, onToggle, onToggleFlagged 
     if (!pending) onToggleFlagged(item.id);
   };
 
-  // Format quantity with unit for badge display
-  const quantityBadge = item.unit
-    ? `${formatQuantity(item.quantity)} ${item.unit}`
-    : formatQuantity(item.quantity);
+  // "to taste" and a missing amount stay words. A real amount keeps its unit.
+  const quantityBadge = formatShoppingAmount(item.quantity, item.unit);
 
   // Format recipe source display
   const getRecipeSourceText = () => {
@@ -95,16 +93,18 @@ export function ShoppingItem({ item, pending = false, onToggle, onToggleFlagged 
         )}
       />
 
-      {/* Quantity badge */}
-      <Badge
-        variant={item.have ? "muted" : "outline"}
-        className={cn(
-          "whitespace-nowrap",
-          !item.have && "bg-primary/20 text-primary border-transparent"
-        )}
-      >
-        {quantityBadge}
-      </Badge>
+      {/* Quantity badge. Hidden when there is nothing to show (a blank amount). */}
+      {quantityBadge ? (
+        <Badge
+          variant={item.have ? "muted" : "outline"}
+          className={cn(
+            "whitespace-nowrap",
+            !item.have && "bg-primary/20 text-primary border-transparent"
+          )}
+        >
+          {quantityBadge}
+        </Badge>
+      ) : null}
 
       {/* Item content */}
       <div className="flex-1 min-w-0">

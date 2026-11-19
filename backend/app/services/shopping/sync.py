@@ -95,18 +95,17 @@ class SyncMixin:
                                 "planner_entry_id": entry.id,
                                 "recipe_id": contrib.recipe_id,
                                 "original_unit": contrib.original_unit,
+                                "original_units": [],
                                 "category": contrib.category,
                             }
-                        desired_contributions[agg_key][key][
-                            "base_quantity"
-                        ] += contrib.base_quantity
-                        # Keep track of original_unit (prefer non-None)
-                        if contrib.original_unit and not desired_contributions[
-                            agg_key
-                        ][key].get("original_unit"):
-                            desired_contributions[agg_key][key][
-                                "original_unit"
-                            ] = contrib.original_unit
+                        bucket = desired_contributions[agg_key][key]
+                        bucket["base_quantity"] += contrib.base_quantity
+                        # Every spelling is kept so the display unit can be chosen
+                        # from the whole set (8 oz + 1 lb → lb, not whichever came first).
+                        if contrib.original_unit:
+                            bucket["original_units"].append(contrib.original_unit)
+                            if not bucket.get("original_unit"):
+                                bucket["original_unit"] = contrib.original_unit
 
             # 3. Get current recipe items from database
             current_items = self.shopping_repo.get_items_by_aggregation_keys(
@@ -141,23 +140,24 @@ class SyncMixin:
                 sample_contrib = next(iter(contributions.values()))
                 dimension = sample_contrib["dimension"]
 
-                # Find the first non-None original_unit from all contributions
+                # Every source spelling, so mixed units pick a sensible display unit.
+                source_units = []
                 original_unit = None
                 for contrib_data in contributions.values():
-                    if contrib_data.get("original_unit"):
+                    source_units.extend(contrib_data.get("original_units") or [])
+                    if original_unit is None and contrib_data.get("original_unit"):
                         original_unit = contrib_data["original_unit"]
-                        break
 
-                # Get ingredient info from the aggregation key
-                parts = agg_key.split("::")
-                ingredient_name = parts[0] if parts else "Unknown"
+                # Get ingredient info from the aggregation key.
+                # Split on the first "::" only: discrete buckets look like "u:clove".
+                name_part, _, _bucket = agg_key.partition("::")
+                ingredient_name = (name_part or "Unknown").capitalize()
 
                 # Read category from the contribution data (already fetched via FK join)
                 category = sample_contrib.get("category")
 
-                # Calculate display quantity (pass original_unit for unit preservation)
                 display_qty, display_unit = to_display_unit(
-                    total_base_qty, dimension, original_unit
+                    total_base_qty, dimension, original_unit, source_units
                 )
 
                 # Apply ingredient-specific conversion rules
@@ -172,7 +172,7 @@ class SyncMixin:
 
                     # Update quantity and unit
                     item.quantity = display_qty
-                    item.unit = display_unit[:50] if display_unit else display_unit
+                    item.unit = display_unit[:50] if display_unit else None
 
                     # If quantity INCREASED, uncheck (user needs to collect more)
                     if display_qty > old_qty + 0.01:
@@ -188,7 +188,7 @@ class SyncMixin:
                     item = ShoppingItem.create_from_recipe(
                         ingredient_name=ingredient_name.capitalize()[:255],
                         quantity=display_qty,
-                        unit=display_unit[:50] if display_unit else display_unit,
+                        unit=display_unit[:50] if display_unit else None,
                         category=category[:100] if category else category,
                         aggregation_key=agg_key.lower().strip(),
                     )
