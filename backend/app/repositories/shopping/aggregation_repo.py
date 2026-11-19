@@ -20,7 +20,12 @@ from ...models.household import owner_shared_recipe_id_select
 from ...models.recipe_ingredient import RecipeIngredient
 from ...models.shopping_item import ShoppingItem
 from ...models.shopping_item_contribution import ShoppingItemContribution
-from ...utils.unit_conversion import get_dimension, to_base_unit, to_display_unit
+from ...utils.unit_conversion import (
+    get_dimension,
+    quantity_in_unit,
+    to_base_unit,
+    to_display_unit,
+)
 
 # Safety backstop for list queries that omit an explicit limit.
 MAX_LIST_ROWS = 1000
@@ -221,12 +226,12 @@ class ShoppingAggregationRepo:
         recipe_ingredients = self.get_recipe_ingredients(recipe_ids)
         breakdown: Dict[str, List[Tuple[str, float, str, int]]] = defaultdict(list)
 
-        # Aggregate by (ingredient, dimension, recipe) to combine duplicate recipes
-        # Key: (ingredient_name, dimension, recipe_name)
+        # Aggregate by (ingredient, bucket, recipe) so duplicate recipes combine,
+        # and incompatible units (clove vs can, count vs mass) stay apart.
         recipe_aggregation: Dict[Tuple[str, str, str], Dict[str, Any]] = defaultdict(lambda: {
             "base_quantity": 0.0,
             "dimension": None,
-            "original_unit": None,
+            "units": [],
             "usage_count": 0,
         })
 
@@ -242,19 +247,33 @@ class ShoppingAggregationRepo:
             data = recipe_aggregation[agg_key]
             data["base_quantity"] += base_qty
             data["dimension"] = dimension
-            data["original_unit"] = ri.unit or data["original_unit"]
+            if ri.unit:
+                data["units"].append(ri.unit)
             data["usage_count"] += 1
 
-        # Convert aggregated data to the expected format
-        for (ingredient_name, dimension, recipe_name), data in recipe_aggregation.items():
-            # convert from base unit to display unit
-            display_qty, display_unit = to_display_unit(
-                data["base_quantity"], data["dimension"], data["original_unit"]
-            )
+        # Pick one display unit for the whole bucket, then express every recipe
+        # in that unit so the rows add up to the total.
+        group_units: Dict[Tuple[str, str], List[str]] = defaultdict(list)
+        group_base: Dict[Tuple[str, str], float] = defaultdict(float)
+        for (ingredient_name, dimension, _recipe_name), data in recipe_aggregation.items():
+            group_key = (ingredient_name, dimension)
+            group_units[group_key].extend(data["units"])
+            group_base[group_key] += data["base_quantity"]
 
-            # create breakdown key using dimension
+        group_unit: Dict[Tuple[str, str], str] = {}
+        for group_key, base in group_base.items():
+            _qty, unit = to_display_unit(
+                base, group_key[1], None, group_units[group_key]
+            )
+            group_unit[group_key] = unit
+
+        for (ingredient_name, dimension, recipe_name), data in recipe_aggregation.items():
+            display_unit = group_unit[(ingredient_name, dimension)]
+            display_qty = quantity_in_unit(data["base_quantity"], dimension, display_unit)
             ingredient_key = ShoppingItem.make_aggregation_key(ingredient_name, dimension)
-            breakdown[ingredient_key].append((recipe_name, display_qty, display_unit, data["usage_count"]))
+            breakdown[ingredient_key].append(
+                (recipe_name, display_qty, display_unit, data["usage_count"])
+            )
 
         return breakdown
 

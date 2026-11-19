@@ -16,6 +16,7 @@ from ..dtos.unit_conversion_dtos import (
 )
 from ..models.unit_conversion_rule import UnitConversionRule
 from ..repositories.unit_conversion_repo import UnitConversionRepo
+from ..utils.unit_conversion import canonical_unit
 
 
 # ── Domain Exceptions ────────────────────────────────────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ class UnitConversionService:
         """Load all of the user's rules once, keyed by (ingredient_name, from_unit)."""
         if self._rule_map is None:
             self._rule_map = {
-                (rule.ingredient_name.lower().strip(), rule.from_unit.lower().strip()): rule
+                (rule.ingredient_name.lower().strip(), canonical_unit(rule.from_unit)): rule
                 for rule in self.repo.get_all()
             }
         return self._rule_map
@@ -153,7 +154,7 @@ class UnitConversionService:
             Returns original values if no matching rule exists.
         """
         rule = self._get_rule_map().get(
-            ((ingredient_name or "").lower().strip(), (unit or "").lower().strip())
+            ((ingredient_name or "").lower().strip(), canonical_unit(unit))
         )
         if not rule:
             return quantity, unit

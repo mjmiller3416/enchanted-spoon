@@ -33,10 +33,12 @@ class AggregationMixin:
             resp = _BreakdownResponse()
             resp.items = []
             for key, contributions in raw.items():
-                parts = key.split("::")
+                name_part, _, _bucket = key.partition("::")
                 # capitalize ingredient name for proper formatting
-                ingredient_name = parts[0].capitalize() if parts else ""
-                unit = parts[1] if len(parts) > 1 else ""
+                ingredient_name = name_part.capitalize() if name_part else ""
+                # Rows in one bucket already share a display unit. The bucket
+                # itself ("mass", "u:clove") is not what a shopper reads.
+                unit = contributions[0][2] if contributions else ""
                 total_qty = sum(qty for _, qty, _, _ in contributions)
 
                 class _Item:

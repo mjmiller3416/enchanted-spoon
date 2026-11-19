@@ -58,6 +58,25 @@ export function formatQuantity(quantity: number | null): string {
   return quantity.toString();
 }
 
+const TO_TASTE_UNIT = /^(to taste|to-taste|tt)$/i;
+
+/**
+ * Shopping-list amount. A missing quantity and "to taste" show as words,
+ * never as a total of 0.
+ */
+export function formatShoppingAmount(
+  quantity: number | null | undefined,
+  unit: string | null | undefined
+): string {
+  const trimmed = (unit ?? "").trim();
+  if (TO_TASTE_UNIT.test(trimmed)) return "to taste";
+  if (quantity === null || quantity === undefined || quantity === 0) {
+    return trimmed;
+  }
+  const qty = formatQuantity(quantity);
+  return trimmed ? `${qty} ${trimmed}` : qty;
+}
+
 /**
  * Converts a base64 data URL or raw base64 string to a File object
  * Useful for converting AI-generated images to uploadable files
