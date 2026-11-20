@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useFeedbackForm } from "@/hooks/forms/useFeedbackForm";
+import { FEEDBACK_INTRO, useFeedbackForm } from "@/hooks/forms/useFeedbackForm";
 import { appConfig } from "@/lib/config";
 
 interface FeedbackDialogProps {
@@ -69,12 +69,12 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
-              <MessageSquare className="h-4 w-4 text-primary" />
+              <MessageSquare className="h-4 w-4 text-primary" strokeWidth={1.5} />
             </div>
             Send Feedback
           </DialogTitle>
           <DialogDescription>
-            Help us improve {appConfig.appName}. Feedback is sent to our support tracker only when private delivery is available. Do not include private or sensitive information.
+            Help us improve {appConfig.appName}. {FEEDBACK_INTRO}
           </DialogDescription>
         </DialogHeader>
 
@@ -129,12 +129,12 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
                 Sending...
               </>
             ) : (
               <>
-                <Send className="h-4 w-4" />
+                <Send className="h-4 w-4" strokeWidth={1.5} />
                 Send Feedback
               </>
             )}

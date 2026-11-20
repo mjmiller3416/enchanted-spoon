@@ -35,9 +35,23 @@ def _as_plain_text_block(text: str) -> str:
 
 
 class GitHubIssueError(Exception):
-    """Raised when GitHub issue creation fails."""
+    """Raised when a feedback issue is not created.
 
-    pass
+    ``code`` is a short reason (``unset_config``, ``not_private``, ``http_error``)
+    safe to log and store. It never includes the message or the token.
+    """
+
+    def __init__(self, message: str, code: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def _log_skip(code: str, status: Optional[int] = None) -> None:
+    """Ops log for a skipped tracker. No message text and no token."""
+    if isinstance(status, int):
+        logger.warning("Feedback tracker skipped: %s status=%s", code, status)
+        return
+    logger.warning("Feedback tracker skipped: %s", code)
 
 
 class GitHubService:
@@ -65,14 +79,16 @@ class GitHubService:
         by ``user_ref`` (an opaque internal id), never their email, and the
         message is published as a plain-text block.
 
-        Returns the issue URL on success. Missing configuration fails explicitly.
+        Returns the issue URL on success. Missing configuration, a public
+        repository, and a failed lookup all raise. Callers that have already
+        stored the text may treat that as a skipped tracker.
 
         Raises:
-            GitHubIssueError: If the API call fails.
+            GitHubIssueError: If the issue is not created. ``code`` says why.
         """
         if not self._configured:
-            logger.warning("GITHUB_TOKEN or GITHUB_REPO not set — skipping issue creation")
-            raise GitHubIssueError("Feedback delivery is unavailable")
+            _log_skip("unset_config")
+            raise GitHubIssueError("Feedback delivery is unavailable", "unset_config")
 
         # Free text must never be automatically published to a public tracker.
         # Check the actual destination on every submission; configuration alone
@@ -84,10 +100,14 @@ class GitHubService:
                 timeout=10.0,
             )
             repository.raise_for_status()
-            if repository.json().get("private") is not True:
-                raise GitHubIssueError("Feedback requires a private support destination")
+            is_private = repository.json().get("private") is True
         except (httpx.HTTPError, ValueError) as exc:
-            raise GitHubIssueError("Unable to verify private feedback delivery") from exc
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            _log_skip("http_error", status if isinstance(status, int) else None)
+            raise GitHubIssueError("Unable to verify private feedback delivery", "http_error") from exc
+        if not is_private:
+            _log_skip("not_private")
+            raise GitHubIssueError("Feedback requires a private support destination", "not_private")
 
         label = CATEGORY_TO_LABEL.get(category, "feedback")
         summary = " ".join(message.split())[:80]
@@ -139,9 +159,12 @@ class GitHubService:
             )
             resp.raise_for_status()
             return resp.json()["html_url"]
-        except httpx.HTTPStatusError as e:
-            logger.error("GitHub API error %s", e.response.status_code)
-            raise GitHubIssueError(f"GitHub API returned {e.response.status_code}") from e
-        except httpx.HTTPError as e:
-            logger.error("GitHub API request failed: %s", e)
-            raise GitHubIssueError("Failed to reach GitHub API") from e
+        except httpx.HTTPStatusError as exc:
+            _log_skip("http_error", exc.response.status_code)
+            raise GitHubIssueError("GitHub API returned an error", "http_error") from exc
+        except httpx.HTTPError as exc:
+            _log_skip("http_error")
+            raise GitHubIssueError("Failed to reach GitHub API", "http_error") from exc
+        except (KeyError, ValueError) as exc:
+            _log_skip("http_error")
+            raise GitHubIssueError("GitHub API returned an unexpected response", "http_error") from exc

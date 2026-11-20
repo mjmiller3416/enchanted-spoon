@@ -22,6 +22,7 @@ from .shopping_item_contribution import ShoppingItemContribution
 from .shopping_note import ShoppingNote
 from .unit_conversion_rule import UnitConversionRule
 from .device_token import DeviceToken
+from .feedback import Feedback
 from .trial_nudge import TrialNudge
 from .user import User
 from .user_category import UserCategory
@@ -53,6 +54,7 @@ __all__ = [
     "ShoppingNote",
     "UnitConversionRule",
     "DeviceToken",
+    "Feedback",
     "TrialNudge",
     "User",
     "UserCategory",

@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useFeedbackForm, FEEDBACK_CATEGORIES } from "@/hooks/forms/useFeedbackForm";
+import { useFeedbackForm, FEEDBACK_CATEGORIES, FEEDBACK_INTRO } from "@/hooks/forms/useFeedbackForm";
 import { SectionHeader } from "../SectionHeader";
 import { appConfig } from "@/lib/config";
 
@@ -45,7 +45,7 @@ export function FeedbackSection() {
               htmlFor="feedback-category"
               className="flex items-center gap-2"
             >
-              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
               Feedback Type
             </Label>
             <Select value={category} onValueChange={setCategory}>
@@ -61,7 +61,7 @@ export function FeedbackSection() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Feedback is sent only when private support delivery is available. Do not include private or sensitive information.
+              {FEEDBACK_INTRO}
             </p>
           </div>
 
@@ -71,7 +71,7 @@ export function FeedbackSection() {
               htmlFor="feedback-message"
               className="flex items-center gap-2"
             >
-              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+              <Mail className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
               Your Message
             </Label>
             <Textarea
@@ -97,12 +97,12 @@ export function FeedbackSection() {
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
                   Submitting...
                 </>
               ) : (
                 <>
-                  <Send className="h-4 w-4" />
+                  <Send className="h-4 w-4" strokeWidth={1.5} />
                   Submit Feedback
                 </>
               )}

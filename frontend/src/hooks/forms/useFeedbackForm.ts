@@ -4,10 +4,29 @@ import { useState, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { feedbackApi } from "@/lib/api";
+import { ApiError } from "@/lib/api/base";
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
+
+export const FEEDBACK_SUPPORT_EMAIL = "info@enchantedspoon.app";
+
+/** Shown in the feedback dialog and settings. Does not promise a public tracker. */
+export const FEEDBACK_INTRO =
+  "Your feedback goes straight to our team. Please don't include private or sensitive information.";
+
+export function feedbackFailureMessage(error: unknown): string {
+  const suggestion = `Please email ${FEEDBACK_SUPPORT_EMAIL}.`;
+  const detail = error instanceof Error ? error.message.trim() : "";
+  if (!detail) {
+    return `Failed to submit feedback. ${suggestion}`;
+  }
+  if (detail.toLowerCase().includes(FEEDBACK_SUPPORT_EMAIL.toLowerCase())) {
+    return detail;
+  }
+  return `${detail} ${suggestion}`;
+}
 
 export const FEEDBACK_CATEGORIES = [
   { value: "Feature Request", label: "Feature Request" },
@@ -109,6 +128,12 @@ export function useFeedbackForm(options: UseFeedbackFormOptions = {}): UseFeedba
     setIsSubmitting(true);
     try {
       const token = await getToken();
+      if (!token) {
+        throw new ApiError(
+          `We couldn't confirm you're signed in. Please sign in again, or email ${FEEDBACK_SUPPORT_EMAIL}.`,
+          401,
+        );
+      }
       const response = await feedbackApi.submit({
         category,
         message: trimmedMessage,
@@ -120,11 +145,12 @@ export function useFeedbackForm(options: UseFeedbackFormOptions = {}): UseFeedba
         reset();
         onSuccess?.();
       } else {
-        toast.error(response.message);
-        onError?.(new Error(response.message));
+        const errorMessage = feedbackFailureMessage(new Error(response.message));
+        toast.error(errorMessage);
+        onError?.(new Error(errorMessage));
       }
     } catch (error) {
-      const errorMessage = "Failed to submit feedback. Please try again.";
+      const errorMessage = feedbackFailureMessage(error);
       toast.error(errorMessage);
       onError?.(error instanceof Error ? error : new Error(errorMessage));
     } finally {

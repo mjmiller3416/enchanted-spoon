@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 # Import Base *and* all models so metadata.create_all creates every table
 from app.database.base import Base
 from app.models import (  # noqa: F401 – side-effect import registers models
+    Feedback,
     Ingredient,
     Meal,
     NutritionFacts,

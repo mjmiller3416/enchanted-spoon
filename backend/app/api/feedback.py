@@ -1,13 +1,15 @@
-"""Feedback API endpoint — creates a GitHub issue from user feedback."""
+"""Feedback API endpoint — stores every submission, then tries a private issue."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.core.rate_limit import limiter
 from app.core.stripe_config import get_stripe_settings
+from app.database.db import get_session
 from app.dtos.feedback import FeedbackCreateDTO, FeedbackResponseDTO
 from app.models.user import User
-from app.services.github_service import GitHubIssueError, GitHubService
+from app.services.feedback_service import FeedbackSaveError, FeedbackService
 
 router = APIRouter()
 
@@ -23,24 +25,19 @@ def _user_ref(user_id: int) -> str:
 def submit_feedback(
     request: Request,
     feedback: FeedbackCreateDTO,
+    session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> FeedbackResponseDTO:
-    """Submit user feedback as a GitHub issue."""
-    service = GitHubService()
+    """Store feedback, then file a GitHub issue when the destination is private."""
+    service = FeedbackService(session)
     try:
-        issue_url = service.create_issue(
-            category=feedback.category,
-            message=feedback.message,
+        return service.submit(
+            user_id=current_user.id,
+            feedback=feedback,
             user_ref=_user_ref(current_user.id),
-            metadata=feedback.metadata,
         )
-        return FeedbackResponseDTO(
-            success=True,
-            message="Thank you for your feedback! It has been submitted successfully.",
-            issue_url=issue_url,
-        )
-    except GitHubIssueError:
+    except FeedbackSaveError:
         raise HTTPException(
-            status_code=502,
-            detail="Feedback was not sent. Please email info@enchantedspoon.app for support.",
+            status_code=500,
+            detail="We couldn't save your feedback. Please email info@enchantedspoon.app.",
         )
