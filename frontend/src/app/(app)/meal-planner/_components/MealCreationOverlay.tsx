@@ -142,6 +142,9 @@ export function MealCreationOverlay({
   // --- Dialog close with discard guard ---
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
+    // The discard / leave prompt sits on top of this editor. Dismissing the
+    // prompt (overlay, Escape, hardware back) must not close the meal.
+    if (!nextOpen && (showDiscardDialog || showLeaveDialog)) return;
     if (!nextOpen && isDirty) {
       setShowDiscardDialog(true);
     } else if (!nextOpen) {
@@ -472,7 +475,10 @@ export function MealCreationOverlay({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep Editing</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDiscard}>
+            <AlertDialogAction
+              onClick={handleConfirmDiscard}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Discard
             </AlertDialogAction>
           </AlertDialogFooter>
