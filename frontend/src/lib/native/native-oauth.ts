@@ -23,6 +23,13 @@
  * sign-in token. The WebView's real Clerk accepts the token with
  * `signIn.create({ strategy: "ticket" })`, which sets the normal cookie session.
  * The browser `authenticateWithRedirect` path is not used here.
+ *
+ * Every Frontend API call goes through Capacitor's native HTTP client, not
+ * the WebView's `fetch`. A WebView always adds an `Origin` header to a
+ * cross-origin request, and the Frontend API answers any request that has
+ * both `Origin` and `Authorization` with 400
+ * `origin_authorization_headers_conflict`. The native client sends neither
+ * `Origin` nor WebView cookies, which is what clerk-expo's native fetch does.
  */
 
 import * as Sentry from "@sentry/nextjs";
@@ -44,11 +51,49 @@ const CLERK_JS_VERSION = "5.121.1";
 const PENDING_KEY = "enchantedspoon.native-oauth";
 const BROWSER_CLOSE_GRACE_MS = 700;
 
+/** Where a native sign-in stopped. Sent to Sentry; never shown to people. */
+export type NativeOAuthStep =
+  | "start"
+  | "start_browser"
+  | "no_pending_sign_in"
+  | "bad_callback_url"
+  | "bad_nonce"
+  | "no_frontend_host"
+  | "reload_sign_in"
+  | "transfer_sign_up"
+  | "no_session"
+  | "mint_session_token"
+  | "ticket_exchange"
+  | "ticket_activate"
+  | "unexpected";
+
+export interface NativeOAuthDiagnostic {
+  step: NativeOAuthStep;
+  /** HTTP status of the call that failed, 0 when it never got a response. */
+  status?: number;
+  /** Clerk's public error code, such as `origin_authorization_headers_conflict`. */
+  clerkCode?: string | null;
+}
+
 export class NativeOAuthError extends Error {
-  constructor(message: string) {
+  readonly diagnostic: NativeOAuthDiagnostic;
+
+  constructor(message: string, diagnostic: NativeOAuthDiagnostic = { step: "unexpected" }) {
     super(message);
     this.name = "NativeOAuthError";
+    this.diagnostic = diagnostic;
   }
+}
+
+function safeCode(value: unknown): string | null {
+  return typeof value === "string" && /^[A-Za-z0-9_.-]{1,80}$/.test(value) ? value : null;
+}
+
+function diagnosticMessage(diagnostic: NativeOAuthDiagnostic): string {
+  const parts = [`Native sign-in failed at ${diagnostic.step}`];
+  if (typeof diagnostic.status === "number") parts.push(`HTTP ${diagnostic.status}`);
+  if (diagnostic.clerkCode) parts.push(diagnostic.clerkCode);
+  return parts.join(" - ");
 }
 
 export type NativeAuthDetail =
@@ -246,8 +291,28 @@ function publish(detail: NativeAuthDetail): void {
   }
 }
 
-function reportFailure(): void {
-  Sentry.captureException(new Error("Native sign-in could not be completed"));
+/**
+ * One Sentry issue per failing step, so the issue title says where it broke.
+ * The tags hold only the step, an HTTP status, and Clerk's public error code.
+ */
+function reportFailure(strategy: HostedOAuthStrategy | null, diagnostic: NativeOAuthDiagnostic): void {
+  const tags: Record<string, string> = { native_oauth_step: diagnostic.step };
+  if (strategy) tags.native_oauth_strategy = strategy;
+  if (typeof diagnostic.status === "number") tags.native_oauth_status = String(diagnostic.status);
+  if (diagnostic.clerkCode) tags.native_oauth_clerk_code = diagnostic.clerkCode;
+  Sentry.captureException(new Error(diagnosticMessage(diagnostic)), { tags });
+}
+
+function failure(
+  strategy: HostedOAuthStrategy | null,
+  step: NativeOAuthStep,
+  result?: { status?: number; errorCode?: string | null },
+): NativeOAuthError {
+  return new NativeOAuthError(nativeOAuthFailureMessage(strategy), {
+    step,
+    status: result?.status,
+    clerkCode: result?.errorCode ?? null,
+  });
 }
 
 export function resetNativeOAuthState(): void {
@@ -293,9 +358,56 @@ function fapiUrl(host: string, path: string, search?: Record<string, string>): s
 
 interface FapiResult {
   ok: boolean;
+  status: number;
   payload: unknown;
   authorization: string | null;
   errorCode: string | null;
+}
+
+interface NativeHttpResponse {
+  status: number;
+  data: unknown;
+  headers: Record<string, string>;
+}
+
+function headerValue(headers: Record<string, string> | undefined, name: string): string | null {
+  if (!headers) return null;
+  const wanted = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === wanted && typeof value === "string") return value;
+  }
+  return null;
+}
+
+function parseBody(data: unknown): unknown {
+  if (typeof data !== "string") return data ?? null;
+  try {
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Capacitor's native HTTP client (URLSession on iOS, HttpURLConnection on
+ * Android). Unlike the WebView's fetch it adds no `Origin` header.
+ */
+async function nativeHttp(
+  url: string,
+  method: "GET" | "POST",
+  headers: Record<string, string>,
+  form?: Record<string, string>,
+): Promise<NativeHttpResponse> {
+  const { CapacitorHttp } = await import("@capacitor/core");
+  const response = await CapacitorHttp.request({
+    url,
+    method,
+    headers,
+    data: form,
+    responseType: "text",
+    disableRedirects: true,
+  });
+  return { status: response.status, data: response.data, headers: response.headers };
 }
 
 async function fapi(
@@ -310,35 +422,30 @@ async function fapi(
 ): Promise<FapiResult> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (options.authorization) headers.Authorization = options.authorization;
-  let body: string | undefined;
   if (options.method === "POST") {
     headers["Content-Type"] = "application/x-www-form-urlencoded";
-    body = new URLSearchParams(options.body ?? {}).toString();
   }
 
-  const response = await fetch(fapiUrl(host, path, options.search), {
-    method: options.method,
-    headers,
-    body,
-    credentials: "omit",
-    cache: "no-store",
-    redirect: "manual",
-    referrerPolicy: "no-referrer",
-  });
-
-  let payload: unknown = null;
+  let response: NativeHttpResponse;
   try {
-    payload = await response.json();
+    response = await nativeHttp(
+      fapiUrl(host, path, options.search),
+      options.method,
+      headers,
+      options.method === "POST" ? (options.body ?? {}) : undefined,
+    );
   } catch {
-    payload = null;
+    return { ok: false, status: 0, payload: null, authorization: null, errorCode: "network_error" };
   }
 
-  const authorization = response.headers.get("authorization");
+  const payload = parseBody(response.data);
+  const authorization = headerValue(response.headers, "authorization");
   return {
-    ok: response.ok,
+    ok: response.status >= 200 && response.status < 300,
+    status: response.status,
     payload,
     authorization: safeHeader(authorization) ? authorization : null,
-    errorCode: errorCode(payload),
+    errorCode: safeCode(errorCode(payload)),
   };
 }
 
@@ -354,26 +461,25 @@ async function closeSystemBrowser(): Promise<void> {
 export async function startNativeOAuth(strategy: HostedOAuthStrategy): Promise<void> {
   const host = clerkFrontendHost(publishableKey());
   if (!host) {
-    throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    const error = failure(strategy, "no_frontend_host");
+    reportFailure(strategy, error.diagnostic);
+    throw error;
   }
 
-  let created: FapiResult;
-  try {
-    created = await fapi(host, "/client/sign_ins", {
-      method: "POST",
-      authorization: null,
-      body: { strategy, redirect_url: NATIVE_OAUTH_REDIRECT },
-    });
-  } catch {
-    throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
-  }
+  const created = await fapi(host, "/client/sign_ins", {
+    method: "POST",
+    authorization: null,
+    body: { strategy, redirect_url: NATIVE_OAUTH_REDIRECT },
+  });
 
   const resource = resourceOf(created.payload);
   const signInId = resource?.id;
   const url = externalVerificationUrl(resource);
   if (!created.ok || !created.authorization || !safeResourceId(signInId) || !url) {
     clearPending();
-    throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    const error = failure(strategy, "start", created);
+    reportFailure(strategy, error.diagnostic);
+    throw error;
   }
 
   savePending({ authorization: created.authorization, signInId, strategy });
@@ -383,7 +489,9 @@ export async function startNativeOAuth(strategy: HostedOAuthStrategy): Promise<v
     await Browser.open({ url });
   } catch {
     clearPending();
-    throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    const error = failure(strategy, "start_browser");
+    reportFailure(strategy, error.diagnostic);
+    throw error;
   }
   phase = "pending";
 }
@@ -392,44 +500,65 @@ async function exchangeSessionForTicket(
   sessionJwt: string,
   strategy: HostedOAuthStrategy,
 ): Promise<string> {
-  const response = await fetch(`${API_BASE}/api/auth/native-ticket`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${sessionJwt}`,
-      ...nativeClientHeaders(),
-    },
-    cache: "no-store",
-    referrerPolicy: "no-referrer",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/api/auth/native-ticket`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${sessionJwt}`,
+        ...nativeClientHeaders(),
+      },
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    });
+  } catch {
+    throw failure(strategy, "ticket_exchange", { status: 0, errorCode: "network_error" });
+  }
   if (!response.ok) {
-    throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    throw failure(strategy, "ticket_exchange", { status: response.status, errorCode: null });
   }
   let payload: unknown;
   try {
     payload = await response.json();
   } catch {
-    throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    throw failure(strategy, "ticket_exchange", { status: response.status, errorCode: "bad_body" });
   }
   const ticket = asRecord(payload)?.ticket;
   if (typeof ticket !== "string" || ticket.length === 0 || ticket.length > 4000) {
-    throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    throw failure(strategy, "ticket_exchange", { status: response.status, errorCode: "bad_body" });
   }
   return ticket;
+}
+
+/** clerk-js throws ClerkAPIResponseError with `errors[0].code`. */
+function clerkClientErrorCode(err: unknown): string {
+  const errors = asRecord(err)?.errors;
+  const first = Array.isArray(errors) ? asRecord(errors[0]) : null;
+  return safeCode(first?.code) ?? "ticket_rejected";
 }
 
 async function activateBrowserSession(ticket: string, strategy: HostedOAuthStrategy): Promise<void> {
   const clerk = browserClerk();
   const signIn = clerk?.client?.signIn;
   if (!signIn || !clerk?.setActive) {
-    throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    throw failure(strategy, "ticket_activate", { status: undefined, errorCode: "clerk_not_ready" });
   }
-  const result = await signIn.create({ strategy: "ticket", ticket });
+  let result: Awaited<ReturnType<TicketSignIn["create"]>>;
+  try {
+    result = await signIn.create({ strategy: "ticket", ticket });
+  } catch (err) {
+    throw failure(strategy, "ticket_activate", { status: undefined, errorCode: clerkClientErrorCode(err) });
+  }
   const sessionId = result?.createdSessionId;
   if (!sessionId || result.status !== "complete") {
-    throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    throw failure(strategy, "ticket_activate", { status: undefined, errorCode: `status_${safeCode(result?.status) ?? "unknown"}` });
   }
-  await clerk.setActive({ session: sessionId });
+  try {
+    await clerk.setActive({ session: sessionId });
+  } catch (err) {
+    throw failure(strategy, "ticket_activate", { status: undefined, errorCode: clerkClientErrorCode(err) });
+  }
 }
 
 /**
@@ -452,19 +581,19 @@ export async function completeNativeOAuth(href: string): Promise<void> {
   const strategy = pending?.strategy ?? null;
 
   try {
-    if (!pending) throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    if (!pending) throw failure(strategy, "no_pending_sign_in");
 
     let callback: URL;
     try {
       callback = new URL(href);
     } catch {
-      throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+      throw failure(strategy, "bad_callback_url");
     }
     const nonce = callback.searchParams.get("rotating_token_nonce") ?? "";
-    if (!safeNonce(nonce)) throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    if (!safeNonce(nonce)) throw failure(strategy, "bad_nonce");
 
     const host = clerkFrontendHost(publishableKey());
-    if (!host) throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    if (!host) throw failure(strategy, "no_frontend_host");
 
     let authorization = pending.authorization;
     const reloaded = await fapi(host, `/client/sign_ins/${pending.signInId}`, {
@@ -473,7 +602,7 @@ export async function completeNativeOAuth(href: string): Promise<void> {
       search: { rotating_token_nonce: nonce },
     });
     if (reloaded.authorization) authorization = reloaded.authorization;
-    if (!reloaded.ok) throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    if (!reloaded.ok) throw failure(strategy, "reload_sign_in", reloaded);
 
     let resource = resourceOf(reloaded.payload);
     let sessionId = sessionIdOf(resource);
@@ -485,12 +614,18 @@ export async function completeNativeOAuth(href: string): Promise<void> {
         body: { transfer: "true" },
       });
       if (transferred.authorization) authorization = transferred.authorization;
-      if (!transferred.ok) throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+      if (!transferred.ok) throw failure(strategy, "transfer_sign_up", transferred);
       resource = resourceOf(transferred.payload);
       sessionId = sessionIdOf(resource);
     }
 
-    if (!sessionId) throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    if (!sessionId) {
+      const status = typeof resource?.status === "string" ? safeCode(resource.status) : null;
+      throw failure(strategy, "no_session", {
+        status: undefined,
+        errorCode: status ? `status_${status}` : null,
+      });
+    }
 
     const minted = await fapi(host, `/client/sessions/${sessionId}/tokens`, {
       method: "POST",
@@ -498,16 +633,16 @@ export async function completeNativeOAuth(href: string): Promise<void> {
     });
     if (minted.authorization) authorization = minted.authorization;
     const sessionJwt = readSessionJwt(minted.payload);
-    if (!minted.ok || !sessionJwt) throw new NativeOAuthError(nativeOAuthFailureMessage(strategy));
+    if (!minted.ok || !sessionJwt) throw failure(strategy, "mint_session_token", minted);
 
     const ticket = await exchangeSessionForTicket(sessionJwt, pending.strategy);
     await activateBrowserSession(ticket, pending.strategy);
     publish({ status: "success" });
     assignLocation(getPostAuthRedirect());
   } catch (err) {
-    const message = err instanceof NativeOAuthError ? err.message : nativeOAuthFailureMessage(strategy);
-    publish({ status: "error", message });
-    reportFailure();
+    const error = err instanceof NativeOAuthError ? err : failure(strategy, "unexpected");
+    publish({ status: "error", message: error.message });
+    reportFailure(strategy, error.diagnostic);
   } finally {
     busy = false;
     phase = "idle";
