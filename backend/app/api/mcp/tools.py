@@ -536,7 +536,7 @@ TOOLS: List[ToolSpec] = [
     # ── Feedback ────────────────────────────────────────────────────────────
     ToolSpec(
         "send_feedback",
-        "Send feedback to the Enchanted Spoon team (creates a private support ticket). Don't include private information.",
+        "Send feedback to the Enchanted Spoon team. Don't include private information.",
         "write",
         "POST",
         "/api/feedback",

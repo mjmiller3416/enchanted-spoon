@@ -1,6 +1,7 @@
-"""Feedback DTOs for user feedback submission via GitHub Issues."""
+"""Feedback DTOs for user feedback submission."""
 
-from typing import Dict, Optional
+from datetime import datetime
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -23,3 +24,24 @@ class FeedbackResponseDTO(BaseModel):
     success: bool
     message: str
     issue_url: Optional[str] = None
+
+
+class AdminFeedbackItemDTO(BaseModel):
+    """One stored submission for an admin."""
+
+    id: int
+    user_id: int
+    category: str
+    message: str
+    metadata: Optional[Dict[str, Optional[str]]] = None
+    created_at: datetime
+    delivery_status: str
+    issue_url: Optional[str] = None
+    error_reason: Optional[str] = None
+
+
+class AdminFeedbackListDTO(BaseModel):
+    """Page of stored feedback."""
+
+    items: List[AdminFeedbackItemDTO]
+    total: int

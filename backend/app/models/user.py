@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from .user_category import UserCategory
     from .user_ingredient_category import UserIngredientCategory
     from .user_ingredient_unit import UserIngredientUnit
+    from .feedback import Feedback
     from .user_usage import UserUsage
 
 
@@ -197,6 +198,13 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True
+    )
+
+    feedback_submissions: Mapped[List["Feedback"]] = relationship(
+        "Feedback",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # ── Properties ──────────────────────────────────────────────────────────
