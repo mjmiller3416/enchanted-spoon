@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { dismissTopConfirm, hasOpenConfirm } from "@/lib/confirm-dismiss";
 
 interface UseUnsavedChangesOptions {
   /**
@@ -170,7 +171,15 @@ export function useUnsavedChanges({
       if (isDirtyRef.current) {
         // Push state back to prevent navigation
         window.history.pushState({ ...window.history.state, unsavedChangesGuard: true }, "", window.location.href);
-        
+
+        // A confirmation is already up (recipe discard, or this leave
+        // prompt). Back closes it and keeps the draft. It must not count
+        // as confirming the discard.
+        if (hasOpenConfirm()) {
+          dismissTopConfirm();
+          return;
+        }
+
         // Set pending navigation to "back" (special case)
         pendingNavigationRef.current = "__BROWSER_BACK__";
         setPendingNavigation("__BROWSER_BACK__");

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { useCurrentUser } from "@/hooks/api";
 import { mayMentionWebFoundingOffer } from "@/lib/native/founding-offer";
+import { handleNativeBackButton } from "@/lib/native/back-button";
 import { isNativeApp, nativePlatform } from "@/lib/native/platform";
 import { importUrlFromDeepLink, isOAuthCallback } from "@/lib/native/share-link";
 
@@ -27,6 +28,7 @@ export function NativeRuntime() {
 
     let removeClick = () => {};
     let removeUrl: (() => void) | undefined;
+    let removeBack: (() => void) | undefined;
     let cancelled = false;
 
     void (async () => {
@@ -87,6 +89,21 @@ export function NativeRuntime() {
       removeUrl = () => {
         void handle.remove();
       };
+
+      // A listener replaces WebView.goBack(). While a confirm is open, back
+      // only closes it. Otherwise history.back() is the previous default.
+      if (nativePlatform() === "android") {
+        const back = await App.addListener("backButton", (event) => {
+          handleNativeBackButton(event);
+        });
+        if (cancelled) {
+          void back.remove();
+          return;
+        }
+        removeBack = () => {
+          void back.remove();
+        };
+      }
     })().catch((reason: unknown) => {
       reportNativeLoadError("Failed to load the native app runtime", reason);
     });
@@ -95,6 +112,7 @@ export function NativeRuntime() {
       cancelled = true;
       removeClick();
       removeUrl?.();
+      removeBack?.();
     };
   }, []);
 
