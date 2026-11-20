@@ -7,6 +7,7 @@ deleting the Clerk identity when a user deletes their account.
 """
 
 import logging
+import re
 import threading
 import time
 from typing import Optional
@@ -164,3 +165,96 @@ def delete_clerk_user(clerk_id: str) -> None:
     if resp.status_code >= 400:
         logger.error("Clerk user delete failed (%s): %s", resp.status_code, resp.text[:500])
         raise ClerkApiError(f"Clerk returned {resp.status_code}")
+
+
+# Long enough for the WebView to redeem it, short enough that a leaked
+# response is useless almost immediately.
+SIGN_IN_TOKEN_TTL_SECONDS = 60
+_USER_ID = re.compile(r"^user_[A-Za-z0-9]+$")
+_SESSION_ID = re.compile(r"^sess_[A-Za-z0-9]+$")
+
+
+def create_sign_in_token(user_id: str, expires_in_seconds: int = SIGN_IN_TOKEN_TTL_SECONDS) -> str:
+    """Mint a Clerk sign-in token for ``user_id``.
+
+    The returned string is the ticket itself. Callers must not log it.
+    The Backend API response also carries a URL that embeds the ticket;
+    that body is never logged or returned.
+
+    Raises:
+        ClerkApiError: Clerk isn't configured or the call failed.
+    """
+    secret = _secret_key()
+    if not secret:
+        raise ClerkApiError("CLERK_SECRET_KEY is not configured")
+    if not _USER_ID.fullmatch(user_id):
+        raise ClerkApiError("Clerk user id was not accepted")
+    if not 1 <= expires_in_seconds <= 120:
+        raise ClerkApiError("Sign-in token lifetime was not accepted")
+
+    try:
+        resp = httpx.post(
+            f"{CLERK_API_BASE}/sign_in_tokens",
+            headers=_headers(secret),
+            json={"user_id": user_id, "expires_in_seconds": expires_in_seconds},
+            timeout=CLERK_API_TIMEOUT,
+        )
+    except httpx.HTTPError as exc:
+        raise ClerkApiError("Could not reach Clerk") from exc
+
+    if resp.status_code >= 400:
+        logger.error("Clerk sign-in token was not created (%s)", resp.status_code)
+        raise ClerkApiError(f"Clerk returned {resp.status_code}")
+
+    try:
+        data = resp.json()
+    except ValueError as exc:
+        raise ClerkApiError("Could not reach Clerk") from exc
+
+    token = data.get("token") if isinstance(data, dict) else None
+    if not isinstance(token, str) or not token or len(token) > 4000:
+        logger.error("Clerk sign-in token response did not include a ticket")
+        raise ClerkApiError("Clerk returned an incomplete sign-in token")
+    return token
+
+
+def revoke_clerk_session(session_id: str) -> None:
+    """End a Clerk session. A session Clerk no longer has counts as revoked.
+
+    Raises:
+        ClerkApiError: Clerk isn't configured or the call failed.
+    """
+    secret = _secret_key()
+    if not secret:
+        raise ClerkApiError("CLERK_SECRET_KEY is not configured")
+    if not _SESSION_ID.fullmatch(session_id):
+        raise ClerkApiError("Clerk session id was not accepted")
+
+    try:
+        resp = httpx.delete(
+            f"{CLERK_API_BASE}/sessions/{session_id}",
+            headers=_headers(secret),
+            timeout=CLERK_API_TIMEOUT,
+        )
+    except httpx.HTTPError as exc:
+        raise ClerkApiError("Could not reach Clerk") from exc
+
+    if resp.status_code in (200, 202, 204, 404):
+        return
+    logger.error("Clerk session revoke failed (%s)", resp.status_code)
+    raise ClerkApiError(f"Clerk returned {resp.status_code}")
+
+
+def issue_browser_sign_in_ticket(user_id: str, session_id: str) -> str:
+    """Create a short-lived sign-in token, then revoke the native session.
+
+    Revocation is best-effort. The ticket does not depend on that session
+    staying active, and a failed revoke must not hide a ticket we already
+    minted. The native session JWT expires on its own within about a minute.
+    """
+    ticket = create_sign_in_token(user_id)
+    try:
+        revoke_clerk_session(session_id)
+    except ClerkApiError:
+        logger.warning("Native Clerk session was not revoked")
+    return ticket

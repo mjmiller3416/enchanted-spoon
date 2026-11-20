@@ -30,7 +30,8 @@ import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 import { appConfig } from "@/lib/config";
 import { getPostAuthRedirect } from "@/lib/authRedirect";
 import { useAppleSignInOffered } from "@/hooks/useAppleSignInOffered";
-import { startOAuthInSystemBrowser } from "@/lib/native/google-oauth";
+import { useNativeOAuthFeedback } from "@/hooks/useNativeOAuthFeedback";
+import { NativeOAuthError, startNativeOAuth } from "@/lib/native/native-oauth";
 import { isNativeApp } from "@/lib/native/platform";
 import type { HostedOAuthStrategy } from "@/lib/native/social-sign-in";
 
@@ -54,6 +55,7 @@ export function SignUpForm() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [oauthPending, setOauthPending] = useState<OAuthProvider | null>(null);
+  useNativeOAuthFeedback({ setError, setIsLoading, setOauthPending });
 
   const handleOAuth = async (provider: OAuthProvider) => {
     if (!isLoaded || !signUp || isLoading) return;
@@ -65,7 +67,7 @@ export function SignUpForm() {
 
     try {
       if (isNativeApp()) {
-        await startOAuthInSystemBrowser(signUp, strategy);
+        await startNativeOAuth(strategy);
         return;
       }
       await signUp.authenticateWithRedirect({
@@ -74,8 +76,14 @@ export function SignUpForm() {
         redirectUrlComplete: getPostAuthRedirect(),
       });
     } catch (err) {
-      setError(`Failed to start ${label} sign-up. Please try again.`);
-      console.error(`${label} sign-up error:`, err);
+      setError(
+        err instanceof NativeOAuthError
+          ? err.message
+          : `Failed to start ${label} sign-up. Please try again.`,
+      );
+      if (!(err instanceof NativeOAuthError)) {
+        console.error(`${label} sign-up error:`, err);
+      }
       setIsLoading(false);
       setOauthPending(null);
     }
@@ -205,7 +213,7 @@ export function SignUpForm() {
       <CardContent className={authCardContentClassName}>
         {/* Error display */}
         {error && (
-          <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg" role="alert">
             {error}
           </div>
         )}

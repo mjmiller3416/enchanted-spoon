@@ -22,6 +22,7 @@ from app.api import (
     ingredient_units,
     ingredients,
     meals,
+    native_auth,
     planner,
     push_dispatch,
     recipe_groups,
@@ -74,6 +75,7 @@ api_router.include_router(
 )
 api_router.include_router(sample_data.router, prefix="/api/sample-data", tags=["sample-data"], dependencies=_writes)
 api_router.include_router(billing.router, prefix="/api/billing", tags=["billing"])
+api_router.include_router(native_auth.router, prefix="/api/auth", tags=["auth"])
 
 # ── Admin routes ─────────────────────────────────────────────────────────
 api_router.include_router(admin.router, prefix="/api/admin", tags=["admin"])
