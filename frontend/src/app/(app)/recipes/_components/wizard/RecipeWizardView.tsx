@@ -140,16 +140,21 @@ export function RecipeWizardView({
     onOpenChange(false);
   }, [wizard.hasUnsavedData, wizard.isSubmitting, resetWizard, onOpenChange]);
 
+  const discardPromptOpen = showDiscardConfirm || leave.showLeaveDialog;
+
   // Radix fires onOpenChange(false) for the X button, Escape, and backdrop.
+  // While the discard prompt is open, those events belong to the prompt:
+  // closing it keeps the draft. They must not close the editor underneath.
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (nextOpen) {
         onOpenChange(true);
         return;
       }
+      if (discardPromptOpen) return;
       handleRequestClose();
     },
-    [onOpenChange, handleRequestClose]
+    [onOpenChange, handleRequestClose, discardPromptOpen]
   );
 
   // Footer "Start over" (steps 2+): wipe inputs, stay open at step 1.

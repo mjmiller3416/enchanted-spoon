@@ -5,11 +5,36 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { registerConfirmDismiss } from "@/lib/confirm-dismiss"
+
+const AlertDialogDismissContext = React.createContext<(() => void) | null>(null)
 
 function AlertDialog({
+  open,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
+  const requestClose = React.useCallback(() => {
+    onOpenChange?.(false)
+  }, [onOpenChange])
+
+  // Hardware back (see handleNativeBackButton) closes this prompt. Closing
+  // is the safe action: callers treat onOpenChange(false) as cancel.
+  React.useEffect(() => {
+    if (!open) return
+    return registerConfirmDismiss(requestClose)
+  }, [open, requestClose])
+
+  return (
+    <AlertDialogDismissContext.Provider value={requestClose}>
+      <AlertDialogPrimitive.Root
+        data-slot="alert-dialog"
+        open={open}
+        onOpenChange={onOpenChange}
+        {...props}
+      />
+    </AlertDialogDismissContext.Provider>
+  )
 }
 
 function AlertDialogTrigger({
@@ -36,10 +61,10 @@ function AlertDialogOverlay({
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm",
-        // Smooth transition for opacity changes
+        "fixed inset-0 z-[70] bg-black/60",
+        // No backdrop-blur: on some Android WebViews the blur layer sits
+        // above the dialog and steals taps from the lower button.
         "transition-opacity duration-200 ease-physical",
-        // Radix data-state animations
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className
@@ -53,28 +78,42 @@ function AlertDialogContent({
   className,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
+  const requestClose = React.useContext(AlertDialogDismissContext)
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
-      <AlertDialogPrimitive.Content
-        data-slot="alert-dialog-content"
+      {/* Inset by the safe area and center in the remaining box. A
+          translateY(-50%) dialog with no max-height clips the lower button
+          on short and landscape phones. Taps on this frame (not the card)
+          cancel the prompt. Radix AlertDialog blocks outside presses itself. */}
+      <div
+        data-slot="alert-dialog-viewport"
         className={cn(
-          // Position & sizing
-          "fixed top-[50%] left-[50%] z-50 w-full max-w-[calc(100%-2rem)] sm:max-w-lg",
-          "translate-x-[-50%] translate-y-[-50%]",
-          // Visual styling - using elevated background for dialog surfaces
-          "bg-elevated border border-border rounded-xl shadow-xl shadow-black/20",
-          "grid gap-4 p-6",
-          // Smooth transitions
-          "transition-all duration-200 ease-physical",
-          // Radix data-state animations
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
-          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-          "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          className
+          "fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto",
+          "pt-[max(1rem,env(safe-area-inset-top,0px))]",
+          "pr-[max(1rem,env(safe-area-inset-right,0px))]",
+          "pb-[max(1rem,env(safe-area-inset-bottom,0px))]",
+          "pl-[max(1rem,env(safe-area-inset-left,0px))]"
         )}
-        {...props}
-      />
+        onPointerDown={(event) => {
+          if (event.target === event.currentTarget) requestClose?.()
+        }}
+      >
+        <AlertDialogPrimitive.Content
+          data-slot="alert-dialog-content"
+          className={cn(
+            "relative flex w-full max-w-lg flex-col gap-4 overflow-y-auto",
+            "max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-2rem)]",
+            "bg-elevated border border-border rounded-xl p-6 pb-0 shadow-xl shadow-black/20",
+            "transition-all duration-200 ease-physical outline-none",
+            "data-[state=open]:animate-in data-[state=closed]:animate-out",
+            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+            className
+          )}
+          {...props}
+        />
+      </div>
     </AlertDialogPortal>
   )
 }
@@ -100,7 +139,12 @@ function AlertDialogFooter({
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        // Always a row (wraps only if the two labels cannot sit together).
+        // flex-col-reverse placed Keep editing below Discard, which is the
+        // button a short viewport or the system bar covered.
+        "sticky bottom-0 z-10 -mx-6 mt-2 flex shrink-0 flex-row flex-wrap items-center gap-2",
+        "bg-elevated px-6 pt-2 pb-6 sm:justify-end",
+        "[&>*]:w-full [&>*]:flex-1 sm:[&>*]:w-auto sm:[&>*]:flex-none",
         className
       )}
       {...props}
@@ -143,6 +187,7 @@ function AlertDialogAction({
       data-slot="alert-dialog-action"
       className={cn(buttonVariants({ variant: "default", size: "default" }), className)}
       {...props}
+      type="button"
     />
   )
 }
@@ -156,6 +201,7 @@ function AlertDialogCancel({
       data-slot="alert-dialog-cancel"
       className={cn(buttonVariants({ variant: "outline", size: "default" }), className)}
       {...props}
+      type="button"
     />
   )
 }

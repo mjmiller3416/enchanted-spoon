@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook } from "@testing-library/react";
 import { useUnsavedChanges, hasAnyUnsavedChanges, setNavigationBypass } from "@/hooks/ui/useUnsavedChanges";
+import { registerConfirmDismiss } from "@/lib/confirm-dismiss";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/recipes" }));
 afterEach(() => { cleanup(); setNavigationBypass(false); });
 
@@ -23,6 +24,31 @@ it("warns before refresh only while the editor has unsaved changes", () => {
   const saved = new Event("beforeunload", { cancelable: true });
   window.dispatchEvent(saved);
   expect(saved.defaultPrevented).toBe(false);
+});
+
+it("asks before leaving on back when no confirmation is open", () => {
+  const discard = vi.fn();
+  const view = renderHook(() => useUnsavedChanges({ isDirty: true, onConfirmLeave: discard }));
+  act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
+  expect(view.result.current.showLeaveDialog).toBe(true);
+  expect(discard).not.toHaveBeenCalled();
+  view.unmount();
+});
+
+it("closes an open confirmation on back without discarding the draft", () => {
+  const discard = vi.fn();
+  const dismiss = vi.fn();
+  const unregister = registerConfirmDismiss(dismiss);
+  const view = renderHook(() => useUnsavedChanges({ isDirty: true, onConfirmLeave: discard }));
+  try {
+    act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
+    expect(dismiss).toHaveBeenCalledOnce();
+    expect(discard).not.toHaveBeenCalled();
+    expect(view.result.current.showLeaveDialog).toBe(false);
+  } finally {
+    unregister();
+    view.unmount();
+  }
 });
 
 it("runs only dirty editor discard handlers on confirmed cross-page navigation", async () => {
