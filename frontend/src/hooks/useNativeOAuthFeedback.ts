@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import { NATIVE_AUTH_EVENT, type NativeAuthDetail } from "@/lib/native/native-oauth";
 
@@ -15,21 +15,21 @@ interface NativeOAuthFeedback {
  * returns through `appUrlOpen`. Surface that result on the form that started
  * it, and stop the spinner if the browser is closed first.
  */
-export function useNativeOAuthFeedback(feedback: NativeOAuthFeedback): void {
-  const feedbackRef = useRef(feedback);
-  feedbackRef.current = feedback;
-
+export function useNativeOAuthFeedback({
+  setError,
+  setIsLoading,
+  setOauthPending,
+}: NativeOAuthFeedback): void {
   useEffect(() => {
     const onResult = (event: Event) => {
       const detail = (event as CustomEvent<NativeAuthDetail>).detail;
       if (!detail) return;
       event.preventDefault();
-      const current = feedbackRef.current;
-      current.setIsLoading(false);
-      current.setOauthPending(null);
-      if (detail.status === "error") current.setError(detail.message);
+      setIsLoading(false);
+      setOauthPending(null);
+      if (detail.status === "error") setError(detail.message);
     };
     window.addEventListener(NATIVE_AUTH_EVENT, onResult);
     return () => window.removeEventListener(NATIVE_AUTH_EVENT, onResult);
-  }, []);
+  }, [setError, setIsLoading, setOauthPending]);
 }

@@ -209,6 +209,7 @@ describe("native OAuth", () => {
     render(<NativeRuntime />);
     await waitFor(() => {
       expect(capacitor.appListeners.has("appUrlOpen")).toBe(true);
+      expect(capacitor.appListeners.has("backButton")).toBe(true);
     });
     const listener = capacitor.appListeners.get("appUrlOpen");
     if (!listener) throw new Error("appUrlOpen listener was not registered");
