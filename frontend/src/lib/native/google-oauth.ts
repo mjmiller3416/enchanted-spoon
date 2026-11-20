@@ -4,6 +4,8 @@
  * WebView. Google rejects embedded WebViews, and Apple's web flow is built
  * for Safari. Clerk redirects back to `enchantedspoon://sso-callback`, which
  * NativeRuntime loads into `/sso-callback` on the hosted origin.
+ * AuthenticateWithRedirectCallback there sends both sign-in and sign-up
+ * (including a Google transfer that creates an account) to `/dashboard`.
  *
  * Add `enchantedspoon://sso-callback` to the Clerk dashboard's allowed
  * redirect URLs before this path can finish. Apple also needs the Services
@@ -19,10 +21,12 @@ interface VerificationLike {
 }
 
 interface OAuthResource {
+  // `redirectUrlComplete` is a client option of `authenticateWithRedirect`.
+  // `create` serializes every key to the Frontend API, which rejects
+  // `redirect_url_complete`. Only `strategy` and `redirectUrl` belong here.
   create: (params: {
     strategy: HostedOAuthStrategy;
     redirectUrl: string;
-    redirectUrlComplete?: string;
   }) => Promise<unknown>;
   firstFactorVerification?: VerificationLike;
   verifications?: { externalAccount?: VerificationLike };
@@ -49,7 +53,6 @@ export async function startOAuthInSystemBrowser(
   await resource.create({
     strategy,
     redirectUrl: NATIVE_OAUTH_REDIRECT,
-    redirectUrlComplete: NATIVE_OAUTH_REDIRECT,
   });
   const url = redirectTarget(resource);
   if (!url) {
