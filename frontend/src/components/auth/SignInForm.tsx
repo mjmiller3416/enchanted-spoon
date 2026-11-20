@@ -30,7 +30,8 @@ import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 import { appConfig } from "@/lib/config";
 import { getPostAuthRedirect } from "@/lib/authRedirect";
 import { useAppleSignInOffered } from "@/hooks/useAppleSignInOffered";
-import { startOAuthInSystemBrowser } from "@/lib/native/google-oauth";
+import { useNativeOAuthFeedback } from "@/hooks/useNativeOAuthFeedback";
+import { NativeOAuthError, startNativeOAuth } from "@/lib/native/native-oauth";
 import { isNativeApp, nativePlatform } from "@/lib/native/platform";
 import {
   googleSignInOfferedOn,
@@ -79,6 +80,7 @@ export function SignInForm() {
   const [notice, setNotice] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [oauthPending, setOauthPending] = useState<OAuthProvider | null>(null);
+  useNativeOAuthFeedback({ setError, setIsLoading, setOauthPending });
 
   /**
    * Route any sign-in result to its next step. Every status Clerk can return
@@ -128,7 +130,7 @@ export function SignInForm() {
 
     try {
       if (isNativeApp()) {
-        await startOAuthInSystemBrowser(signIn, strategy);
+        await startNativeOAuth(strategy);
         return;
       }
       await signIn.authenticateWithRedirect({
@@ -137,8 +139,14 @@ export function SignInForm() {
         redirectUrlComplete: getPostAuthRedirect(),
       });
     } catch (err) {
-      setError(clerkMessage(err, `Failed to start ${label} sign-in. Please try again.`));
-      console.error(`${label} sign-in error:`, err);
+      setError(
+        err instanceof NativeOAuthError
+          ? err.message
+          : clerkMessage(err, `Failed to start ${label} sign-in. Please try again.`),
+      );
+      if (!(err instanceof NativeOAuthError)) {
+        console.error(`${label} sign-in error:`, err);
+      }
       setIsLoading(false);
       setOauthPending(null);
     }
@@ -360,7 +368,7 @@ export function SignInForm() {
 
         {/* Error display */}
         {error && (
-          <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg" role="alert">
             {error}
           </div>
         )}

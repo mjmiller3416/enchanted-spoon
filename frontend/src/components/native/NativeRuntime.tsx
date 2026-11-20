@@ -6,6 +6,7 @@ import { useCurrentUser } from "@/hooks/api";
 import { mayMentionWebFoundingOffer } from "@/lib/native/founding-offer";
 import { handleNativeBackButton } from "@/lib/native/back-button";
 import { isNativeApp, nativePlatform } from "@/lib/native/platform";
+import { completeNativeOAuth, noteNativeBrowserClosed } from "@/lib/native/native-oauth";
 import { importUrlFromDeepLink, isOAuthCallback } from "@/lib/native/share-link";
 
 const STOREFRONT_CLASS = "ios-storefront-us";
@@ -69,25 +70,30 @@ export function NativeRuntime() {
       document.addEventListener("click", onClick);
       removeClick = () => document.removeEventListener("click", onClick);
       const handle = await App.addListener("appUrlOpen", (event) => {
-        void Browser.close().catch(() => undefined);
+        // The OAuth callback is finished on the native Clerk client. Loading
+        // /sso-callback here would ask the WebView's cookie client to redeem
+        // a handshake it never started.
         if (isOAuthCallback(event.url)) {
-          const incoming = new URL(event.url);
-          const next = new URL("/sso-callback", window.location.origin);
-          next.search = incoming.search;
-          window.location.assign(next.toString());
+          void completeNativeOAuth(event.url);
           return;
         }
+        void Browser.close().catch(() => undefined);
         const shared = importUrlFromDeepLink(event.url);
         if (shared) {
           window.dispatchEvent(new CustomEvent("enchantedspoon:import", { detail: shared }));
         }
       });
+      const finished = await Browser.addListener("browserFinished", () => {
+        noteNativeBrowserClosed();
+      });
       if (cancelled) {
         void handle.remove();
+        void finished.remove();
         return;
       }
       removeUrl = () => {
         void handle.remove();
+        void finished.remove();
       };
 
       // A listener replaces WebView.goBack(). While a confirm is open, back

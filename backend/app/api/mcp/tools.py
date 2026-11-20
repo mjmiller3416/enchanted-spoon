@@ -675,6 +675,7 @@ EXCLUDED: Dict[Tuple[str, str], str] = {
     ("POST", "/api/billing/checkout-session"): "payment happens in the browser",
     ("POST", "/api/billing/portal-session"): "payment happens in the browser",
     ("POST", "/api/billing/store/sync"): "app store purchases happen on the phone",
+    ("POST", "/api/auth/native-ticket"): "the phone app's own sign-in handoff; it is not a connector action",
 }
 
 
